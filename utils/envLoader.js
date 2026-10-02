@@ -5,20 +5,23 @@ const path = require('path');
  * Lightweight Zero-Dependency Environment Loader
  * Loads .env.<NODE_ENV> or .env into process.env automatically.
  */
+let loadedEnvFile = null;
+
 function loadEnv() {
   const rootDir = path.resolve(__dirname, '../');
   const nodeEnv = process.env.NODE_ENV || 'development';
+  process.env.NODE_ENV = nodeEnv;
 
   const envFiles = [
-    path.join(rootDir, `.env.${nodeEnv}`),
-    path.join(rootDir, '.env.local'),
-    path.join(rootDir, '.env')
+    { path: path.join(rootDir, `.env.${nodeEnv}`), name: `.env.${nodeEnv}` },
+    { path: path.join(rootDir, '.env.local'), name: '.env.local' },
+    { path: path.join(rootDir, '.env'), name: '.env' }
   ];
 
-  for (const file of envFiles) {
-    if (fs.existsSync(file)) {
+  for (const envItem of envFiles) {
+    if (fs.existsSync(envItem.path)) {
       try {
-        const content = fs.readFileSync(file, 'utf8');
+        const content = fs.readFileSync(envItem.path, 'utf8');
         const lines = content.split(/\r?\n/);
 
         for (const line of lines) {
@@ -40,8 +43,11 @@ function loadEnv() {
             process.env[key] = val;
           }
         }
+        if (!loadedEnvFile) {
+          loadedEnvFile = envItem.name;
+        }
       } catch (err) {
-        console.warn(`⚠️ Không thể nạp file env [${file}]:`, err.message);
+        console.warn(`⚠️ Không thể nạp file env [${envItem.name}]:`, err.message);
       }
     }
   }
@@ -49,4 +55,8 @@ function loadEnv() {
 
 loadEnv();
 
-module.exports = { loadEnv };
+module.exports = {
+  loadEnv,
+  getLoadedEnvFile: () => loadedEnvFile || 'Mặc định (System Env)',
+  getNodeEnv: () => process.env.NODE_ENV || 'development'
+};

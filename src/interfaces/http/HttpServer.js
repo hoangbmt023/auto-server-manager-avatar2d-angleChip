@@ -281,10 +281,13 @@ class HttpServer {
     const targetPort = port || process.env.PORT || config.port || 3001;
 
     this.server.listen(targetPort, () => {
+      const { getNodeEnv, getLoadedEnvFile } = require('../../../utils/envLoader');
       console.log('=======================================================');
       console.log('🚀 Avatar Multi-Bot Manager & Web Dashboard Clean Architecture');
-      console.log(`🌐 Dashboard URL: http://localhost:${targetPort}`);
-      console.log(`📁 Platform: ${process.platform} (${process.arch})`);
+      console.log(`🌱 Môi trường (NODE_ENV) : ${getNodeEnv().toUpperCase()}`);
+      console.log(`📄 File biến môi trường  : ${getLoadedEnvFile()}`);
+      console.log(`🌐 Dashboard URL         : http://localhost:${targetPort}`);
+      console.log(`📁 Nền tảng hệ thống     : ${process.platform} (${process.arch})`);
       console.log('=======================================================');
 
       // Resume previously running bots if any

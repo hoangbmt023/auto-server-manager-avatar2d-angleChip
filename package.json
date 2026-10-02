@@ -4,7 +4,9 @@
   "description": "Avatar Fish Bot Manager & Web Dashboard for cPanel Node.js",
   "main": "server.js",
   "scripts": {
-    "start": "node server.js"
+    "start": "node server.js",
+    "dev": "node -e \"process.env.NODE_ENV='development'; require('./server');\"",
+    "prod": "node -e \"process.env.NODE_ENV='production'; require('./server');\""
   },
   "keywords": ["avatar", "angelchip", "cpanel", "emulator", "bot"],
   "author": "Antigravity",
