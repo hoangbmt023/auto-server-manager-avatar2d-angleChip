@@ -1,4 +1,7 @@
 const crypto = require('crypto');
+try {
+  require('../../../utils/envLoader');
+} catch (e) {}
 
 /**
  * EncryptionService (Infrastructure Layer - Security)
@@ -7,11 +10,14 @@ const crypto = require('crypto');
  */
 class EncryptionService {
   constructor(secretKey = null) {
-    const rawSecret = secretKey || process.env.APP_SECRET || process.env.ENCRYPTION_KEY || 'avatar_bot_cpanel_default_secret_key_2026';
-    // Ensure key is exactly 32 bytes for AES-256
-    this.key = crypto.createHash('sha256').update(String(rawSecret)).digest();
+    this.customSecret = secretKey;
     this.algorithm = 'aes-256-cbc';
     this.prefix = 'enc:';
+  }
+
+  getKey() {
+    const rawSecret = this.customSecret || process.env.APP_SECRET || process.env.ENCRYPTION_KEY || 'avatar_bot_cpanel_default_secret_key_2026';
+    return crypto.createHash('sha256').update(String(rawSecret)).digest();
   }
 
   /**
@@ -23,7 +29,7 @@ class EncryptionService {
 
     try {
       const iv = crypto.randomBytes(16);
-      const cipher = crypto.createCipheriv(this.algorithm, this.key, iv);
+      const cipher = crypto.createCipheriv(this.algorithm, this.getKey(), iv);
       let encrypted = cipher.update(plainText, 'utf8', 'hex');
       encrypted += cipher.final('hex');
       return `${this.prefix}${iv.toString('hex')}:${encrypted}`;
@@ -46,7 +52,7 @@ class EncryptionService {
 
       const iv = Buffer.from(parts[0], 'hex');
       const encryptedData = parts[1];
-      const decipher = crypto.createDecipheriv(this.algorithm, this.key, iv);
+      const decipher = crypto.createDecipheriv(this.algorithm, this.getKey(), iv);
       let decrypted = decipher.update(encryptedData, 'hex', 'utf8');
       decrypted += decipher.final('utf8');
       return decrypted;

@@ -43,9 +43,15 @@ class BotController {
     };
 
     const workspaceRoot = path.resolve(__dirname, '../../../../');
+    const resolveJarExists = (jarName, defaultSubdir) => {
+      if (!jarName) return false;
+      return fs.existsSync(path.join(workspaceRoot, 'jars', defaultSubdir, jarName)) ||
+             fs.existsSync(path.join(workspaceRoot, 'jars', jarName)) ||
+             fs.existsSync(path.join(workspaceRoot, jarName));
+    };
     const files = {
-      emulator: fs.existsSync(path.join(workspaceRoot, config.emulatorJar || 'AngelChipEmulator_V2Proxy.jar')),
-      game: fs.existsSync(path.join(workspaceRoot, config.gameJar || 'avatar_fish_build40.jar'))
+      emulator: resolveJarExists(config.emulatorJar || 'AngelChipEmulator_V2Proxy.jar', 'emulator'),
+      game: resolveJarExists(config.gameJar || 'avatar_fish_build40.jar', 'games')
     };
 
     return sendJson(res, 200, {
