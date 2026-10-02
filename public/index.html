@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html lang="vi">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Avatar Fish Bot Manager - React Dashboard</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link
+    href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap"
+    rel="stylesheet">
+
+  <!-- Modular Stylesheets -->
+  <link rel="stylesheet" href="style.css?v=28">
+  <link rel="stylesheet" href="src/styles/navbar.css?v=28">
+  <link rel="stylesheet" href="src/styles/terminal.css?v=28">
+  <link rel="stylesheet" href="src/styles/accounts.css?v=28">
+  <link rel="stylesheet" href="src/styles/modals.css?v=28">
+  <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+  <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+</head>
+
+<body>
+  <div id="root"></div>
+
+  <!-- Constants & Data Layer -->
+  <script src="src/constants/farmItemsData.js?v=28"></script>
+
+  <!-- API Layer -->
+  <script src="src/api/api.js?v=28"></script>
+
+  <!-- Components Layer -->
+  <script type="text/babel" src="src/components/Navbar.jsx?v=28"></script>
+  <script type="text/babel" src="src/components/StatsRow.jsx?v=28"></script>
+  <script type="text/babel" src="src/components/TerminalConsole.jsx?v=28"></script>
+  <script type="text/babel" src="src/components/FileTabsBar.jsx?v=28"></script>
+  <script type="text/babel" src="src/components/ServerLimitBanner.jsx?v=28"></script>
+  <script type="text/babel" src="src/components/AccountCard.jsx?v=28"></script>
+  <script type="text/babel" src="src/components/AccountsGrid.jsx?v=28"></script>
+  
+  <!-- Modals Layer -->
+  <script type="text/babel" src="src/components/modals/AccountModal.jsx?v=28"></script>
+  <script type="text/babel" src="src/components/modals/FileModal.jsx?v=28"></script>
+  <script type="text/babel" src="src/components/modals/ProxyModal.jsx?v=28"></script>
+  <script type="text/babel" src="src/components/modals/SettingsModal.jsx?v=28"></script>
+  <script type="text/babel" src="src/components/modals/setup/RentalSetupModal.jsx?v=28"></script>
+  <script type="text/babel" src="src/components/modals/setup/FarmIdCatalogModal.jsx?v=28"></script>
+  <script type="text/babel" src="src/components/modals/setup/FarmSetupModal.jsx?v=28"></script>
+  <script type="text/babel" src="src/components/modals/setup/DiamondSetupModal.jsx?v=28"></script>
+  <script type="text/babel" src="src/components/modals/setup/FishSetupModal.jsx?v=28"></script>
+  <script type="text/babel" src="src/components/modals/setup/SellOreSetupModal.jsx?v=28"></script>
+  <script type="text/babel" src="src/components/modals/AccountSetupModal.jsx?v=28"></script>
+
+  <!-- Pages Layer -->
+  <script type="text/babel" src="src/pages/DashboardPage.jsx?v=28"></script>
+
+  <!-- Application Root Layer -->
+  <script type="text/babel" src="src/App.jsx?v=28"></script>
+</body>
+
+</html>

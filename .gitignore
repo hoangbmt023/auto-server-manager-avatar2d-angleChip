@@ -1,0 +1,28 @@
+# Dependencies
+node_modules/
+package-lock.json
+
+# Java Runtime Portable & Builds
+jre/
+openjdk/
+*.log
+logs/
+
+# MicroEmulator Local RMS & Session Cache
+.microemulator/
+rms/
+session/
+data/session/
+
+# OS and IDE temporary files
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+
+# Scratch & Temporary Analysis
+scratch/
+temp*
+*.tmp
+*.class.txt
+*_disasm.txt

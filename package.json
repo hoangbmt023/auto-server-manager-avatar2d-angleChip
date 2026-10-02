@@ -1,0 +1,12 @@
+{
+  "name": "cpanel-avatar-bot-manager",
+  "version": "1.0.0",
+  "description": "Avatar Fish Bot Manager & Web Dashboard for cPanel Node.js",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "keywords": ["avatar", "angelchip", "cpanel", "emulator", "bot"],
+  "author": "Antigravity",
+  "license": "MIT"
+}

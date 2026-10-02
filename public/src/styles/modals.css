@@ -1,0 +1,600 @@
+/* ==========================================================================
+   MODAL & POPUP DIALOG STYLES (CENTERED ON ALL SCREENS & RESPONSIVE)
+   ========================================================================== */
+
+/* 1. Modal Overlay (Supports both .modal-overlay and .center-modal-overlay) */
+.modal-overlay,
+.center-modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  width: 100vw;
+  height: 100vh;
+  background: rgba(0, 0, 0, 0.78);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  z-index: 9999;
+  display: flex !important;
+  align-items: center !important;     /* CĂN GIỮA DỌC TUYỆT ĐỐI */
+  justify-content: center !important; /* CĂN GIỮA NGANG TUYỆT ĐỐI */
+  padding: 16px;
+  overflow-y: auto;
+  box-sizing: border-box;
+  animation: modalFadeIn 0.2s ease-out;
+}
+
+/* 2. Modal Card Box (Supports both .modal-card and .center-modal-card) */
+.modal-card,
+.center-modal-card {
+  background: #0f172a;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 16px;
+  width: 100%;
+  max-width: 580px;
+  max-height: 90vh;
+  margin: auto !important;           /* ĐẢM BẢO LUÔN Ở GIỮA MÀN HÌNH */
+  box-shadow: 0 24px 64px rgba(0, 0, 0, 0.85), 0 0 1px rgba(255, 255, 255, 0.2);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  position: relative;
+  animation: modalScaleUpCenter 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+  box-sizing: border-box;
+}
+
+@keyframes modalFadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes modalScaleUpCenter {
+  from {
+    opacity: 0;
+    transform: scale(0.94);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+/* 3. Modal Header */
+.modal-header,
+.center-modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 14px 20px;
+  background: rgba(255, 255, 255, 0.03);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  flex-shrink: 0;
+}
+
+.modal-header h3,
+.center-modal-title {
+  font-size: 1.12rem;
+  font-weight: 700;
+  color: #f8fafc;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0;
+}
+
+.modal-title-acc {
+  color: #38bdf8;
+  font-size: 0.92rem;
+  font-weight: 600;
+}
+
+.btn-close,
+.center-modal-close {
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  color: #94a3b8;
+  font-size: 1.25rem;
+  cursor: pointer;
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s ease;
+  line-height: 1;
+}
+
+.btn-close:hover,
+.center-modal-close:hover {
+  background: rgba(239, 68, 68, 0.2);
+  border-color: rgba(239, 68, 68, 0.4);
+  color: #f87171;
+}
+
+/* 4. Modal Body */
+.modal-body,
+.center-modal-body {
+  padding: 18px 20px;
+  overflow-y: auto;
+  max-height: calc(90vh - 130px);
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  -webkit-overflow-scrolling: touch;
+  flex: 1;
+}
+
+/* 5. Modal Footer */
+.modal-footer,
+.center-modal-footer {
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  gap: 10px;
+  padding: 14px 20px;
+  background: rgba(0, 0, 0, 0.25);
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+  flex-shrink: 0;
+}
+
+/* 6. Form Elements */
+.form-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 14px;
+}
+
+.form-group {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.form-group label {
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: #cbd5e1;
+  margin-bottom: 2px;
+}
+
+.form-group small {
+  font-size: 0.75rem;
+  color: #94a3b8;
+  line-height: 1.35;
+}
+
+.form-control {
+  width: 100%;
+  padding: 9px 12px;
+  background: rgba(0, 0, 0, 0.45);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 8px;
+  color: #f8fafc;
+  font-family: inherit;
+  font-size: 0.88rem;
+  transition: all 0.2s ease;
+  outline: none;
+  box-sizing: border-box;
+}
+
+.form-control:focus {
+  border-color: #3b82f6;
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.25);
+  background: rgba(0, 0, 0, 0.65);
+}
+
+.checkbox-group {
+  display: flex !important;
+  flex-direction: row !important;
+  align-items: center !important;
+  gap: 10px !important;
+  padding: 8px 0;
+  cursor: pointer;
+}
+
+.checkbox-group input[type="checkbox"],
+.checkbox-group input[type="radio"] {
+  width: 18px !important;
+  height: 18px !important;
+  min-width: 18px !important;
+  accent-color: #3b82f6;
+  cursor: pointer;
+  margin: 0 !important;
+  flex-shrink: 0 !important;
+}
+
+.checkbox-group label {
+  font-size: 0.88rem;
+  color: #e2e8f0;
+  cursor: pointer;
+  margin: 0 !important;
+  line-height: 1.4;
+  font-weight: 500;
+}
+
+/* 7. Auto Setup Specific Components (Farm, Diamond, Fish, SellOre, Rental) */
+.farm-copy-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 10px 14px;
+  background: rgba(59, 130, 246, 0.08);
+  border: 1px dashed rgba(59, 130, 246, 0.3);
+  border-radius: 10px;
+  flex-wrap: wrap;
+}
+
+.farm-copy-label {
+  font-size: 0.84rem;
+  color: #93c5fd;
+}
+
+.farm-copy-controls {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: 1;
+  justify-content: flex-end;
+}
+
+.farm-copy-controls select {
+  max-width: 240px;
+}
+
+.farm-section-card {
+  background: rgba(255, 255, 255, 0.02);
+  border: 1px solid rgba(255, 255, 255, 0.07);
+  border-radius: 12px;
+  padding: 14px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.farm-sec-header {
+  font-size: 0.9rem;
+  font-weight: 700;
+  color: #38bdf8;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+  padding-bottom: 8px;
+}
+
+.farm-grid-3 {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 12px;
+}
+
+.farm-grid-2 {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+
+.farm-grid-4 {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 10px;
+}
+
+.farm-checkboxes-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 10px;
+}
+
+.farm-checkbox-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 0.84rem;
+  color: #cbd5e1;
+  transition: all 0.2s ease;
+  user-select: none;
+}
+
+.farm-checkbox-item:hover {
+  background: rgba(255, 255, 255, 0.06);
+  border-color: rgba(255, 255, 255, 0.12);
+}
+
+.farm-checkbox-item input[type="checkbox"],
+.farm-checkbox-item input[type="radio"] {
+  width: 16px;
+  height: 16px;
+  accent-color: #38bdf8;
+  cursor: pointer;
+}
+
+/* 8. Setup Sub-Tabs (Up Thue / Diamond / Farm) */
+.acc-setup-tabs {
+  display: flex;
+  gap: 6px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  margin-bottom: 14px;
+}
+
+.acc-setup-tab-btn {
+  padding: 8px 14px;
+  background: transparent;
+  border: none;
+  border-bottom: 2px solid transparent;
+  color: #94a3b8;
+  font-size: 0.84rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.acc-setup-tab-btn:hover {
+  color: #e2e8f0;
+}
+
+.acc-setup-tab-btn.active {
+  color: #38bdf8;
+  border-bottom-color: #38bdf8;
+  background: rgba(56, 189, 248, 0.06);
+}
+
+/* 9. ID Catalog Modal (Searchable Picker) */
+.catalog-search-bar {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.catalog-search-input {
+  flex: 1;
+  padding: 9px 12px;
+  background: rgba(0, 0, 0, 0.5);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  border-radius: 8px;
+  color: #f8fafc;
+  font-size: 0.86rem;
+  outline: none;
+}
+
+.catalog-search-input:focus {
+  border-color: #38bdf8;
+}
+
+.catalog-cat-tabs {
+  display: flex;
+  gap: 6px;
+  overflow-x: auto;
+  padding-bottom: 4px;
+  -webkit-overflow-scrolling: touch;
+}
+
+.catalog-cat-tab {
+  padding: 6px 12px;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 6px;
+  color: #94a3b8;
+  font-size: 0.8rem;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.catalog-cat-tab.active {
+  background: rgba(56, 189, 248, 0.2);
+  border-color: #38bdf8;
+  color: #38bdf8;
+  font-weight: 600;
+}
+
+.catalog-items-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+  gap: 8px;
+  max-height: 380px;
+  overflow-y: auto;
+  padding: 2px;
+}
+
+.catalog-item-card {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 10px;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.07);
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.18s ease;
+}
+
+.catalog-item-card:hover {
+  background: rgba(56, 189, 248, 0.12);
+  border-color: rgba(56, 189, 248, 0.4);
+  transform: translateY(-1px);
+}
+
+.catalog-item-icon {
+  font-size: 1.4rem;
+  flex-shrink: 0;
+}
+
+.catalog-item-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.catalog-item-name {
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: #f1f5f9;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.catalog-item-meta {
+  display: flex;
+  gap: 6px;
+  font-size: 0.72rem;
+  color: #94a3b8;
+  margin-top: 2px;
+}
+
+.catalog-item-id-badge {
+  background: rgba(255, 255, 255, 0.08);
+  padding: 1px 4px;
+  border-radius: 4px;
+  font-weight: 600;
+}
+
+/* 10. Tags & Seed Chips */
+.seed-tags-container {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  padding: 6px 0;
+}
+
+.seed-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 8px;
+  background: rgba(56, 189, 248, 0.12);
+  border: 1px solid rgba(56, 189, 248, 0.3);
+  border-radius: 6px;
+  font-size: 0.78rem;
+  color: #7dd3fc;
+}
+
+.seed-tag-remove {
+  cursor: pointer;
+  color: #94a3b8;
+  font-weight: bold;
+}
+
+.seed-tag-remove:hover {
+  color: #f87171;
+}
+
+/* 11. Alerts */
+.alert-box {
+  padding: 10px 14px;
+  border-radius: 8px;
+  font-size: 0.84rem;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.alert-success {
+  background: rgba(16, 185, 129, 0.15);
+  border: 1px solid rgba(16, 185, 129, 0.35);
+  color: #6ee7b7;
+}
+
+.alert-error {
+  background: rgba(239, 68, 68, 0.15);
+  border: 1px solid rgba(239, 68, 68, 0.35);
+  color: #fca5a5;
+}
+
+/* ==========================================================================
+   MOBILE RESPONSIVE MODALS (PERFECTLY CENTERED & TOUCH-FRIENDLY)
+   ========================================================================== */
+@media screen and (max-width: 768px) {
+  .modal-overlay,
+  .center-modal-overlay {
+    padding: 10px !important;
+    align-items: center !important;     /* LUÔN Ở GIỮA MÀN HÌNH */
+    justify-content: center !important;
+  }
+
+  .modal-card,
+  .center-modal-card {
+    width: 100% !important;
+    max-width: 100% !important;
+    max-height: 90vh !important;
+    border-radius: 14px !important;
+    margin: auto !important;           /* LUÔN Ở GIỮA MÀN HÌNH */
+  }
+
+  .modal-header,
+  .center-modal-header {
+    padding: 12px 14px;
+  }
+
+  .modal-header h3,
+  .center-modal-title {
+    font-size: 0.98rem;
+  }
+
+  .modal-body,
+  .center-modal-body {
+    padding: 12px 14px;
+    max-height: calc(90vh - 120px);
+    gap: 10px;
+  }
+
+  .form-row,
+  .farm-grid-3,
+  .farm-grid-2,
+  .farm-grid-4 {
+    grid-template-columns: 1fr !important;
+    gap: 10px;
+  }
+
+  .farm-checkboxes-grid {
+    grid-template-columns: 1fr 1fr !important;
+    gap: 8px;
+  }
+
+  .farm-copy-bar {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .farm-copy-controls {
+    width: 100%;
+    justify-content: space-between;
+  }
+
+  .farm-copy-controls select {
+    max-width: none;
+    flex: 1;
+  }
+
+  .modal-footer,
+  .center-modal-footer {
+    padding: 10px 14px;
+    gap: 8px;
+    flex-wrap: wrap;
+  }
+
+  .modal-footer button,
+  .center-modal-footer button {
+    flex: 1;
+    min-width: 120px;
+    padding: 9px 12px;
+    font-size: 0.85rem;
+  }
+
+  .form-control {
+    font-size: 16px !important; /* Tránh auto zoom trên iOS Safari */
+    padding: 9px 12px;
+  }
+
+  .catalog-items-grid {
+    grid-template-columns: 1fr !important;
+    max-height: 300px;
+  }
+}

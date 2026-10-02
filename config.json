@@ -1,0 +1,201 @@
+{
+  "port": 3001,
+  "password": "a",
+  "emulatorJar": "AngelChipEmulator_V2Proxy.jar",
+  "gameJar": "avatar_fish_build40.jar",
+  "javaPath": "",
+  "rmsMode": "file",
+  "appId": "avatar_main",
+  "activeAccountId": "acc_1",
+  "runningAccountIds": [
+    "acc_1"
+  ],
+  "autoRestart": true,
+  "autoStart": true,
+  "maxMemoryMb": 64,
+  "extraArgs": [],
+  "servers": [
+    {
+      "id": 0,
+      "name": "Hoàn Mỹ"
+    },
+    {
+      "id": 1,
+      "name": "Diệu Kỳ"
+    }
+  ],
+  "accounts": [
+    {
+      "id": "acc_1",
+      "username": "hoangbmt023",
+      "password": "hoang3d",
+      "serverId": 0,
+      "fileId": "file_2",
+      "proxyId": null,
+      "note": "Tài khoản câu cá chính",
+      "appId": "avatar_hoangbmt023",
+      "targetCoins": 0,
+      "upDays": 0,
+      "pendingReset": false,
+      "farmSettings": {
+        "mode": 0,
+        "animal": 3,
+        "fish": 2,
+        "harvestHearts": true,
+        "dailyAttendance": true,
+        "deliverOrders": true,
+        "hatchDragon": true,
+        "trainDragon": true,
+        "noBuyWithGold": true,
+        "buyMilkWithGold": false,
+        "upgradeStarfruit": true,
+        "feedBaby": false,
+        "upgradeBaby": false,
+        "maxStarfruitLevel": 10,
+        "sellProducts": "-1",
+        "sellThreshold": 100,
+        "sellQuantity": 50,
+        "backupSeeds": "",
+        "replaceSeedThreshold": 0,
+        "backupDishes": ""
+      },
+      "diamondSettings": {
+        "sellOreOnFull": true,
+        "autoFarm": true,
+        "autoDropKcx": false,
+        "autoDropNhb": false,
+        "farmIntervalMinutes": 60,
+        "harvestOnTime": true,
+        "priorityOrder": 6
+      },
+      "fishSettings": {
+        "mapType": 0,
+        "rodType": 0,
+        "sellFishType": 0,
+        "autoBuyTicket": true,
+        "backToFarm": true,
+        "farmIntervalMinutes": 2,
+        "harvestOnTime": true,
+        "sellKcx": true,
+        "sellKcxThreshold": 5,
+        "excludeFish": ""
+      },
+      "sellOreSettings": {
+        "sellIntervalMinutes": 15,
+        "delayMs": 100,
+        "zoneFrom": 20,
+        "zoneTo": 79,
+        "resetTimeOnNhb": true,
+        "resetTimeOnKcx": false,
+        "dropNhbIfFailed": true,
+        "dropKcxIfFailed": true
+      }
+    },
+    {
+      "id": "acc_1790825689098_31bd",
+      "username": "hoangphambmt123",
+      "password": "cho",
+      "serverId": 0,
+      "fileId": "file_1",
+      "proxyId": null,
+      "note": "up xu",
+      "appId": "avatar_hoangphambmt123",
+      "targetCoins": 0,
+      "upDays": 0,
+      "pendingReset": false,
+      "farmSettings": {
+        "mode": 0,
+        "animal": 3,
+        "fish": 2,
+        "harvestHearts": true,
+        "dailyAttendance": true,
+        "deliverOrders": true,
+        "hatchDragon": true,
+        "trainDragon": true,
+        "noBuyWithGold": true,
+        "buyMilkWithGold": false,
+        "upgradeStarfruit": true,
+        "feedBaby": false,
+        "upgradeBaby": false,
+        "maxStarfruitLevel": 10,
+        "sellProducts": "-1",
+        "sellThreshold": 100,
+        "sellQuantity": 50,
+        "backupSeeds": "",
+        "replaceSeedThreshold": 0,
+        "backupDishes": ""
+      },
+      "diamondSettings": {
+        "sellOreOnFull": true,
+        "autoFarm": true,
+        "autoDropKcx": false,
+        "autoDropNhb": false,
+        "farmIntervalMinutes": 60,
+        "harvestOnTime": true,
+        "priorityOrder": 6
+      },
+      "fishSettings": {
+        "mapType": 0,
+        "rodType": 0,
+        "sellFishType": 0,
+        "autoBuyTicket": true,
+        "backToFarm": true,
+        "farmIntervalMinutes": 30,
+        "harvestOnTime": true,
+        "sellKcx": false,
+        "sellKcxThreshold": 5,
+        "excludeFish": ""
+      },
+      "sellOreSettings": {
+        "sellIntervalMinutes": 15,
+        "delayMs": 100,
+        "zoneFrom": 20,
+        "zoneTo": 79,
+        "resetTimeOnNhb": true,
+        "resetTimeOnKcx": false,
+        "dropNhbIfFailed": true,
+        "dropKcxIfFailed": true
+      }
+    }
+  ],
+  "proxy": {
+    "enabled": false,
+    "type": "socks",
+    "host": "",
+    "port": ""
+  },
+  "botFiles": [
+    {
+      "id": "file_1",
+      "name": "upxu - Mặc định (IP Server)",
+      "gameJar": "avatar_upxu_build34.jar",
+      "appId": "avatar_file_1",
+      "isDefault": true,
+      "proxy": {
+        "enabled": false,
+        "type": "socks",
+        "host": "",
+        "port": "",
+        "username": "",
+        "password": ""
+      }
+    },
+    {
+      "id": "file_2",
+      "name": "fish-1",
+      "gameJar": "avatar_fish_build40.jar",
+      "appId": "avatar_file_2",
+      "proxy": {
+        "enabled": false,
+        "type": "socks",
+        "host": "",
+        "port": "",
+        "username": "",
+        "password": ""
+      }
+    }
+  ],
+  "activeFileId": "file_2",
+  "botRunningState": true,
+  "proxies": []
+}
