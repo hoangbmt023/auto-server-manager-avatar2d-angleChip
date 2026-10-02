@@ -1,26 +1,50 @@
+# ==========================================
+# Environment Variables & Sensitive Secrets
+# ==========================================
+.env
+.env.*
+!.env.example
+config.json
+
+# ==========================================
 # Dependencies
+# ==========================================
 node_modules/
 package-lock.json
 
-# Java Runtime Portable & Builds
+# ==========================================
+# Game Versions & Decompiled References
+# ==========================================
+jars/games/*.jar
+src/go-roi/
+
+# ==========================================
+# Java Runtime Portable & Logs
+# ==========================================
 jre/
 openjdk/
 *.log
 logs/
 
+# ==========================================
 # MicroEmulator Local RMS & Session Cache
+# ==========================================
 .microemulator/
 rms/
 session/
 data/session/
 
+# ==========================================
 # OS and IDE temporary files
+# ==========================================
 .DS_Store
 Thumbs.db
 .vscode/
 .idea/
 
+# ==========================================
 # Scratch & Temporary Analysis
+# ==========================================
 scratch/
 temp*
 *.tmp

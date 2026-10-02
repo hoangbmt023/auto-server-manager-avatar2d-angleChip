@@ -67,19 +67,24 @@ class FileController {
   }
 
   getJarsDirectory() {
-    const jarsDir = path.resolve(this.workspaceRoot, 'jars');
-    if (!fs.existsSync(jarsDir)) {
-      fs.mkdirSync(jarsDir, { recursive: true });
+    const gamesDir = path.resolve(this.workspaceRoot, 'jars/games');
+    if (!fs.existsSync(gamesDir)) {
+      fs.mkdirSync(gamesDir, { recursive: true });
     }
-    return jarsDir;
+    return gamesDir;
   }
 
   async getAvailableJars(req, res, sendJson) {
     try {
-      const jarsDir = this.getJarsDirectory();
-      const items = fs.readdirSync(jarsDir);
-      const jars = items.filter(f => f.toLowerCase().endsWith('.jar') && !f.toLowerCase().includes('emulator'));
-      if (!jars.includes('avatar_fish_build40.jar') && fs.existsSync(path.join(jarsDir, 'avatar_fish_build40.jar'))) {
+      const gamesDir = this.getJarsDirectory();
+      const jarsRoot = path.resolve(this.workspaceRoot, 'jars');
+      let items = fs.existsSync(gamesDir) ? fs.readdirSync(gamesDir) : [];
+      if (fs.existsSync(jarsRoot)) {
+        const rootItems = fs.readdirSync(jarsRoot).filter(f => !['emulator', 'games'].includes(f));
+        items = items.concat(rootItems);
+      }
+      const jars = Array.from(new Set(items)).filter(f => f.toLowerCase().endsWith('.jar') && !f.toLowerCase().includes('emulator'));
+      if (!jars.includes('avatar_fish_build40.jar') && fs.existsSync(path.join(gamesDir, 'avatar_fish_build40.jar'))) {
         jars.unshift('avatar_fish_build40.jar');
       }
       return sendJson(res, 200, { success: true, jars });
@@ -98,8 +103,8 @@ class FileController {
         return sendJson(res, 400, { success: false, message: 'Chỉ chấp nhận file có đuôi .jar!' });
       }
 
-      const jarsDir = this.getJarsDirectory();
-      const targetPath = path.join(jarsDir, decodedFilename);
+      const gamesDir = this.getJarsDirectory();
+      const targetPath = path.join(gamesDir, decodedFilename);
       const writeStream = fs.createWriteStream(targetPath);
 
       req.pipe(writeStream);
@@ -107,7 +112,7 @@ class FileController {
       writeStream.on('finish', () => {
         return sendJson(res, 200, {
           success: true,
-          message: `Đã tải lên tệp [${decodedFilename}] vào thư mục jars/ thành công!`,
+          message: `Đã tải lên tệp [${decodedFilename}] vào thư mục jars/games/ thành công!`,
           filename: decodedFilename
         });
       });

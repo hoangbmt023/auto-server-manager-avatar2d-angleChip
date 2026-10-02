@@ -1,0 +1,68 @@
+{
+  "port": 3001,
+  "password": "",
+  "emulatorJar": "AngelChipEmulator_V2Proxy.jar",
+  "gameJar": "avatar_fish_build40.jar",
+  "javaPath": "",
+  "rmsMode": "file",
+  "appId": "avatar_main",
+  "activeAccountId": null,
+  "runningAccountIds": [],
+  "autoRestart": true,
+  "autoStart": true,
+  "maxMemoryMb": 256,
+  "extraArgs": [],
+  "servers": [
+    {
+      "id": 0,
+      "name": "Hoàn Mỹ"
+    },
+    {
+      "id": 1,
+      "name": "Diệu Kỳ"
+    }
+  ],
+  "accounts": [],
+  "proxy": {
+    "enabled": false,
+    "type": "socks",
+    "host": "",
+    "port": ""
+  },
+  "botFiles": [
+    {
+      "id": "file_1",
+      "name": "Auto up kim cương - Mặc định (IP Server)",
+      "gameJar": "avatar_upxu_build34.jar",
+      "appId": "avatar_file_1",
+      "isDefault": true,
+      "modType": "upxu",
+      "proxy": {
+        "enabled": false,
+        "type": "socks",
+        "host": "",
+        "port": "",
+        "username": "",
+        "password": ""
+      }
+    },
+    {
+      "id": "file_2",
+      "name": "Auto up câu cá - Mặc định (IP Server)",
+      "gameJar": "avatar_fish_build40.jar",
+      "appId": "avatar_file_2",
+      "isDefault": false,
+      "modType": "fish",
+      "proxy": {
+        "enabled": false,
+        "type": "socks",
+        "host": "",
+        "port": "",
+        "username": "",
+        "password": ""
+      }
+    }
+  ],
+  "activeFileId": "file_1",
+  "proxies": []
+}

@@ -48,11 +48,16 @@ class SingleBotProcess extends EventEmitter {
 
   resolveJar(jarFilename) {
     if (!jarFilename) return '';
-    const inJarsDir = path.resolve(this.workspaceRoot, 'jars', jarFilename);
-    if (fs.existsSync(inJarsDir)) return inJarsDir;
-    const inRootDir = path.resolve(this.workspaceRoot, jarFilename);
-    if (fs.existsSync(inRootDir)) return inRootDir;
-    return inJarsDir;
+    const candidates = [
+      path.resolve(this.workspaceRoot, 'jars/games', jarFilename),
+      path.resolve(this.workspaceRoot, 'jars/emulator', jarFilename),
+      path.resolve(this.workspaceRoot, 'jars', jarFilename),
+      path.resolve(this.workspaceRoot, jarFilename)
+    ];
+    for (const candidate of candidates) {
+      if (fs.existsSync(candidate)) return candidate;
+    }
+    return path.resolve(this.workspaceRoot, 'jars/games', jarFilename);
   }
 
   buildArgs(javaBin) {
