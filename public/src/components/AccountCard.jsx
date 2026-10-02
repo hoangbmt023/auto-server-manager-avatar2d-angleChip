@@ -331,21 +331,21 @@ window.AccountCard = function AccountCard({
               </div>
               
               {isFishMod ? (
-                /* CHỈ HIỆN AUTO CÂU CÁ KHI CHỌN BẢN AUTO UP CÂU CÁ */
-                <button
-                  type="button"
-                  className={`acc-menu-item ${isFishRunning ? 'danger' : ''}`}
-                  onClick={() => handleTriggerAutoAction('fish', isFishRunning ? 'stop' : 'start')}
-                >
-                  <span className="acc-menu-icon">{isFishRunning ? '⏹️' : '🐟'}</span>
-                  <div className="acc-menu-text">
-                    <strong>{isFishRunning ? 'Dừng Auto Câu Cá' : 'Bật Auto Câu Cá'}</strong>
-                    <small>{isFishRunning ? 'Đang câu cá -> Nhấn để dừng' : 'Tự động quăng cần & giật cá'}</small>
-                  </div>
-                </button>
-              ) : (
-                /* CHỈ HIỆN FARM, KIM CƯƠNG, BÁN ĐÁ KHI CHỌN BẢN AUTO UP KIM CƯƠNG */
+                /* HIỆN CÂU CÁ, FARM, BÁN ĐÁ KHI CHỌN BẢN AUTO UP CÂU CÁ (ẨN KIM CƯƠNG) */
                 <>
+                  {/* Auto Fish Option */}
+                  <button
+                    type="button"
+                    className={`acc-menu-item ${isFishRunning ? 'danger' : ''}`}
+                    onClick={() => handleTriggerAutoAction('fish', isFishRunning ? 'stop' : 'start')}
+                  >
+                    <span className="acc-menu-icon">{isFishRunning ? '⏹️' : '🐟'}</span>
+                    <div className="acc-menu-text">
+                      <strong>{isFishRunning ? 'Dừng Auto Câu Cá' : 'Bật Auto Câu Cá'}</strong>
+                      <small>{isFishRunning ? 'Đang câu cá -> Nhấn để dừng' : 'Tự động quăng cần & giật cá'}</small>
+                    </div>
+                  </button>
+
                   {/* Auto Farm Option */}
                   <button
                     type="button"
@@ -359,6 +359,22 @@ window.AccountCard = function AccountCard({
                     </div>
                   </button>
 
+                  {/* Auto Sell Ore Option */}
+                  <button
+                    type="button"
+                    className={`acc-menu-item ${isSellOreRunning ? 'danger' : ''}`}
+                    onClick={() => handleTriggerAutoAction('sell_ore', isSellOreRunning ? 'stop' : 'start')}
+                  >
+                    <span className="acc-menu-icon">{isSellOreRunning ? '⏹️' : '🪨'}</span>
+                    <div className="acc-menu-text">
+                      <strong>{isSellOreRunning ? 'Dừng Auto Bán Đá' : 'Bật Auto Bán Đá'}</strong>
+                      <small>{isSellOreRunning ? 'Đang bán đá -> Nhấn để dừng' : 'Tự bán đá & ngọc cho Thợ Kim Hoàn'}</small>
+                    </div>
+                  </button>
+                </>
+              ) : (
+                /* HIỆN KIM CƯƠNG, FARM, BÁN ĐÁ KHI CHỌN BẢN AUTO UP KIM CƯƠNG (ẨN CÂU CÁ) */
+                <>
                   {/* Auto Diamond Option */}
                   <button
                     type="button"
@@ -369,6 +385,19 @@ window.AccountCard = function AccountCard({
                     <div className="acc-menu-text">
                       <strong>{isDiamondRunning ? 'Dừng Auto Kim Cương' : 'Bật Auto Kim Cương'}</strong>
                       <small>{isDiamondRunning ? 'Đang đào mỏ -> Nhấn để dừng' : 'Tự đào mỏ, bán đá, về farm'}</small>
+                    </div>
+                  </button>
+
+                  {/* Auto Farm Option */}
+                  <button
+                    type="button"
+                    className={`acc-menu-item ${isFarmRunning ? 'danger' : ''}`}
+                    onClick={() => handleTriggerAutoAction('farm', isFarmRunning ? 'stop' : 'start')}
+                  >
+                    <span className="acc-menu-icon">{isFarmRunning ? '⏹️' : '🌾'}</span>
+                    <div className="acc-menu-text">
+                      <strong>{isFarmRunning ? 'Dừng Auto Farm' : 'Bật Auto Farm'}</strong>
+                      <small>{isFarmRunning ? 'Đang chạy -> Nhấn để dừng' : 'Chăm sóc, tưới, thu hoạch ngay'}</small>
                     </div>
                   </button>
 
@@ -442,28 +471,31 @@ window.AccountCard = function AccountCard({
                   <small>Tưới nước, bắt sâu, thu hoạch</small>
                 </div>
               </button>
-              <button
-                type="button"
-                className="acc-menu-item"
-                onClick={() => handleSelectFeature('diamond')}
-              >
-                <span className="acc-menu-icon">💎</span>
-                <div className="acc-menu-text">
-                  <strong>Cài Đặt Auto KC</strong>
-                  <small>Đào quặng, bán đá, về farm</small>
-                </div>
-              </button>
-              <button
-                type="button"
-                className="acc-menu-item"
-                onClick={() => handleSelectFeature('fish')}
-              >
-                <span className="acc-menu-icon">🐟</span>
-                <div className="acc-menu-text">
-                  <strong>Cài Đặt Auto Câu Cá</strong>
-                  <small>Tự câu, cần câu, bán cá, về farm</small>
-                </div>
-              </button>
+              {isFishMod ? (
+                <button
+                  type="button"
+                  className="acc-menu-item"
+                  onClick={() => handleSelectFeature('fish')}
+                >
+                  <span className="acc-menu-icon">🐟</span>
+                  <div className="acc-menu-text">
+                    <strong>Cài Đặt Auto Câu Cá</strong>
+                    <small>Tự câu, cần câu, bán cá, về farm</small>
+                  </div>
+                </button>
+              ) : (
+                <button
+                  type="button"
+                  className="acc-menu-item"
+                  onClick={() => handleSelectFeature('diamond')}
+                >
+                  <span className="acc-menu-icon">💎</span>
+                  <div className="acc-menu-text">
+                    <strong>Cài Đặt Auto KC</strong>
+                    <small>Đào quặng, bán đá, về farm</small>
+                  </div>
+                </button>
+              )}
               <button
                 type="button"
                 className="acc-menu-item"
