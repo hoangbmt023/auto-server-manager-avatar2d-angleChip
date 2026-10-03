@@ -1155,21 +1155,34 @@ select.form-control option:disabled {
 
 .custom-select-menu {
   position: absolute;
-  top: calc(100% + 5px);
   left: 0;
   right: 0;
   width: 100%;
   max-width: 100%;
-  max-height: 220px;
+  max-height: 200px;
   overflow-y: auto;
   overflow-x: hidden;
   background: #0f172a;
-  border: 1px solid rgba(255, 255, 255, 0.16);
-  border-radius: 10px;
-  box-shadow: 0 16px 36px rgba(0, 0, 0, 0.85), 0 0 0 1px rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  border-radius: 8px;
+  box-shadow: 0 16px 36px rgba(0, 0, 0, 0.95), 0 0 0 1px rgba(255, 255, 255, 0.08);
   z-index: 1050;
   box-sizing: border-box;
-  animation: selectMenuFadeIn 0.16s ease-out;
+}
+
+/* Drop Down (default) */
+.custom-select-menu.drop-down {
+  top: calc(100% + 4px);
+  bottom: auto;
+  animation: selectMenuFadeDown 0.15s ease-out;
+}
+
+/* Drop Up (when space below is tight near bottom of modal) */
+.custom-select-menu.drop-up {
+  bottom: calc(100% + 4px);
+  top: auto;
+  box-shadow: 0 -16px 36px rgba(0, 0, 0, 0.95), 0 0 0 1px rgba(255, 255, 255, 0.08);
+  animation: selectMenuFadeUp 0.15s ease-out;
 }
 
 .custom-select-item {
@@ -1263,10 +1276,21 @@ select.form-control option:disabled {
   flex-shrink: 0;
 }
 
-@keyframes selectMenuFadeIn {
+@keyframes selectMenuFadeDown {
   from {
     opacity: 0;
     transform: translateY(-4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes selectMenuFadeUp {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
   }
   to {
     opacity: 1;

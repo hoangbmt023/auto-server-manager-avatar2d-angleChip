@@ -14,7 +14,24 @@ function CustomSelect({
   placeholder = 'Chọn một tùy chọn...'
 }) {
   const [isOpen, setIsOpen] = useAccModalState(false);
+  const [dropUp, setDropUp] = useAccModalState(false);
   const wrapperRef = useAccModalRef(null);
+
+  const handleToggle = () => {
+    if (!isOpen && wrapperRef.current) {
+      const rect = wrapperRef.current.getBoundingClientRect();
+      const modalBody = wrapperRef.current.closest('.modal-body') || wrapperRef.current.closest('.modal-card');
+      if (modalBody) {
+        const bodyRect = modalBody.getBoundingClientRect();
+        const spaceBelow = bodyRect.bottom - rect.bottom;
+        setDropUp(spaceBelow < 210);
+      } else {
+        const spaceBelow = window.innerHeight - rect.bottom;
+        setDropUp(spaceBelow < 210);
+      }
+    }
+    setIsOpen(!isOpen);
+  };
 
   useAccModalEffect(() => {
     function handleClickOutside(event) {
@@ -38,12 +55,12 @@ function CustomSelect({
     <div className={`custom-select-wrapper ${isOpen ? 'is-open' : ''}`} ref={wrapperRef}>
       <div
         className={`custom-select-control ${isOpen ? 'open' : ''} ${selectedOption?.isExpired ? 'is-expired' : ''}`}
-        onClick={() => setIsOpen(!isOpen)}
+        onClick={handleToggle}
         tabIndex="0"
         onKeyDown={(e) => {
           if (e.key === 'Enter' || e.key === ' ') {
             e.preventDefault();
-            setIsOpen(!isOpen);
+            handleToggle();
           } else if (e.key === 'Escape') {
             setIsOpen(false);
           }
@@ -71,7 +88,7 @@ function CustomSelect({
       </div>
 
       {isOpen && (
-        <div className="custom-select-menu">
+        <div className={`custom-select-menu ${dropUp ? 'drop-up' : 'drop-down'}`}>
           {options.map(opt => (
             <div
               key={opt.value}
