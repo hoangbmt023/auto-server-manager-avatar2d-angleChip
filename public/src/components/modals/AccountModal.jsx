@@ -49,7 +49,10 @@ function CustomSelect({
           }
         }}
       >
-        <div className="custom-select-value">
+        <div
+          className="custom-select-value"
+          title={selectedOption ? `${selectedOption.label} ${selectedOption.sub ? `(${selectedOption.sub})` : ''}` : placeholder}
+        >
           {selectedOption ? (
             <React.Fragment>
               {selectedOption.isExpired && (
@@ -245,7 +248,7 @@ window.AccountModal = function AccountModal({
 
             <div className="form-row">
               <div className="form-group">
-                <label>🌐 Server Game (Tối đa 3 nick/server):</label>
+                <label title="Server Game (Tối đa 3 nick/server)">🌐 Server Game (Tối đa 3 nick/server):</label>
                 <CustomSelect
                   value={serverId}
                   onChange={setServerId}
@@ -255,7 +258,7 @@ window.AccountModal = function AccountModal({
               </div>
 
               <div className="form-group">
-                <label>🔒 Gán Proxy Kết Nối (Tối đa 6 online/proxy):</label>
+                <label title="Gán Proxy Kết Nối (Tối đa 6 online/proxy)">🔒 Gán Proxy Kết Nối (Tối đa 6 online/proxy):</label>
                 <CustomSelect
                   value={proxyId}
                   onChange={setProxyId}

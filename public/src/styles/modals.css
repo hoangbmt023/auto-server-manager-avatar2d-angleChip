@@ -118,12 +118,15 @@
 .center-modal-body {
   padding: 18px 20px;
   overflow-y: auto;
+  overflow-x: hidden !important;
   max-height: calc(90vh - 130px);
   display: flex;
   flex-direction: column;
   gap: 14px;
   -webkit-overflow-scrolling: touch;
   flex: 1;
+  width: 100%;
+  box-sizing: border-box;
 }
 
 /* 5. Modal Footer */
@@ -142,14 +145,21 @@
 /* 6. Form Elements */
 .form-row {
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
   gap: 14px;
+  width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
 }
 
 .form-group {
   display: flex;
   flex-direction: column;
   gap: 4px;
+  min-width: 0;
+  width: 100%;
+  box-sizing: border-box;
+  overflow: hidden;
 }
 
 .form-group label {
@@ -157,6 +167,11 @@
   font-weight: 600;
   color: #cbd5e1;
   margin-bottom: 2px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  display: block;
+  max-width: 100%;
 }
 
 .form-group small {
@@ -1039,11 +1054,15 @@ select.form-control option:disabled {
 .custom-select-wrapper {
   position: relative;
   width: 100%;
+  min-width: 0;
+  max-width: 100%;
   box-sizing: border-box;
 }
 
 .custom-select-control {
   width: 100%;
+  min-width: 0;
+  max-width: 100%;
   min-height: 40px;
   padding: 8px 12px;
   background: rgba(0, 0, 0, 0.45);
@@ -1057,6 +1076,7 @@ select.form-control option:disabled {
   transition: all 0.2s ease;
   box-sizing: border-box;
   user-select: none;
+  overflow: hidden;
 }
 
 .custom-select-control:hover {
@@ -1078,12 +1098,13 @@ select.form-control option:disabled {
 .custom-select-value {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 6px;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
   min-width: 0;
-  flex: 1;
+  max-width: 100%;
+  flex: 1 1 0%;
 }
 
 .select-value-text {
@@ -1093,6 +1114,8 @@ select.form-control option:disabled {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+  min-width: 0;
+  flex: 0 1 auto;
 }
 
 .select-value-sub {
@@ -1102,11 +1125,16 @@ select.form-control option:disabled {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+  min-width: 0;
+  flex: 1 1 auto;
 }
 
 .select-placeholder {
   font-size: 0.88rem;
   color: #94a3b8;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .custom-select-arrow {
