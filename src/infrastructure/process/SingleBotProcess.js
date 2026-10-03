@@ -2,6 +2,7 @@ const { spawn, execSync } = require('child_process');
 const path = require('path');
 const fs = require('fs');
 const EventEmitter = require('events');
+const ProxyChecker = require('../network/ProxyChecker');
 
 /**
  * SingleBotProcess (Infrastructure Layer)
@@ -17,6 +18,8 @@ class SingleBotProcess extends EventEmitter {
     this.startTime = null;
     this.restartAttempts = 0;
     this.isManualStop = false;
+    this.loginWatchdogTimer = null;
+    this._isCheckingProxy = false;
     this.accountState = {
       state: 'idle',
       message: 'Chưa chạy',
@@ -415,7 +418,7 @@ class SingleBotProcess extends EventEmitter {
         }
       }
 
-      // Check for proxy authentication failure or expired proxy
+      // Check for proxy authentication failure, network disconnect, or expired proxy
       if (this.account.proxyId) {
         const lower = line.toLowerCase();
         if (
@@ -438,6 +441,22 @@ class SingleBotProcess extends EventEmitter {
             reason: 'Proxy từ chối xác thực (Hết hạn hoặc sai User/Pass)'
           });
           this.emit('account-status', { accountId: this.account.id, state: this.accountState });
+        } else if (line.includes('MẤT KẾT NỐI') || line.includes('[LOGIN ERR]') || line.includes('ConnectException') || line.includes('SocketTimeoutException')) {
+          this.triggerProxyHealthCheck('Mất kết nối mạng / Socket Timeout qua Proxy');
+        } else if (line.includes('2. Bắt đầu kết nối & đăng nhập') || line.includes('Đang kết nối tới Server')) {
+          if (this.loginWatchdogTimer) clearTimeout(this.loginWatchdogTimer);
+          this.loginWatchdogTimer = setTimeout(() => {
+            if (this.accountState.state !== 'online' && (!this.playerStats || this.playerStats.coins <= 0)) {
+              this.triggerProxyHealthCheck('Quá thời gian chờ kết nối game (Login Timeout qua Proxy)');
+            }
+          }, 18000);
+        }
+      }
+
+      if (this.playerStats.coins > 0 || line.includes('Đang Treo Online') || line.includes('BẮT ĐẦU CHẠY')) {
+        if (this.loginWatchdogTimer) {
+          clearTimeout(this.loginWatchdogTimer);
+          this.loginWatchdogTimer = null;
         }
       }
       else if (line.includes('⚠️') || line.includes('CẢNH BÁO') || line.includes('MẤT KẾT NỐI')) type = 'warn';
@@ -487,11 +506,43 @@ class SingleBotProcess extends EventEmitter {
     }, delay);
   }
 
+  triggerProxyHealthCheck(reason = '') {
+    if (!this.account.proxyId || this._isCheckingProxy || this.isManualStop) return;
+    const proxy = (this.globalConfig.proxies || []).find(p => p.id === this.account.proxyId);
+    if (!proxy) return;
+
+    this._isCheckingProxy = true;
+    ProxyChecker.testProxy(proxy, 3500).then(result => {
+      this._isCheckingProxy = false;
+      if (result.isExpired) {
+        this.accountState = {
+          state: 'proxy_expired',
+          message: 'Proxy đã hết hạn hoặc mất kết nối!',
+          isError: true,
+          isMaintenance: false
+        };
+        this.emit('proxy-expired', {
+          proxyId: this.account.proxyId,
+          reason: result.message
+        });
+        this.emit('account-status', { accountId: this.account.id, state: this.accountState });
+        this.emitLog('error', `🛑 [${this.account.username}] PHÁT HIỆN PROXY ĐÃ HẾT HẠN / MẤT KẾT NỐI (${result.message})! Đã đánh cờ hết hạn và dừng bot.`);
+        this.stop();
+      }
+    }).catch(() => {
+      this._isCheckingProxy = false;
+    });
+  }
+
   stop() {
     this.isManualStop = true;
     if (this.restartTimer) {
       clearTimeout(this.restartTimer);
       this.restartTimer = null;
+    }
+    if (this.loginWatchdogTimer) {
+      clearTimeout(this.loginWatchdogTimer);
+      this.loginWatchdogTimer = null;
     }
 
     if (!this.child) {

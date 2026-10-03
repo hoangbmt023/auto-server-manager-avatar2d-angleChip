@@ -75,8 +75,10 @@ class AccountService {
     const wasRunning = this.multiBotManager.runningBots.has(account.id);
     if (wasRunning) {
       this.multiBotManager.stopAccount(account.id);
-      setTimeout(() => {
-        this.multiBotManager.startAccount(account.id);
+      setTimeout(async () => {
+        try {
+          await this.multiBotManager.startAccount(account.id);
+        } catch (e) {}
       }, 1200);
     }
 
@@ -125,8 +127,10 @@ class AccountService {
     const wasRunning = this.multiBotManager.runningBots.has(accountId);
     if (wasRunning) {
       this.multiBotManager.stopAccount(accountId);
-      setTimeout(() => {
-        this.multiBotManager.startAccount(accountId);
+      setTimeout(async () => {
+        try {
+          await this.multiBotManager.startAccount(accountId);
+        } catch (e) {}
       }, 1500);
     }
 

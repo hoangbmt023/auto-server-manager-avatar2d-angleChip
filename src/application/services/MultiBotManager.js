@@ -2,6 +2,7 @@ const EventEmitter = require('events');
 const SingleBotProcess = require('../../infrastructure/process/SingleBotProcess');
 const JavaDetector = require('../../infrastructure/process/JavaDetector');
 const ServerLimitRule = require('../../domain/rules/ServerLimitRule');
+const ProxyChecker = require('../../infrastructure/network/ProxyChecker');
 
 /**
  * MultiBotManager (Application Layer)
@@ -34,7 +35,7 @@ class MultiBotManager extends EventEmitter {
     return this.getRunningAccounts().filter(a => (a.fileId || 'file_1') === fileId);
   }
 
-  startAccount(accountId) {
+  async startAccount(accountId) {
     const config = this.configRepo.get();
     const account = (config.accounts || []).find(a => a.id === accountId);
     if (!account) {
@@ -56,11 +57,20 @@ class MultiBotManager extends EventEmitter {
     const currentlyRunningInFile = this.getRunningBotsInFile(fileId).filter(a => a.id !== accountId);
     ServerLimitRule.validateCanRun(currentlyRunningInFile, account);
 
-    // Check limits for running bots on the same proxy (Max 6 online per proxy)
+    // Check limits for running bots on the same proxy (Max 6 online per proxy) & Real-time Health Check
     if (account.proxyId) {
       const proxy = (config.proxies || []).find(p => p.id === account.proxyId);
-      if (proxy && proxy.isExpired) {
-        throw new Error(`❌ Proxy [${proxy.name || proxy.host}] gán cho nick này ĐÃ BỊ ĐÁNH DẤU HẾT HẠN! Vui lòng đổi proxy khác.`);
+      if (proxy) {
+        if (proxy.isExpired) {
+          throw new Error(`❌ Proxy [${proxy.name || proxy.host}] gán cho nick [${account.username}] ĐÃ BỊ ĐÁNH DẤU HẾT HẠN! Vui lòng đổi proxy khác.`);
+        }
+
+        // Live Health Test before spawning process
+        const testRes = await ProxyChecker.testProxy(proxy, 3500);
+        if (testRes.isExpired) {
+          this.markProxyExpired(account.proxyId, testRes.message, account.id);
+          throw new Error(`❌ Proxy [${proxy.name || proxy.host}] của nick [${account.username}] ĐÃ HẾT HẠN hoặc LỖI KẾT NỐI (${testRes.message})! Đã tự động đánh dấu cờ.`);
+        }
       }
       const allRunning = this.getRunningAccounts().filter(a => a.id !== accountId);
       ServerLimitRule.validateProxyLimit(allRunning, account, proxy);
@@ -182,7 +192,7 @@ class MultiBotManager extends EventEmitter {
     this.configRepo.save(config);
   }
 
-  resumePreviousRunningBots() {
+  async resumePreviousRunningBots() {
     const config = this.configRepo.get();
     if (!config.autoStart) return;
 
@@ -199,7 +209,7 @@ class MultiBotManager extends EventEmitter {
     console.log(`🤖 Tự động khôi phục treo ${savedRunningIds.length} tài khoản Avatar...`);
     for (const accId of savedRunningIds) {
       try {
-        this.startAccount(accId);
+        await this.startAccount(accId);
       } catch (err) {
         console.error(`❌ Không thể khôi phục tài khoản [${accId}]:`, err.message);
       }
