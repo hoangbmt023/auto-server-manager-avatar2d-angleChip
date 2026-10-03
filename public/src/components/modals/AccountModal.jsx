@@ -2,7 +2,106 @@
  * AccountModal Component (Presentation Layer / Modals)
  * Add and Edit Account Modal form with File Profile, Server and Proxy assignment.
  */
-const { useState: useAccModalState } = React;
+const { useState: useAccModalState, useRef: useAccModalRef, useEffect: useAccModalEffect } = React;
+
+/**
+ * Reusable CustomSelect dropdown component (CSS-based, overflow-safe, dark theme)
+ */
+function CustomSelect({
+  value,
+  onChange,
+  options = [],
+  placeholder = 'Chọn một tùy chọn...'
+}) {
+  const [isOpen, setIsOpen] = useAccModalState(false);
+  const wrapperRef = useAccModalRef(null);
+
+  useAccModalEffect(() => {
+    function handleClickOutside(event) {
+      if (wrapperRef.current && !wrapperRef.current.contains(event.target)) {
+        setIsOpen(false);
+      }
+    }
+    if (isOpen) {
+      document.addEventListener('mousedown', handleClickOutside);
+      document.addEventListener('touchstart', handleClickOutside);
+    }
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+      document.removeEventListener('touchstart', handleClickOutside);
+    };
+  }, [isOpen]);
+
+  const selectedOption = options.find(opt => opt.value === value);
+
+  return (
+    <div className="custom-select-wrapper" ref={wrapperRef}>
+      <div
+        className={`custom-select-control ${isOpen ? 'open' : ''} ${selectedOption?.isExpired ? 'is-expired' : ''}`}
+        onClick={() => setIsOpen(!isOpen)}
+        tabIndex="0"
+        onKeyDown={(e) => {
+          if (e.key === 'Enter' || e.key === ' ') {
+            e.preventDefault();
+            setIsOpen(!isOpen);
+          } else if (e.key === 'Escape') {
+            setIsOpen(false);
+          }
+        }}
+      >
+        <div className="custom-select-value">
+          {selectedOption ? (
+            <React.Fragment>
+              {selectedOption.isExpired && (
+                <span className="select-badge-expired">⚠️ HẾT HẠN</span>
+              )}
+              <span className="select-value-text">{selectedOption.label}</span>
+              {selectedOption.sub && (
+                <span className="select-value-sub">({selectedOption.sub})</span>
+              )}
+            </React.Fragment>
+          ) : (
+            <span className="select-placeholder">{placeholder}</span>
+          )}
+        </div>
+        <div className="custom-select-arrow">▾</div>
+      </div>
+
+      {isOpen && (
+        <div className="custom-select-menu">
+          {options.map(opt => (
+            <div
+              key={opt.value}
+              className={`custom-select-item ${opt.value === value ? 'selected' : ''} ${opt.disabled ? 'disabled' : ''}`}
+              onClick={() => {
+                if (opt.disabled) return;
+                onChange(opt.value);
+                setIsOpen(false);
+              }}
+            >
+              <div className="select-item-main">
+                <div className="select-item-title-box">
+                  {opt.isExpired && (
+                    <span className="select-badge-expired">⚠️ HẾT HẠN</span>
+                  )}
+                  <span className="select-item-title">{opt.label}</span>
+                </div>
+                {opt.badge && !opt.isExpired && (
+                  <span className="select-badge-online">{opt.badge}</span>
+                )}
+              </div>
+              {opt.sub && (
+                <div className="select-item-sub">
+                  {opt.sub} {opt.disabled ? '• (Không thể chọn)' : ''}
+                </div>
+              )}
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
 
 window.AccountModal = function AccountModal({
   account,
@@ -19,6 +118,33 @@ window.AccountModal = function AccountModal({
   const [password, setPassword] = useAccModalState('');
   const [serverId, setServerId] = useAccModalState(account?.serverId !== undefined ? String(account.serverId) : '0');
   const [note, setNote] = useAccModalState(account?.note || '');
+
+  const fileOptions = files.map(f => ({
+    value: f.id,
+    label: f.name,
+    badge: `${f.totalAccounts || 0}/6 nick`
+  }));
+
+  const serverOptions = [
+    { value: '0', label: 'Server 1: Hoàn Mỹ', sub: 'Tối đa 3 nick/server' },
+    { value: '1', label: 'Server 2: Diệu Kỳ', sub: 'Tối đa 3 nick/server' }
+  ];
+
+  const proxyOptions = [
+    {
+      value: '',
+      label: 'Không dùng Proxy (IP Server)',
+      sub: 'Sử dụng trực tiếp IP VPS/Hosting'
+    },
+    ...proxies.map(p => ({
+      value: p.id,
+      label: p.name,
+      sub: `${(p.type || 'SOCKS').toUpperCase()} • ${p.host}:${p.port}`,
+      badge: `Online: ${p.onlineCount || 0}/6`,
+      disabled: Boolean(p.isExpired),
+      isExpired: Boolean(p.isExpired)
+    }))
+  ];
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -85,11 +211,12 @@ window.AccountModal = function AccountModal({
 
             <div className="form-group">
               <label>📁 Thuộc File / Profile (Mỗi file tối đa 6 nick):</label>
-              <select className="form-control" value={fileId} onChange={e => setFileId(e.target.value)}>
-                {files.map(f => (
-                  <option key={f.id} value={f.id}>{f.name} ({f.totalAccounts || 0}/6 nick)</option>
-                ))}
-              </select>
+              <CustomSelect
+                value={fileId}
+                onChange={setFileId}
+                options={fileOptions}
+                placeholder="Chọn File / Profile..."
+              />
             </div>
 
             <div className="form-row">
@@ -119,28 +246,22 @@ window.AccountModal = function AccountModal({
             <div className="form-row">
               <div className="form-group">
                 <label>🌐 Server Game (Tối đa 3 nick/server):</label>
-                <select className="form-control" value={serverId} onChange={e => setServerId(e.target.value)}>
-                  <option value="0">Server 1: Hoàn Mỹ</option>
-                  <option value="1">Server 2: Diệu Kỳ</option>
-                </select>
+                <CustomSelect
+                  value={serverId}
+                  onChange={setServerId}
+                  options={serverOptions}
+                  placeholder="Chọn Server..."
+                />
               </div>
 
               <div className="form-group">
                 <label>🔒 Gán Proxy Kết Nối (Tối đa 6 online/proxy):</label>
-                <select className="form-control" value={proxyId} onChange={e => setProxyId(e.target.value)}>
-                  <option value="">Không dùng Proxy (IP Server)</option>
-                  {proxies.map(p => (
-                    <option
-                      key={p.id}
-                      value={p.id}
-                      disabled={p.isExpired}
-                    >
-                      {p.isExpired ? '⚠️ [ĐÃ HẾT HẠN] ' : ''}
-                      {p.name} ({p.type ? p.type.toUpperCase() : 'SOCKS'} - {p.host}:{p.port})
-                      {p.isExpired ? ' - Không thể chọn' : ` [Online: ${p.onlineCount || 0}/6]`}
-                    </option>
-                  ))}
-                </select>
+                <CustomSelect
+                  value={proxyId}
+                  onChange={setProxyId}
+                  options={proxyOptions}
+                  placeholder="Không dùng Proxy (IP Server)"
+                />
               </div>
             </div>
 
