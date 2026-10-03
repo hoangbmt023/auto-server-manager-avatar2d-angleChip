@@ -205,8 +205,32 @@ public class AvatarModAdapter {
         ClassLoader cl = getClassLoader();
         if (cl == null) return false;
 
-        ModSchema schema = getCurrentSchema();
+        // 1. Nếu nhân vật đã hiện diện trong RAM (duLieuNguoiChoi / player instance != null), bot chắc chắn 100% đang online kết nối Server
+        Object player = getActivePlayerInstance(cl);
+        if (player != null) {
+            // Kiểm tra xem có popup thông báo đè lên báo mất kết nối không
+            String dialog = checkActiveGameDialog();
+            if (dialog != null && !dialog.trim().isEmpty()) {
+                String lower = dialog.toLowerCase();
+                if (lower.contains("mất kết nối") || lower.contains("kết nối thất bại") || lower.contains("mạng game bị ngắt")) {
+                    return false;
+                }
+            }
+            return true;
+        }
 
+        // 2. Nếu chưa vào map (đang ở màn hình đăng nhập hoặc đang bắt tay):
+        // Kiểm tra xem có popup thông báo lỗi mạng không
+        String dialog = checkActiveGameDialog();
+        if (dialog != null && !dialog.trim().isEmpty()) {
+            String lower = dialog.toLowerCase();
+            if (lower.contains("mất kết nối") || lower.contains("kết nối thất bại") || lower.contains("mạng game bị ngắt")) {
+                return false;
+            }
+        }
+
+        // 3. Fallback kiểm tra qua Network class (nếu reflective call khả dụng và không bị lỗi classloader)
+        ModSchema schema = getCurrentSchema();
         try {
             Class<?> netCls = cl.loadClass(schema.networkClassName);
             for (Method m : netCls.getDeclaredMethods()) {
@@ -226,7 +250,8 @@ public class AvatarModAdapter {
             }
         } catch (Throwable ignored) {}
 
-        return false;
+        // Nếu không có popup lỗi mạng, coi như socket vẫn đang duy trì
+        return true;
     }
 
     public static String checkActiveGameDialog() {

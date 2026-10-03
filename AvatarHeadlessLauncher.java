@@ -360,6 +360,11 @@ public class AvatarHeadlessLauncher {
 
                             // 5. TOÀN BỘ CÁC POPUP NGOÀI MÀN HÌNH LOGIN
                             if (!isCurrentlyOnline) {
+                                // Các thông báo nạp game bình thường (đang lấy dữ liệu nông trại, đang tải, xin chờ...) -> Bỏ qua, chờ game nạp xong
+                                if (lower.contains("đang lấy dữ liệu") || lower.contains("đang kết nối") || lower.contains("đang tải") || lower.contains("xin chờ")) {
+                                    continue;
+                                }
+
                                 // Nếu là Popup có chữ Thoát -> Bấm Thoát, kiểm tra xem file có mất/hỏng không, nếu mất thì nạp lại rồi restart
                                 if (lower.contains("thoát") && !lower.contains("đối thủ") && !lower.contains("bỏ cuộc") && !lower.contains("để sau")) {
                                     System.err.println("⚠️ [PHÁT HIỆN POPUP CÓ NÚT THOÁT]: \"" + currentDialog + "\" -> Bấm Thoát & Kiểm tra file game...");
@@ -382,14 +387,17 @@ public class AvatarHeadlessLauncher {
                             AvatarModAdapter.dismissCurrentDialog();
                         }
 
-                        // 2.2. Kiểm tra trạng thái kết nối mạng (tránh xung đột với luồng gW tự kết nối lại của Mod)
+                        // 2.2. Kiểm tra trạng thái người chơi & kết nối mạng
+                        MIDlet activeMidlet = MIDletBridge.getCurrentMIDlet();
+                        Object ef = AvatarModAdapter.getActivePlayerInstance(activeMidlet != null ? activeMidlet.getClass().getClassLoader() : null);
                         boolean connected = AvatarModAdapter.isNetworkConnected();
                         long now = System.currentTimeMillis();
                         AvatarModAdapter.AutoTaskInfo currentTask = AvatarModAdapter.getActiveAutoTask();
                         boolean isAutoRunning = (currentTask != null && currentTask.taskInstance != null);
-                        long reconnectGracePeriod = isAutoRunning ? 35000L : 25000L;
+                        long reconnectGracePeriod = isAutoRunning ? 40000L : 30000L;
 
-                        if (!connected && (now - lastLoginAttemptTime > reconnectGracePeriod)) {
+                        // Chỉ coi là mất kết nối khi: Không kết nối VÀ Không tìm thấy player trong RAM VÀ Đã quá thời gian ân hạn
+                        if (!connected && ef == null && (now - lastLoginAttemptTime > reconnectGracePeriod)) {
                             // Trước khi cố kết nối lại, kiểm tra xem có phải bot đã hoàn thành mục tiêu không!
                             if (AvatarModAdapter.isTargetReached()) {
                                 isCurrentlyOnline = false;
@@ -411,9 +419,6 @@ public class AvatarHeadlessLauncher {
                         }
 
                         // 2.3. Áp dụng cấu hình ban đầu sau khi đăng nhập thành công
-                        MIDlet activeMidlet = MIDletBridge.getCurrentMIDlet();
-                        Object ef = AvatarModAdapter.getActivePlayerInstance(activeMidlet != null ? activeMidlet.getClass().getClassLoader() : null);
-
                         if (connected && ef != null) {
                             if (!isCurrentlyOnline) {
                                 isCurrentlyOnline = true;
