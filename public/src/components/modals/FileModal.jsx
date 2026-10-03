@@ -62,8 +62,9 @@ window.FileModal = function FileModal({
   const handleFileUpload = async (e) => {
     const uploaded = e.target.files[0];
     if (!uploaded) return;
+    const notifyAlert = window.showAlert || alert;
     if (!uploaded.name.endsWith('.jar')) {
-      alert('Vui lòng chọn file có định dạng đuôi .jar!');
+      notifyAlert('Vui lòng chọn file có định dạng đuôi .jar!', 'Định Dạng Không Đúng', 'warning');
       return;
     }
 
@@ -78,11 +79,11 @@ window.FileModal = function FileModal({
         }
         if (fetchJars) fetchJars();
       } else {
-        alert(data.message || 'Lỗi tải lên JAR');
+        notifyAlert(data.message || 'Lỗi tải lên JAR', 'Lỗi Tải File', 'error');
         setUploadStatus('');
       }
     } catch (err) {
-      alert('Lỗi: ' + err.message);
+      notifyAlert('Lỗi: ' + err.message, 'Lỗi Hệ Thống', 'error');
       setUploadStatus('');
     }
   };

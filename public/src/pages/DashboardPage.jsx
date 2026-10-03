@@ -122,24 +122,30 @@ window.DashboardPage = function DashboardPage({
           if (expiredProxies.length === 0) return null;
           return (
             <section className="alert-banner alert-banner-danger">
-              <div className="banner-icon">⚠️</div>
+              <div className="banner-top-row">
+                <div className="banner-title-box">
+                  <div className="banner-icon">⚠️</div>
+                  <div className="banner-title-content">
+                    <h4>
+                      CẢNH BÁO: Phát hiện {expiredProxies.length} Proxy đã HẾT HẠN hoặc LỖI XÁC THỰC!
+                    </h4>
+                  </div>
+                </div>
+                <div className="banner-actions">
+                  <button
+                    className="btn btn-danger btn-sm"
+                    onClick={() => setProxyModal({ open: true, initialFilter: 'expired' })}
+                  >
+                    🌐 Quản Lý Proxy (Đã Lọc Hết Hạn)
+                  </button>
+                </div>
+              </div>
               <div className="banner-body">
-                <h4>
-                  CẢNH BÁO: Phát hiện {expiredProxies.length} Proxy đã HẾT HẠN hoặc LỖI XÁC THỰC!
-                </h4>
                 <p>
                   Danh sách proxy hết hạn: <strong>{expiredProxies.map(p => `${p.name} (${p.host}:${p.port})`).join(', ')}</strong>.
                   <br />
                   Các tài khoản gán proxy này sẽ không thể đăng nhập hoặc đã bị ngắt kết nối an toàn.
                 </p>
-              </div>
-              <div className="banner-actions">
-                <button
-                  className="btn btn-danger btn-sm"
-                  onClick={() => setProxyModal({ open: true, initialFilter: 'expired' })}
-                >
-                  🌐 Quản Lý Proxy (Đã Lọc Hết Hạn)
-                </button>
               </div>
             </section>
           );

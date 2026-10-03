@@ -14,6 +14,7 @@ class MultiBotManager extends EventEmitter {
     this.configRepo = configRepo;
     this.sseEventBus = sseEventBus;
     this.runningBots = new Map(); // accountId -> SingleBotProcess
+    this.startActiveProxyMonitor(60000);
   }
 
   getRunningAccounts() {
@@ -312,6 +313,47 @@ class MultiBotManager extends EventEmitter {
         username,
         text: `🛑 [PROXY ALERT]: Phát hiện Proxy [${proxy.name}] (${proxy.host}:${proxy.port}) HẾT HẠN hoặc LỖI XÁC THỰC! Đã đánh dấu cờ hết hạn.`
       });
+    }
+  }
+
+  startActiveProxyMonitor(intervalMs = 60000) {
+    if (this._proxyMonitorTimer) return;
+    this._proxyMonitorTimer = setInterval(async () => {
+      try {
+        const runningAccounts = this.getRunningAccounts();
+        const activeProxyIds = [...new Set(runningAccounts.map(a => a.proxyId).filter(Boolean))];
+        if (activeProxyIds.length === 0) return;
+
+        const config = this.configRepo.get();
+        for (const proxyId of activeProxyIds) {
+          const proxy = (config.proxies || []).find(p => p.id === proxyId);
+          if (!proxy) continue;
+
+          const testRes = await ProxyChecker.testProxy(proxy, 3500);
+          if (testRes.isExpired) {
+            this.markProxyExpired(proxyId, testRes.message);
+            for (const [accId, botProcess] of this.runningBots.entries()) {
+              if (botProcess.account && botProcess.account.proxyId === proxyId) {
+                botProcess.accountState = {
+                  state: 'proxy_expired',
+                  message: testRes.message,
+                  isError: true,
+                  isMaintenance: false
+                };
+                botProcess.emitLog('error', `🛑 [${botProcess.account.username}] PROXY ĐÃ HẾT HẠN TRONG KHI ĐANG TREO! Đang dừng tài khoản để bảo vệ an toàn.`);
+                botProcess.stop();
+                this.runningBots.delete(accId);
+              }
+            }
+          }
+        }
+      } catch (e) {
+        // silent monitor error
+      }
+    }, intervalMs);
+
+    if (this._proxyMonitorTimer.unref) {
+      this._proxyMonitorTimer.unref();
     }
   }
 

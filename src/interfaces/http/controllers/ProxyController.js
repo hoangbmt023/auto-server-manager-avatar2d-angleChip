@@ -22,11 +22,15 @@ class ProxyController {
   async saveProxy(req, res, sendJson, parseJsonBody) {
     try {
       const body = await parseJsonBody(req);
-      const saved = this.proxyService.saveProxy(body);
+      const { proxy, testResult } = await this.proxyService.saveProxy(body);
+      const message = testResult && testResult.isExpired
+        ? `⚠️ Đã lưu Proxy nhưng kiểm tra kết nối THẤT BẠI: ${testResult.message}. Đã tự động đánh dấu HẾT HẠN!`
+        : `✅ Đã lưu Proxy và kiểm tra kết nối thành công (${testResult?.latencyMs || 0}ms)!`;
       return sendJson(res, 200, {
         success: true,
-        message: 'Đã lưu Proxy thành công!',
-        proxy: saved
+        message,
+        proxy,
+        testResult
       });
     } catch (err) {
       return sendJson(res, 400, { success: false, message: err.message });

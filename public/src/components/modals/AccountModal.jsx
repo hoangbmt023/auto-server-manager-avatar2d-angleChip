@@ -22,14 +22,16 @@ window.AccountModal = function AccountModal({
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    const notifyAlert = window.showAlert || alert;
+
     if (!username.trim()) {
-      alert('Vui lòng nhập tên tài khoản!');
+      notifyAlert('Vui lòng nhập tên tài khoản!', 'Thiếu Thông Tin', 'warning');
       return;
     }
 
     const chosenProxy = proxies.find(p => p.id === proxyId);
     if (chosenProxy && chosenProxy.isExpired) {
-      alert(`Proxy [${chosenProxy.name}] đã bị đánh dấu hết hạn! Vui lòng chọn proxy khác còn hoạt động hoặc "Không dùng Proxy".`);
+      notifyAlert(`Proxy [${chosenProxy.name}] đã bị đánh dấu hết hạn! Vui lòng chọn proxy khác còn hoạt động hoặc "Không dùng Proxy".`, 'Proxy Hết Hạn', 'error');
       return;
     }
 
@@ -50,22 +52,37 @@ window.AccountModal = function AccountModal({
       if (data.success) {
         onSaved(fileId);
       } else {
-        alert(data.message || 'Lỗi lưu tài khoản');
+        notifyAlert(data.message || 'Lỗi lưu tài khoản', 'Lỗi Lưu Tài Khoản', 'error');
       }
     } catch (err) {
-      alert('Lỗi: ' + err.message);
+      notifyAlert('Lỗi: ' + err.message, 'Lỗi Hệ Thống', 'error');
     }
   };
 
   return (
-    <div className="modal-overlay" style={{ display: 'flex' }}>
-      <div className="modal-card" style={{ maxWidth: '560px' }}>
+    <div className="modal-overlay">
+      <div className="modal-card modal-card-md">
         <div className="modal-header">
           <h3>{isEditing ? `✏️ Chỉnh Sửa Tài Khoản: ${account.username}` : '➕ Thêm Tài Khoản Avatar Mới'}</h3>
           <button className="btn-close" onClick={onClose}>&times;</button>
         </div>
         <form onSubmit={handleSubmit}>
           <div className="modal-body">
+            {/* Expired Proxy Warning at top below header / above File Profile */}
+            {(() => {
+              const currentSelectedProxy = proxies.find(p => p.id === proxyId);
+              if (!currentSelectedProxy || !currentSelectedProxy.isExpired) return null;
+              return (
+                <div className="proxy-expired-alert account-modal-alert">
+                  <span className="alert-icon">⚠️</span>
+                  <div className="alert-text">
+                    <strong>CẢNH BÁO: PROXY CỦA TÀI KHOẢN NÀY ĐÃ HẾT HẠN!</strong>
+                    Proxy <b>{currentSelectedProxy.name}</b> ({currentSelectedProxy.host}:{currentSelectedProxy.port}) đã bị đánh dấu hết hạn / lỗi xác thực. Vui lòng chuyển sang proxy khác hoặc chọn <em>"Không dùng Proxy"</em>.
+                  </div>
+                </div>
+              );
+            })()}
+
             <div className="form-group">
               <label>📁 Thuộc File / Profile (Mỗi file tối đa 6 nick):</label>
               <select className="form-control" value={fileId} onChange={e => setFileId(e.target.value)}>
@@ -124,21 +141,6 @@ window.AccountModal = function AccountModal({
                     </option>
                   ))}
                 </select>
-
-                {/* Warning Alert if Current Assigned Proxy is Expired */}
-                {(() => {
-                  const currentSelectedProxy = proxies.find(p => p.id === proxyId);
-                  if (!currentSelectedProxy || !currentSelectedProxy.isExpired) return null;
-                  return (
-                    <div className="proxy-expired-alert">
-                      <span className="alert-icon">⚠️</span>
-                      <div className="alert-text">
-                        <strong>CẢNH BÁO: PROXY CỦA TÀI KHOẢN NÀY ĐÃ HẾT HẠN!</strong>
-                        Proxy <b>{currentSelectedProxy.name}</b> ({currentSelectedProxy.host}:{currentSelectedProxy.port}) đã bị đánh dấu hết hạn / lỗi xác thực. Vui lòng chuyển sang proxy khác hoặc chọn <em>"Không dùng Proxy"</em>.
-                      </div>
-                    </div>
-                  );
-                })()}
               </div>
             </div>
 

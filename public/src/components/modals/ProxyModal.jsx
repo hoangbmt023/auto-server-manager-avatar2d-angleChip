@@ -106,11 +106,19 @@ window.ProxyModal = function ProxyModal({
   };
 
   const handleDelete = async (id, proxyName) => {
-    if (!window.confirm(`Bạn có chắc muốn xóa Proxy [${proxyName}]?`)) return;
-    try {
-      await onDeleteProxy(id);
-    } catch (err) {
-      alert(err.message || 'Lỗi khi xóa proxy!');
+    const doDelete = async () => {
+      try {
+        await onDeleteProxy(id);
+      } catch (err) {
+        if (window.showAlert) window.showAlert(err.message || 'Lỗi khi xóa proxy!', 'Lỗi Xóa Proxy', 'error');
+        else alert(err.message || 'Lỗi khi xóa proxy!');
+      }
+    };
+
+    if (window.showConfirm) {
+      window.showConfirm(`Bạn có chắc muốn xóa Proxy [${proxyName}]?`, doDelete);
+    } else {
+      if (window.confirm(`Bạn có chắc muốn xóa Proxy [${proxyName}]?`)) doDelete();
     }
   };
 

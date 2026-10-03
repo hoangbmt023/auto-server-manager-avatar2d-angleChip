@@ -29,21 +29,22 @@ window.SettingsModal = function SettingsModal({ config, onClose, onSaved }) {
       payload.password = password;
     }
 
+    const notifyAlert = window.showAlert || alert;
     try {
       const data = await window.ApiClient.saveConfig(payload);
       if (data.success) {
-        alert('✓ Đã lưu cài đặt thành công!');
+        notifyAlert('✓ Đã lưu cài đặt cấu hình thành công!', 'Thành Công', 'success');
         onSaved(password);
       } else {
-        alert(data.message || 'Lỗi lưu cấu hình');
+        notifyAlert(data.message || 'Lỗi lưu cấu hình', 'Lỗi Cấu Hình', 'error');
       }
     } catch (err) {
-      alert('Lỗi: ' + err.message);
+      notifyAlert('Lỗi: ' + err.message, 'Lỗi Hệ Thống', 'error');
     }
   };
 
   return (
-    <div className="modal-overlay" style={{ display: 'flex' }}>
+    <div className="modal-overlay">
       <div className="modal-card">
         <div className="modal-header">
           <h3>⚙️ Cài Đặt Cấu Hình Bot</h3>

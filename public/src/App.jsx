@@ -30,6 +30,58 @@ function App() {
   const [settingsModal, setSettingsModal] = useState({ open: false, config: null });
   const [setupModal, setSetupModal] = useState({ open: false, account: null, activeTab: 'upThue' });
   const [jreProgress, setJreProgress] = useState({ visible: false, percent: 0, message: '' });
+  const [dialog, setDialog] = useState({ open: false });
+
+  // Custom Dialog Helper Handlers
+  const showDialog = useCallback((config) => {
+    setDialog({
+      open: true,
+      ...config
+    });
+  }, []);
+
+  const closeDialog = useCallback(() => {
+    setDialog(prev => ({ ...prev, open: false }));
+  }, []);
+
+  const showAlert = useCallback((message, title = 'Thông Báo Hệ Thống', type = 'info') => {
+    let inferredType = type;
+    const msgStr = String(message || '');
+    if (msgStr.includes('❌') || msgStr.includes('HẾT HẠN') || msgStr.toLowerCase().includes('lỗi') || msgStr.toLowerCase().includes('thất bại')) {
+      inferredType = 'error';
+    } else if (msgStr.includes('⚠️') || msgStr.toLowerCase().includes('cảnh báo')) {
+      inferredType = 'warning';
+    } else if (msgStr.includes('✓') || msgStr.includes('✅') || msgStr.toLowerCase().includes('thành công')) {
+      inferredType = 'success';
+    }
+
+    showDialog({
+      mode: 'alert',
+      type: inferredType,
+      title,
+      message,
+      confirmText: 'Đã Hiểu'
+    });
+  }, [showDialog]);
+
+  const showConfirm = useCallback((message, onConfirm, title = 'Xác Nhận Thao Tác', type = 'warning', confirmText = 'Đồng Ý', cancelText = 'Thoát') => {
+    showDialog({
+      mode: 'confirm',
+      type,
+      title,
+      message,
+      confirmText,
+      cancelText,
+      onConfirm
+    });
+  }, [showDialog]);
+
+  // Expose to window for all components
+  useEffect(() => {
+    window.showAlert = showAlert;
+    window.showConfirm = showConfirm;
+    window.showDialog = showDialog;
+  }, [showAlert, showConfirm, showDialog]);
 
   const terminalRef = useRef(null);
   const sseRef = useRef(null);
@@ -241,119 +293,123 @@ function App() {
   const handleStartAccount = async (id, username) => {
     try {
       const data = await window.ApiClient.startAccount(id);
-      if (!data.success) alert(data.message || 'Lỗi khởi chạy nick');
+      if (!data.success) showAlert(data.message || 'Lỗi khởi chạy nick', 'Lỗi Khởi Chạy', 'error');
       fetchAccounts();
       fetchStatus();
       fetchFiles();
       fetchProxies();
     } catch (err) {
-      alert('Lỗi: ' + err.message);
+      showAlert('Lỗi: ' + err.message, 'Lỗi Hệ Thống', 'error');
     }
   };
 
   const handleStopAccount = async (id, username) => {
-    if (!confirm(`Dừng treo tài khoản [${username}]?`)) return;
-    try {
-      const data = await window.ApiClient.stopAccount(id);
-      if (!data.success) alert(data.message || 'Lỗi dừng nick');
-      fetchAccounts();
-      fetchStatus();
-      fetchFiles();
-      fetchProxies();
-    } catch (err) {
-      alert('Lỗi: ' + err.message);
-    }
+    showConfirm(`Dừng treo tài khoản [${username}]?`, async () => {
+      try {
+        const data = await window.ApiClient.stopAccount(id);
+        if (!data.success) showAlert(data.message || 'Lỗi dừng nick', 'Lỗi', 'error');
+        fetchAccounts();
+        fetchStatus();
+        fetchFiles();
+        fetchProxies();
+      } catch (err) {
+        showAlert('Lỗi: ' + err.message, 'Lỗi Hệ Thống', 'error');
+      }
+    });
   };
 
   const handleTriggerAuto = async (id, username, autoType = 'farm', action = 'start') => {
     try {
       const data = await window.ApiClient.triggerAuto(id, autoType, action);
       if (!data.success) {
-        alert(data.message || 'Lỗi thực hiện lệnh Auto');
+        showAlert(data.message || 'Lỗi thực hiện lệnh Auto', 'Lỗi Auto', 'error');
       }
       fetchAccounts();
       fetchStatus();
     } catch (err) {
-      alert('Lỗi: ' + err.message);
+      showAlert('Lỗi: ' + err.message, 'Lỗi Hệ Thống', 'error');
     }
   };
 
   const handleStartAllFile = async () => {
     try {
       const data = await window.ApiClient.startAllFile();
-      if (!data.success) alert(data.message || 'Lỗi chạy bot');
+      if (!data.success) showAlert(data.message || 'Lỗi chạy bot', 'Lỗi Khởi Chạy', 'error');
       fetchAccounts();
       fetchStatus();
       fetchFiles();
       fetchProxies();
     } catch (err) {
-      alert('Lỗi: ' + err.message);
+      showAlert('Lỗi: ' + err.message, 'Lỗi Hệ Thống', 'error');
     }
   };
 
   const handleStopAll = async () => {
-    if (!confirm('Dừng toàn bộ bot đang chạy?')) return;
-    try {
-      const data = await window.ApiClient.stopAll();
-      if (!data.success) alert(data.message || 'Lỗi dừng tất cả bot');
-      fetchAccounts();
-      fetchStatus();
-      fetchFiles();
-      fetchProxies();
-    } catch (err) {
-      alert('Lỗi: ' + err.message);
-    }
-  };
-
-  const handleRestartAll = async () => {
-    if (!confirm('Khởi động lại toàn bộ bot?')) return;
-    try {
-      const data = await window.ApiClient.restartAll();
-      if (!data.success) alert(data.message || 'Lỗi khởi động lại');
-      setTimeout(() => {
+    showConfirm('Dừng toàn bộ bot đang chạy?', async () => {
+      try {
+        const data = await window.ApiClient.stopAll();
+        if (!data.success) showAlert(data.message || 'Lỗi dừng tất cả bot', 'Lỗi', 'error');
         fetchAccounts();
         fetchStatus();
         fetchFiles();
         fetchProxies();
-      }, 1800);
-    } catch (err) {
-      alert('Lỗi: ' + err.message);
-    }
+      } catch (err) {
+        showAlert('Lỗi: ' + err.message, 'Lỗi Hệ Thống', 'error');
+      }
+    });
+  };
+
+  const handleRestartAll = async () => {
+    showConfirm('Khởi động lại toàn bộ bot?', async () => {
+      try {
+        const data = await window.ApiClient.restartAll();
+        if (!data.success) showAlert(data.message || 'Lỗi khởi động lại', 'Lỗi Khởi Động Lại', 'error');
+        setTimeout(() => {
+          fetchAccounts();
+          fetchStatus();
+          fetchFiles();
+          fetchProxies();
+        }, 1800);
+      } catch (err) {
+        showAlert('Lỗi: ' + err.message, 'Lỗi Hệ Thống', 'error');
+      }
+    });
   };
 
   const handleSwitchServer = async (id, username, currentServerId) => {
     const newServerId = currentServerId === 0 ? 1 : 0;
     const newServerName = newServerId === 0 ? 'Hoàn Mỹ' : 'Diệu Kỳ';
-    if (!confirm(`Chuyển tài khoản [${username}] sang Server [${newServerName}]?`)) return;
-
-    try {
-      const data = await window.ApiClient.switchAccountServer(id, newServerId);
-      if (data.success) {
-        fetchAccounts();
-        fetchFiles();
-        fetchStatus();
-      } else {
-        alert(data.message || 'Lỗi đổi server');
+    showConfirm(`Chuyển tài khoản [${username}] sang Server [${newServerName}]?`, async () => {
+      try {
+        const data = await window.ApiClient.switchAccountServer(id, newServerId);
+        if (data.success) {
+          fetchAccounts();
+          fetchFiles();
+          fetchStatus();
+        } else {
+          showAlert(data.message || 'Lỗi đổi server', 'Lỗi Đổi Server', 'error');
+        }
+      } catch (err) {
+        showAlert('Lỗi: ' + err.message, 'Lỗi Hệ Thống', 'error');
       }
-    } catch (err) {
-      alert('Lỗi: ' + err.message);
-    }
+    });
   };
 
   const handleDeleteAccount = async (id, username) => {
-    if (!confirm(`Bạn có chắc muốn xóa tài khoản [${username}]?`)) return;
-    try {
-      const data = await window.ApiClient.deleteAccount(id);
-      if (data.success) {
-        fetchAccounts();
-        fetchFiles();
-        fetchProxies();
-      } else {
-        alert(data.message || 'Không thể xóa tài khoản');
+    showConfirm(`Bạn có chắc muốn xóa tài khoản [${username}]?`, async () => {
+      try {
+        const data = await window.ApiClient.deleteAccount(id);
+        if (data.success) {
+          fetchAccounts();
+          fetchFiles();
+          fetchProxies();
+        } else {
+          showAlert(data.message || 'Không thể xóa tài khoản', 'Lỗi Xóa Tài Khoản', 'error');
+        }
+      } catch (err) {
+        showAlert('Lỗi: ' + err.message, 'Lỗi Hệ Thống', 'error');
       }
-    } catch (err) {
-      alert('Lỗi: ' + err.message);
-    }
+    });
   };
 
   const handleSwitchFile = async (id) => {
@@ -366,25 +422,26 @@ function App() {
         fetchStatus();
       }
     } catch (err) {
-      alert('Lỗi: ' + err.message);
+      showAlert('Lỗi: ' + err.message, 'Lỗi Hệ Thống', 'error');
     }
   };
 
   const handleDeleteFile = async (id, name) => {
-    if (!confirm(`Xóa File [${name}] cùng tất cả tài khoản bên trong?`)) return;
-    try {
-      const data = await window.ApiClient.deleteFile(id);
-      if (data.success) {
-        fetchFiles();
-        fetchAccounts();
-        fetchStatus();
-        fetchProxies();
-      } else {
-        alert(data.message || 'Lỗi xóa file');
+    showConfirm(`Xóa File [${name}] cùng tất cả tài khoản bên trong?`, async () => {
+      try {
+        const data = await window.ApiClient.deleteFile(id);
+        if (data.success) {
+          fetchFiles();
+          fetchAccounts();
+          fetchStatus();
+          fetchProxies();
+        } else {
+          showAlert(data.message || 'Lỗi xóa file', 'Lỗi Xóa File', 'error');
+        }
+      } catch (err) {
+        showAlert('Lỗi: ' + err.message, 'Lỗi Hệ Thống', 'error');
       }
-    } catch (err) {
-      alert('Lỗi: ' + err.message);
-    }
+    });
   };
 
   const handleSaveProxy = async (payload) => {
@@ -392,30 +449,34 @@ function App() {
       const data = await window.ApiClient.saveProxy(payload);
       if (data.success) {
         fetchProxies();
+        if (data.message) {
+          showAlert(data.message, 'Cập Nhật Proxy');
+        }
         return { success: true };
       } else {
-        alert(data.message || 'Lỗi lưu Proxy');
+        showAlert(data.message || 'Lỗi lưu Proxy', 'Lỗi Lưu Proxy', 'error');
         return { success: false, message: data.message };
       }
     } catch (err) {
-      alert('Lỗi: ' + err.message);
+      showAlert('Lỗi: ' + err.message, 'Lỗi Hệ Thống', 'error');
       return { success: false, message: err.message };
     }
   };
 
   const handleDeleteProxy = async (id, name) => {
-    if (!confirm(`Bạn có chắc muốn xóa proxy [${name || id}]?`)) return;
-    try {
-      const data = await window.ApiClient.deleteProxy(id);
-      if (data.success) {
-        fetchProxies();
-        fetchAccounts();
-      } else {
-        alert(data.message || 'Lỗi xóa proxy');
+    showConfirm(`Bạn có chắc muốn xóa proxy [${name || id}]?`, async () => {
+      try {
+        const data = await window.ApiClient.deleteProxy(id);
+        if (data.success) {
+          fetchProxies();
+          fetchAccounts();
+        } else {
+          showAlert(data.message || 'Lỗi xóa proxy', 'Lỗi Xóa Proxy', 'error');
+        }
+      } catch (err) {
+        showAlert('Lỗi: ' + err.message, 'Lỗi Hệ Thống', 'error');
       }
-    } catch (err) {
-      alert('Lỗi: ' + err.message);
-    }
+    });
   };
 
   const handleClearLogs = async () => {
@@ -445,10 +506,10 @@ function App() {
       if (data.success) {
         setJreProgress({ visible: true, percent: 5, message: 'Bắt đầu tải OpenJDK 17...' });
       } else {
-        alert(data.message || 'Không thể cài đặt JRE');
+        showAlert(data.message || 'Không thể cài đặt JRE', 'Lỗi Cài Đặt JRE', 'error');
       }
     } catch (err) {
-      alert('Lỗi: ' + err.message);
+      showAlert('Lỗi: ' + err.message, 'Lỗi Hệ Thống', 'error');
     }
   };
 
@@ -459,12 +520,13 @@ function App() {
         setSettingsModal({ open: true, config: data.config });
       }
     } catch (err) {
-      alert('Lỗi lấy cấu hình: ' + err.message);
+      showAlert('Lỗi lấy cấu hình: ' + err.message, 'Lỗi Hệ Thống', 'error');
     }
   };
 
   return (
-    <window.DashboardPage
+    <React.Fragment>
+      <window.DashboardPage
       status={status}
       files={files}
       proxies={proxies}
@@ -538,6 +600,13 @@ function App() {
       fetchProxies={fetchProxies}
       onRefreshProxies={fetchProxies}
     />
+    {window.DialogModal && (
+      <window.DialogModal
+        dialog={dialog}
+        onClose={closeDialog}
+      />
+    )}
+  </React.Fragment>
   );
 }
 

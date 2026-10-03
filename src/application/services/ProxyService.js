@@ -37,7 +37,7 @@ class ProxyService {
     });
   }
 
-  saveProxy(data) {
+  async saveProxy(data) {
     const config = this.configRepo.get();
     if (!config.proxies) config.proxies = [];
 
@@ -61,12 +61,15 @@ class ProxyService {
       host,
       port,
       username: (data.username !== undefined ? data.username : (existing.username || '')).trim(),
-      password: (data.password !== undefined ? data.password : (existing.password || '')).trim(),
-      isExpired: data.isExpired !== undefined ? Boolean(data.isExpired) : Boolean(existing.isExpired),
-      errorReason: data.errorReason !== undefined ? data.errorReason : (existing.errorReason || null),
-      lastChecked: existing.lastChecked || null,
-      latencyMs: existing.latencyMs || null
+      password: (data.password !== undefined ? data.password : (existing.password || '')).trim()
     };
+
+    // Live health check upon saving (adding or editing)
+    const testResult = await ProxyChecker.testProxy(proxyObj, 3500);
+    proxyObj.isExpired = Boolean(testResult.isExpired);
+    proxyObj.errorReason = testResult.isExpired ? (testResult.message || 'Không thể kết nối proxy') : null;
+    proxyObj.latencyMs = testResult.isExpired ? null : (testResult.latencyMs || null);
+    proxyObj.lastChecked = new Date().toISOString();
 
     if (existingIdx !== -1) {
       config.proxies[existingIdx] = proxyObj;
@@ -76,7 +79,10 @@ class ProxyService {
 
     this.configRepo.save(config);
     this.broadcastChange();
-    return proxyObj;
+    return {
+      proxy: proxyObj,
+      testResult
+    };
   }
 
   deleteProxy(id) {

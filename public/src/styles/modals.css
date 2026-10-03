@@ -185,6 +185,51 @@
   background: rgba(0, 0, 0, 0.65);
 }
 
+select.form-control {
+  appearance: none;
+  -webkit-appearance: none;
+  -moz-appearance: none;
+  background-color: #1e293b;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%2394a3b8' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 14px center;
+  background-size: 16px;
+  padding-right: 40px;
+  color: #f8fafc;
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+select.form-control:hover {
+  border-color: rgba(255, 255, 255, 0.28);
+  background-color: #243048;
+}
+
+select.form-control:focus {
+  border-color: #38bdf8;
+  outline: none;
+  box-shadow: 0 0 0 3px rgba(56, 189, 248, 0.25);
+  background-color: #0f172a;
+}
+
+select.form-control option {
+  background-color: #0f172a;
+  color: #f8fafc;
+  padding: 10px 14px;
+}
+
+select.form-control option:disabled {
+  background-color: #1e1b2e;
+  color: #f87171;
+  font-weight: 600;
+}
+
+.modal-card.modal-card-md {
+  max-width: 560px;
+}
+
 .checkbox-group {
   display: flex !important;
   flex-direction: row !important;
@@ -674,6 +719,15 @@
   align-items: center;
   gap: 12px;
   color: #fca5a5;
+}
+
+.proxy-expired-alert.account-modal-alert {
+  margin: 0 4px 18px 4px;
+  padding: 14px 16px;
+  background: rgba(239, 68, 68, 0.18);
+  border: 1px solid rgba(239, 68, 68, 0.5);
+  box-shadow: 0 4px 16px rgba(239, 68, 68, 0.2);
+  border-radius: 10px;
 }
 
 .proxy-expired-alert .alert-icon {
