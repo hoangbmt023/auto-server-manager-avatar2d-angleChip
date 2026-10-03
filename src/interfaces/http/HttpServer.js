@@ -38,7 +38,7 @@ class HttpServer {
     this.multiBotManager = new MultiBotManager(this.configRepo, this.sseEventBus);
     this.accountService = new AccountService(this.configRepo, this.multiBotManager);
     this.fileProfileService = new FileProfileService(this.configRepo, this.multiBotManager);
-    this.proxyService = new ProxyService(this.configRepo, this.multiBotManager);
+    this.proxyService = new ProxyService(this.configRepo, this.multiBotManager, this.sseEventBus);
 
     this.accountController = new AccountController(this.accountService, this.configRepo);
     this.botController = new BotController(this.multiBotManager, this.configRepo, this.sseEventBus);
@@ -219,6 +219,12 @@ class HttpServer {
         }
         if (pathname === '/api/proxies/delete' && req.method === 'POST') {
           return this.proxyController.deleteProxy(req, res, this.sendJson.bind(this), this.parseJsonBody.bind(this));
+        }
+        if (pathname === '/api/proxies/test' && req.method === 'POST') {
+          return this.proxyController.testProxy(req, res, this.sendJson.bind(this), this.parseJsonBody.bind(this));
+        }
+        if (pathname === '/api/proxies/test-all' && req.method === 'POST') {
+          return this.proxyController.testAllProxies(req, res, this.sendJson.bind(this));
         }
 
         // System & JRE APIs

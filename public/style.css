@@ -239,6 +239,38 @@ body {
   gap: 12px;
 }
 
+.alert-banner-danger {
+  background: linear-gradient(135deg, rgba(239, 68, 68, 0.16) 0%, rgba(153, 27, 27, 0.28) 100%);
+  border: 1px solid rgba(239, 68, 68, 0.45);
+  box-shadow: 0 4px 20px rgba(239, 68, 68, 0.2);
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  margin-bottom: 20px;
+}
+
+.alert-banner-danger .banner-body h4 {
+  color: #fca5a5;
+  margin-bottom: 4px;
+}
+
+.alert-banner-danger .banner-body p {
+  color: #fecaca;
+  margin-bottom: 0;
+  line-height: 1.45;
+}
+
+.alert-banner-danger .banner-icon {
+  background: rgba(239, 68, 68, 0.25);
+  width: 46px;
+  height: 46px;
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
 .progress-container {
   margin-top: 14px;
   width: 100%;

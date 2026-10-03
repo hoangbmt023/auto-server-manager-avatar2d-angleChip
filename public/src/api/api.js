@@ -61,6 +61,14 @@ window.ApiClient = {
     return this.request('/api/proxies/delete', { method: 'POST', body: JSON.stringify({ id }) });
   },
 
+  testProxy(id) {
+    return this.request('/api/proxies/test', { method: 'POST', body: JSON.stringify({ id }) });
+  },
+
+  testAllProxies() {
+    return this.request('/api/proxies/test-all', { method: 'POST' });
+  },
+
   getAccounts() {
     return this.request('/api/accounts');
   },

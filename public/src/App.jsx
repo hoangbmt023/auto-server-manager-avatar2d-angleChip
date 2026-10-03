@@ -115,6 +115,11 @@ function App() {
         fetchProxies();
       });
 
+      es.addEventListener('proxy-status-changed', () => {
+        fetchAccounts();
+        fetchProxies();
+      });
+
       es.addEventListener('bot-stats', (e) => {
         try {
           const payload = JSON.parse(e.data);
@@ -530,6 +535,8 @@ function App() {
         fetchAccounts();
       }}
       onTriggerAuto={handleTriggerAuto}
+      fetchProxies={fetchProxies}
+      onRefreshProxies={fetchProxies}
     />
   );
 }

@@ -414,6 +414,32 @@ class SingleBotProcess extends EventEmitter {
           };
         }
       }
+
+      // Check for proxy authentication failure or expired proxy
+      if (this.account.proxyId) {
+        const lower = line.toLowerCase();
+        if (
+          lower.includes('socks: authentication failed') ||
+          lower.includes('407 proxy authentication') ||
+          lower.includes('proxy authentication required') ||
+          lower.includes('[proxy auth err]') ||
+          lower.includes('malformed reply from socks') ||
+          lower.includes('lỗi xác thực proxy')
+        ) {
+          type = 'error';
+          this.accountState = {
+            state: 'proxy_expired',
+            message: 'Proxy đã hết hạn hoặc sai xác thực!',
+            isError: true,
+            isMaintenance: false
+          };
+          this.emit('proxy-expired', {
+            proxyId: this.account.proxyId,
+            reason: 'Proxy từ chối xác thực (Hết hạn hoặc sai User/Pass)'
+          });
+          this.emit('account-status', { accountId: this.account.id, state: this.accountState });
+        }
+      }
       else if (line.includes('⚠️') || line.includes('CẢNH BÁO') || line.includes('MẤT KẾT NỐI')) type = 'warn';
       else if (line.includes('🛠️') || line.includes('BẢO TRÌ')) {
         type = 'warn';
@@ -445,6 +471,11 @@ class SingleBotProcess extends EventEmitter {
   }
 
   scheduleRestart(javaBin) {
+    if (this.accountState && this.accountState.state === 'proxy_expired') {
+      this.emitLog('error', `🛑 [${this.account.username}] Dừng tự động kết nối lại vì Proxy đã HẾT HẠN! Vui lòng đổi Proxy trong Quản Lý Proxy.`);
+      return;
+    }
+
     this.restartAttempts++;
     const delay = Math.min(10000 + (this.restartAttempts * 2000), 30000);
     this.emitLog('warn', `🔄 [${this.account.username}] Tự động khởi động lại sau ${delay / 1000}s (Lần ${this.restartAttempts})...`);

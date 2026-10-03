@@ -27,6 +27,12 @@ window.AccountModal = function AccountModal({
       return;
     }
 
+    const chosenProxy = proxies.find(p => p.id === proxyId);
+    if (chosenProxy && chosenProxy.isExpired) {
+      alert(`Proxy [${chosenProxy.name}] đã bị đánh dấu hết hạn! Vui lòng chọn proxy khác còn hoạt động hoặc "Không dùng Proxy".`);
+      return;
+    }
+
     const sId = parseInt(serverId, 10);
     const payload = {
       id: account?.id || undefined,
@@ -107,11 +113,32 @@ window.AccountModal = function AccountModal({
                 <select className="form-control" value={proxyId} onChange={e => setProxyId(e.target.value)}>
                   <option value="">Không dùng Proxy (IP Server)</option>
                   {proxies.map(p => (
-                    <option key={p.id} value={p.id}>
-                      {p.name} ({p.type ? p.type.toUpperCase() : 'SOCKS'} - {p.host}:{p.port}) [Online: {p.onlineCount || 0}/6]
+                    <option
+                      key={p.id}
+                      value={p.id}
+                      disabled={p.isExpired}
+                    >
+                      {p.isExpired ? '⚠️ [ĐÃ HẾT HẠN] ' : ''}
+                      {p.name} ({p.type ? p.type.toUpperCase() : 'SOCKS'} - {p.host}:{p.port})
+                      {p.isExpired ? ' - Không thể chọn' : ` [Online: ${p.onlineCount || 0}/6]`}
                     </option>
                   ))}
                 </select>
+
+                {/* Warning Alert if Current Assigned Proxy is Expired */}
+                {(() => {
+                  const currentSelectedProxy = proxies.find(p => p.id === proxyId);
+                  if (!currentSelectedProxy || !currentSelectedProxy.isExpired) return null;
+                  return (
+                    <div className="proxy-expired-alert">
+                      <span className="alert-icon">⚠️</span>
+                      <div className="alert-text">
+                        <strong>CẢNH BÁO: PROXY CỦA TÀI KHOẢN NÀY ĐÃ HẾT HẠN!</strong>
+                        Proxy <b>{currentSelectedProxy.name}</b> ({currentSelectedProxy.host}:{currentSelectedProxy.port}) đã bị đánh dấu hết hạn / lỗi xác thực. Vui lòng chuyển sang proxy khác hoặc chọn <em>"Không dùng Proxy"</em>.
+                      </div>
+                    </div>
+                  );
+                })()}
               </div>
             </div>
 

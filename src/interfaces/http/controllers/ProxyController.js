@@ -1,6 +1,6 @@
 /**
  * ProxyController (Interface Layer)
- * Handles HTTP requests for Proxy CRUD operations.
+ * Handles HTTP requests for Proxy CRUD operations and Health Testing.
  */
 class ProxyController {
   constructor(proxyService) {
@@ -43,6 +43,34 @@ class ProxyController {
       return sendJson(res, 200, {
         success: true,
         message: 'Đã xóa Proxy thành công!'
+      });
+    } catch (err) {
+      return sendJson(res, 400, { success: false, message: err.message });
+    }
+  }
+
+  async testProxy(req, res, sendJson, parseJsonBody) {
+    try {
+      const body = await parseJsonBody(req);
+      if (!body.id) {
+        return sendJson(res, 400, { success: false, message: 'Thiếu ID Proxy!' });
+      }
+      const result = await this.proxyService.testProxy(body.id);
+      return sendJson(res, 200, {
+        success: true,
+        ...result
+      });
+    } catch (err) {
+      return sendJson(res, 400, { success: false, message: err.message });
+    }
+  }
+
+  async testAllProxies(req, res, sendJson) {
+    try {
+      const results = await this.proxyService.testAllProxies();
+      return sendJson(res, 200, {
+        success: true,
+        results
       });
     } catch (err) {
       return sendJson(res, 400, { success: false, message: err.message });

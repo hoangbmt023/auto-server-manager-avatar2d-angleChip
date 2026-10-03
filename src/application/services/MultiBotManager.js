@@ -59,6 +59,9 @@ class MultiBotManager extends EventEmitter {
     // Check limits for running bots on the same proxy (Max 6 online per proxy)
     if (account.proxyId) {
       const proxy = (config.proxies || []).find(p => p.id === account.proxyId);
+      if (proxy && proxy.isExpired) {
+        throw new Error(`❌ Proxy [${proxy.name || proxy.host}] gán cho nick này ĐÃ BỊ ĐÁNH DẤU HẾT HẠN! Vui lòng đổi proxy khác.`);
+      }
       const allRunning = this.getRunningAccounts().filter(a => a.id !== accountId);
       ServerLimitRule.validateProxyLimit(allRunning, account, proxy);
     }
@@ -85,6 +88,10 @@ class MultiBotManager extends EventEmitter {
 
     botProcess.on('auto-status', (data) => {
       this.sseEventBus.broadcast('bot-auto-status', data);
+    });
+
+    botProcess.on('proxy-expired', ({ proxyId, reason }) => {
+      this.markProxyExpired(proxyId, reason, accountId);
     });
 
     botProcess.on('stopped', ({ accountId: stoppedId, wasManual }) => {
@@ -268,6 +275,34 @@ class MultiBotManager extends EventEmitter {
       return botProcess.resetData();
     }
     return false;
+  }
+
+  markProxyExpired(proxyId, reason, accountId = null) {
+    if (!proxyId) return;
+    const config = this.configRepo.get();
+    const proxy = (config.proxies || []).find(p => p.id === proxyId);
+    if (!proxy) return;
+
+    proxy.isExpired = true;
+    proxy.errorReason = reason || 'Proxy đã hết hạn hoặc từ chối xác thực';
+    proxy.lastChecked = new Date().toISOString();
+    this.configRepo.save(config);
+
+    if (this.sseEventBus) {
+      this.sseEventBus.broadcast('bot-status-changed', {
+        type: 'proxy-expired',
+        proxyId,
+        reason
+      });
+      const username = accountId ? ((config.accounts || []).find(a => a.id === accountId)?.username || '') : '';
+      this.sseEventBus.addLog({
+        timestamp: new Date().toLocaleTimeString('vi-VN', { hour12: false }),
+        type: 'error',
+        accountId: accountId,
+        username,
+        text: `🛑 [PROXY ALERT]: Phát hiện Proxy [${proxy.name}] (${proxy.host}:${proxy.port}) HẾT HẠN hoặc LỖI XÁC THỰC! Đã đánh dấu cờ hết hạn.`
+      });
+    }
   }
 
   getAllStatuses() {
