@@ -35,7 +35,7 @@ function CustomSelect({
   const selectedOption = options.find(opt => opt.value === value);
 
   return (
-    <div className="custom-select-wrapper" ref={wrapperRef}>
+    <div className={`custom-select-wrapper ${isOpen ? 'is-open' : ''}`} ref={wrapperRef}>
       <div
         className={`custom-select-control ${isOpen ? 'open' : ''} ${selectedOption?.isExpired ? 'is-expired' : ''}`}
         onClick={() => setIsOpen(!isOpen)}
@@ -76,7 +76,8 @@ function CustomSelect({
             <div
               key={opt.value}
               className={`custom-select-item ${opt.value === value ? 'selected' : ''} ${opt.disabled ? 'disabled' : ''}`}
-              onClick={() => {
+              onClick={(e) => {
+                e.stopPropagation();
                 if (opt.disabled) return;
                 onChange(opt.value);
                 setIsOpen(false);

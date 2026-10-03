@@ -159,7 +159,6 @@
   min-width: 0;
   width: 100%;
   box-sizing: border-box;
-  overflow: hidden;
 }
 
 .form-group label {
@@ -1057,6 +1056,10 @@ select.form-control option:disabled {
   min-width: 0;
   max-width: 100%;
   box-sizing: border-box;
+}
+
+.custom-select-wrapper.is-open {
+  z-index: 100;
 }
 
 .custom-select-control {
