@@ -45,11 +45,100 @@ public class AvatarHeadlessLauncher {
         return false;
     }
 
+    public static void setupProxyAuthenticator() {
+        try {
+            final String socksHost = System.getProperty("socksProxyHost");
+            final String socksPort = System.getProperty("socksProxyPort");
+            final String httpHost = System.getProperty("http.proxyHost");
+            final String httpPort = System.getProperty("http.proxyPort");
+
+            final String avatarHost = System.getProperty("avatar.proxyHost");
+            final String avatarPort = System.getProperty("avatar.proxyPort");
+            final String avatarType = System.getProperty("avatar.proxyType");
+
+            final String socksUser = System.getProperty("java.net.socks.username");
+            final String socksPass = System.getProperty("java.net.socks.password");
+            final String httpUser = System.getProperty("http.proxyUser");
+            final String httpPass = System.getProperty("http.proxyPassword");
+
+            final String avatarUser = System.getProperty("avatar.proxyUser");
+            final String avatarPass = System.getProperty("avatar.proxyPass");
+
+            final String finalUser = (avatarUser != null && !avatarUser.isEmpty()) ? avatarUser : 
+                                    ((socksUser != null && !socksUser.isEmpty()) ? socksUser : httpUser);
+            final String finalPass = (avatarPass != null && !avatarPass.isEmpty()) ? avatarPass : 
+                                    ((socksPass != null && !socksPass.isEmpty()) ? socksPass : httpPass);
+
+            String proxyHost = (avatarHost != null && !avatarHost.isEmpty()) ? avatarHost :
+                               ((socksHost != null && !socksHost.isEmpty()) ? socksHost : httpHost);
+            String proxyPort = (avatarPort != null && !avatarPort.isEmpty()) ? avatarPort :
+                               ((socksPort != null && !socksPort.isEmpty()) ? socksPort : httpPort);
+
+            if (proxyHost != null && !proxyHost.isEmpty()) {
+                int pPort = 1080;
+                try { pPort = Integer.parseInt(proxyPort); } catch (Exception ignored) {}
+                String typeStr = (avatarType != null && !avatarType.isEmpty()) ? avatarType.toUpperCase() : "SOCKS";
+                String nonProxyHosts = "angelchip.net|*.angelchip.net";
+
+                // 1. Áp dụng các thuộc tính JVM chuẩn của AngelChip Emulator
+                System.setProperty("java.net.useSystemProxies", "true");
+                System.setProperty("http.nonProxyHosts", nonProxyHosts);
+                System.setProperty("https.nonProxyHosts", nonProxyHosts);
+                System.setProperty("socksProxyHost", proxyHost);
+                System.setProperty("socksProxyPort", String.valueOf(pPort));
+
+                // 2. Ghi trực tiếp cấu hình vào Config của bản giả lập MicroEmulator (angelchip_config2.xml)
+                try {
+                    org.microemu.app.Config.setProxy(true, proxyHost, pPort, finalUser != null ? finalUser : "", finalPass != null ? finalPass : "", nonProxyHosts);
+                    System.out.println("💾 [GIẢ LẬP ANGELCHIP]: Đã đồng bộ cấu hình Proxy vào Config giả lập!");
+                } catch (Throwable t) {
+                    System.err.println("⚠️ [CONFIG PROXY ERR]: " + t.getMessage());
+                }
+
+                // 3. Khởi tạo Authenticator
+                if (finalUser != null && !finalUser.isEmpty()) {
+                    System.out.println("🌐 [PROXY SETUP]: Đang kích hoạt Proxy [" + typeStr + "://" + proxyHost + ":" + pPort + "] với tài khoản [" + finalUser + "]...");
+                    System.setProperty("java.net.socks.username", finalUser);
+                    System.setProperty("java.net.socks.password", finalPass != null ? finalPass : "");
+
+                    boolean akSuccess = false;
+                    try {
+                        Class<?> akCls = Class.forName("ak");
+                        java.lang.reflect.Constructor<?> ctor = akCls.getConstructor(String[].class);
+                        String[] proxyArr = new String[] { proxyHost, String.valueOf(pPort), finalUser, finalPass != null ? finalPass : "", nonProxyHosts, "true" };
+                        java.net.Authenticator.setDefault((java.net.Authenticator) ctor.newInstance((Object) proxyArr));
+                        akSuccess = true;
+                        System.out.println("✅ [PROXY SETUP]: Đã cài đặt Authenticator bản quyền của AngelChip (class ak) thành công!");
+                    } catch (Throwable t) {
+                        // Fallback
+                    }
+
+                    if (!akSuccess) {
+                        java.net.Authenticator.setDefault(new java.net.Authenticator() {
+                            @Override
+                            protected java.net.PasswordAuthentication getPasswordAuthentication() {
+                                return new java.net.PasswordAuthentication(finalUser, (finalPass != null ? finalPass : "").toCharArray());
+                            }
+                        });
+                        System.out.println("✅ [PROXY SETUP]: Đã cài đặt Authenticator mặc định thành công!");
+                    }
+                } else {
+                    System.out.println("🌐 [PROXY SETUP]: Đang sử dụng Proxy [" + typeStr + "://" + proxyHost + ":" + pPort + "] (Không mật khẩu)");
+                }
+            }
+        } catch (Throwable t) {
+            System.err.println("⚠️ [PROXY AUTH ERR]: " + t.getMessage());
+        }
+    }
+
     public static void main(String[] args) {
         try {
             System.setOut(new java.io.PrintStream(System.out, true, "UTF-8"));
             System.setErr(new java.io.PrintStream(System.err, true, "UTF-8"));
         } catch (Exception ignored) {}
+
+        // Thiết lập Authenticator cho Proxy trước khi khởi động bất kỳ kết nối mạng nào
+        setupProxyAuthenticator();
 
         if (args != null && args.length > 0) {
             activeJarPath = args[args.length - 1];
@@ -87,6 +176,10 @@ public class AvatarHeadlessLauncher {
             System.out.println("  👤 TÀI KHOẢN (WEB): " + customUser);
             System.out.println("  🌐 SERVER   (WEB): " + finalServerName + (customServer != null ? " (ID: " + customServer + ")" : ""));
             System.out.println("  🔒 MẬT KHẨU (WEB): " + (customPass != null && !customPass.isEmpty() ? "****** (" + customPass.length() + " ký tự)" : "(Dùng mật khẩu đã lưu)"));
+            String prxHost = System.getProperty("avatar.proxyHost");
+            if (prxHost != null && !prxHost.isEmpty()) {
+                System.out.println("  🛡️ PROXY    (NET): " + prxHost + ":" + System.getProperty("avatar.proxyPort") + " (" + System.getProperty("avatar.proxyType", "socks").toUpperCase() + ")");
+            }
             System.out.println("-------------------------------------------------");
         }
 

@@ -115,25 +115,51 @@ class SingleBotProcess extends EventEmitter {
     const safeAppId = `avatar_${this.account.username || this.account.id}_${this.fileProfile ? this.fileProfile.id : 'def'}`;
     args.push(`-Davatar.appId=${safeAppId}`);
 
-    // Proxy configuration (Account-specific Proxy from Proxy Pool)
+    // Proxy configuration (Account-specific Proxy from Proxy Pool, File Profile Proxy, or Global Proxy)
     let proxy = null;
     if (this.account.proxyId && Array.isArray(this.globalConfig.proxies)) {
       proxy = this.globalConfig.proxies.find(p => p.id === this.account.proxyId) || null;
-    } else if (this.globalConfig.proxy && this.globalConfig.proxy.enabled) {
+    } else if (this.fileProfile && this.fileProfile.proxy && this.fileProfile.proxy.enabled && this.fileProfile.proxy.host) {
+      proxy = this.fileProfile.proxy;
+    } else if (this.globalConfig.proxy && this.globalConfig.proxy.enabled && this.globalConfig.proxy.host) {
       proxy = this.globalConfig.proxy;
     }
 
     if (proxy && proxy.host && proxy.port) {
       const type = (proxy.type || 'socks').toLowerCase();
-      if (type === 'socks') {
+      if (type === 'socks' || type === 'socks5' || type === 'socks4') {
         args.push(`-DsocksProxyHost=${proxy.host}`);
         args.push(`-DsocksProxyPort=${proxy.port}`);
+        args.push('-DsocksProxyVersion=5');
+        if (proxy.username) {
+          args.push(`-Djava.net.socks.username=${proxy.username}`);
+          args.push(`-Davatar.proxyUser=${proxy.username}`);
+        }
+        if (proxy.password) {
+          args.push(`-Djava.net.socks.password=${proxy.password}`);
+          args.push(`-Davatar.proxyPass=${proxy.password}`);
+        }
       } else {
         args.push(`-Dhttp.proxyHost=${proxy.host}`);
         args.push(`-Dhttp.proxyPort=${proxy.port}`);
         args.push(`-Dhttps.proxyHost=${proxy.host}`);
         args.push(`-Dhttps.proxyPort=${proxy.port}`);
+        if (proxy.username) {
+          args.push(`-Dhttp.proxyUser=${proxy.username}`);
+          args.push(`-Davatar.proxyUser=${proxy.username}`);
+        }
+        if (proxy.password) {
+          args.push(`-Dhttp.proxyPassword=${proxy.password}`);
+          args.push(`-Davatar.proxyPass=${proxy.password}`);
+        }
       }
+      args.push('-Djava.net.useSystemProxies=true');
+      args.push('-Dhttp.nonProxyHosts=angelchip.net|*.angelchip.net');
+      args.push('-Dhttps.nonProxyHosts=angelchip.net|*.angelchip.net');
+      args.push('-Djdk.http.auth.tunneling.disabledSchemes=');
+      args.push(`-Davatar.proxyHost=${proxy.host}`);
+      args.push(`-Davatar.proxyPort=${proxy.port}`);
+      args.push(`-Davatar.proxyType=${type}`);
     }
 
     // Emulator JAR & Classpath

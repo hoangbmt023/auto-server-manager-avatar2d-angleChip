@@ -325,7 +325,7 @@ window.FarmSetupModal = function FarmSetupModal({
                 />
                 <button
                   type="button"
-                  className="btn-open-catalog"
+                  className="btn btn-sm btn-open-catalog"
                   onClick={() => setCatalogTarget({ field: 'sellProducts', label: 'Bán Nông Sản', category: 'plant' })}
                 >
                   🔍 Tra Cứu Nông Sản
@@ -371,7 +371,7 @@ window.FarmSetupModal = function FarmSetupModal({
                 />
                 <button
                   type="button"
-                  className="btn-open-catalog"
+                  className="btn btn-sm btn-open-catalog"
                   onClick={() => setCatalogTarget({ field: 'backupSeeds', label: 'Cây Trồng Dự Bị', category: 'plant' })}
                 >
                   🔍 Chọn Hạt Giống
@@ -402,7 +402,7 @@ window.FarmSetupModal = function FarmSetupModal({
                   />
                   <button
                     type="button"
-                    className="btn-open-catalog"
+                    className="btn btn-sm btn-open-catalog"
                     onClick={() => setCatalogTarget({ field: 'backupDishes', label: 'Món Ăn Dự Bị', category: 'cook' })}
                   >
                     🔍 Chọn Món Ăn

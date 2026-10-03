@@ -183,7 +183,15 @@ public class AvatarModAdapter {
                 }
             }
         } catch (Throwable t) {
-            System.err.println("[LOGIN ERR]: " + t.getMessage());
+            Throwable cause = (t instanceof java.lang.reflect.InvocationTargetException && t.getCause() != null) ? t.getCause() : t;
+            String msg = cause.getMessage();
+            if (msg == null || msg.trim().isEmpty()) {
+                msg = cause.getClass().getSimpleName();
+            }
+            System.err.println("[LOGIN ERR]: " + msg);
+            if (System.getProperty("avatar.debug") != null) {
+                cause.printStackTrace();
+            }
         }
 
         return false;
@@ -959,6 +967,15 @@ public class AvatarModAdapter {
 
             String[] priorityNames = new String[] { "Vàng", "Trắng", "Đỏ", "Xanh lam", "Xanh lá", "Tím", "Mặc định" };
             String pName = (priorityOrder >= 0 && priorityOrder < priorityNames.length) ? priorityNames[priorityOrder] : "Mặc định";
+
+            // Cập nhật ngay lập tức nếu Auto Kim Cương đang chạy
+            AutoTaskInfo activeTask = getActiveAutoTask();
+            if (activeTask != null && "diamond".equalsIgnoreCase(activeTask.autoType) && activeTask.taskInstance != null) {
+                long newIntervalMs = (long) farmIntervalMinutes * 60000L;
+                setField(activeTask.taskInstance, schema.diamondTargetMsField, newIntervalMs, long.class);
+                setField(activeTask.taskInstance, schema.diamondAbsTargetMsField, System.currentTimeMillis() + newIntervalMs, long.class);
+            }
+
             System.out.println("💎 [CÀI ĐẶT AUTO KIM CƯƠNG]: Đã nạp thành công (" + schema.name + ") | Bán đá đầy rương: " + sellOreOnFull + " | Tự về farm: " + autoFarm + " (" + farmIntervalMinutes + " phút) | Thu hoạch đúng giờ: " + harvestOnTime + " | Thứ tự ưu tiên: " + pName + " | Tự bỏ KCX: " + autoDropKcx + " | Tự bỏ NHB: " + autoDropNhb);
         } catch (Throwable t) {
             System.err.println("[DIAMOND SETUP ERR]: " + t.getMessage());
@@ -1008,6 +1025,14 @@ public class AvatarModAdapter {
             String rName = (rodType >= 0 && rodType < rodNames.length) ? rodNames[rodType] : "Không mua";
             String[] sellNames = new String[] { "Bán tại chỗ", "Bán KST", "Bỏ cá" };
             String sName = (sellFishType >= 0 && sellFishType < sellNames.length) ? sellNames[sellFishType] : "Bán tại chỗ";
+
+            // Cập nhật ngay lập tức nếu Auto Câu Cá đang chạy
+            AutoTaskInfo activeTask = getActiveAutoTask();
+            if (activeTask != null && "fish".equalsIgnoreCase(activeTask.autoType) && activeTask.taskInstance != null) {
+                long newIntervalMs = (long) farmIntervalMinutes * 60000L;
+                setField(activeTask.taskInstance, "do", newIntervalMs, long.class);
+                setField(activeTask.taskInstance, schema.fishTargetMsField, System.currentTimeMillis() + newIntervalMs, long.class);
+            }
 
             System.out.println("🎣 [CÀI ĐẶT AUTO CÂU CÁ]: Đã nạp thành công (" + schema.name + ") | Map: " + mName + " | Cần câu: " + rName + " | Bán cá: " + sName + " | Tự mua vé: " + autoBuyTicket + " | Về farm: " + backToFarm + " (" + farmIntervalMinutes + "p) | Bán KCX: " + sellKcx + " (SL: " + sellKcxThreshold + ") | Ngoại trừ: " + excludeFish);
         } catch (Throwable t) {
@@ -1176,12 +1201,12 @@ public class AvatarModAdapter {
                 } catch (Throwable ignored) {}
 
                 // Đặt thời gian hẹn giờ về farm (soXu = now + intervalMs) để không bị lập tức nhảy về nông trại
-                long intervalMs = 30 * 60000L;
+                long intervalMs = 60 * 60000L;
                 try {
-                    Field intF = diamCls.getDeclaredField(schema.diamondIntervalField);
-                    intF.setAccessible(true);
-                    int mins = intF.getInt(null);
-                    if (mins > 0) intervalMs = (long) mins * 60000L;
+                    Integer minsObj = (Integer) getStaticField(diamCls, schema.diamondIntervalField, int.class);
+                    if (minsObj != null && minsObj.intValue() > 0) {
+                        intervalMs = (long) minsObj.intValue() * 60000L;
+                    }
                 } catch (Throwable ignored) {}
 
                 setField(taskObj, schema.diamondTargetMsField, intervalMs, long.class);
@@ -1214,10 +1239,10 @@ public class AvatarModAdapter {
                         // Khởi tạo thời gian về farm
                         long intervalMs = 30 * 60000L;
                         try {
-                            Field intF = fishCls.getDeclaredField(schema.fishFarmIntervalField);
-                            intF.setAccessible(true);
-                            int mins = intF.getInt(null);
-                            if (mins > 0) intervalMs = (long) mins * 60000L;
+                            Integer minsObj = (Integer) getStaticField(fishCls, schema.fishFarmIntervalField, int.class);
+                            if (minsObj != null && minsObj.intValue() > 0) {
+                                intervalMs = (long) minsObj.intValue() * 60000L;
+                            }
                         } catch (Throwable ignored) {}
 
                         setField(taskObj, "do", intervalMs, long.class);
