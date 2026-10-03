@@ -44,7 +44,7 @@ class HttpServer {
     this.botController = new BotController(this.multiBotManager, this.configRepo, this.sseEventBus);
     this.fileController = new FileController(this.fileProfileService, this.configRepo);
     this.proxyController = new ProxyController(this.proxyService);
-    this.systemController = new SystemController(this.configRepo);
+    this.systemController = new SystemController(this.configRepo, this.sseEventBus);
 
     this.publicDir = path.resolve(__dirname, '../../../public');
     this.server = null;
