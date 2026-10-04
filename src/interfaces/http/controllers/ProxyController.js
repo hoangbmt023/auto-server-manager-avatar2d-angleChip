@@ -3,8 +3,18 @@
  * Handles HTTP requests for Proxy CRUD operations and Health Testing.
  */
 class ProxyController {
-  constructor(proxyService) {
+  constructor(proxyService, sseEventBus = null) {
     this.proxyService = proxyService;
+    this.sseEventBus = sseEventBus;
+  }
+
+  broadcastChange() {
+    if (this.sseEventBus) {
+      try {
+        this.sseEventBus.broadcast('proxy-status-changed', { timestamp: Date.now() });
+        this.sseEventBus.broadcast('bot-status-changed', { timestamp: Date.now() });
+      } catch (e) {}
+    }
   }
 
   async getProxies(req, res, sendJson) {
@@ -26,6 +36,7 @@ class ProxyController {
       const message = testResult && testResult.isExpired
         ? `⚠️ Đã lưu Proxy nhưng kiểm tra kết nối THẤT BẠI: ${testResult.message}. Đã tự động đánh dấu HẾT HẠN!`
         : `✅ Đã lưu Proxy và kiểm tra kết nối thành công (${testResult?.latencyMs || 0}ms)!`;
+      this.broadcastChange();
       return sendJson(res, 200, {
         success: true,
         message,
@@ -44,6 +55,7 @@ class ProxyController {
         return sendJson(res, 400, { success: false, message: 'Thiếu ID Proxy!' });
       }
       this.proxyService.deleteProxy(body.id);
+      this.broadcastChange();
       return sendJson(res, 200, {
         success: true,
         message: 'Đã xóa Proxy thành công!'

@@ -396,6 +396,18 @@ public class AvatarHeadlessLauncher {
                         boolean isAutoRunning = (currentTask != null && currentTask.taskInstance != null);
                         long reconnectGracePeriod = isAutoRunning ? 40000L : 30000L;
 
+                        // 2.2.0. Phát hiện nhân vật bị ĐĂNG XUẤT hoặc MẤT KẾT NỐI (khi trước đó đang online nhưng nay ef == null)
+                        if (isCurrentlyOnline && ef == null) {
+                            isCurrentlyOnline = false;
+                            System.out.println("⚠️ [ĐĂNG XUẤT]: Game đã đóng phiên hoặc gọi lệnh đăng xuất tài khoản!");
+                            System.out.println("[ACCOUNT_STATUS]: {\"state\":\"disconnected\",\"message\":\"Đã đăng xuất / Mất kết nối, đang đăng nhập lại...\"}");
+                            lastLoginAttemptTime = System.currentTimeMillis();
+                            Thread.sleep(6000);
+                            System.out.println("🔄 [TỰ ĐỘNG ĐĂNG NHẬP LẠI]: Đang kết nối lại máy chủ...");
+                            AvatarModAdapter.login(customUser, customPass, finalServerId, finalServerName);
+                            continue;
+                        }
+
                         // Chỉ coi là mất kết nối khi: Không kết nối VÀ Không tìm thấy player trong RAM VÀ Đã quá thời gian ân hạn
                         if (!connected && ef == null && (now - lastLoginAttemptTime > reconnectGracePeriod)) {
                             // Trước khi cố kết nối lại, kiểm tra xem có phải bot đã hoàn thành mục tiêu không!

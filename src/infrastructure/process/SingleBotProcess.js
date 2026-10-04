@@ -357,6 +357,11 @@ class SingleBotProcess extends EventEmitter {
           } else if (parsed.farmingCountdown !== undefined && parsed.farmingTime === undefined) {
             parsed.farmingTime = parsed.farmingCountdown;
           }
+          if (parsed.coins === 0 && this.playerStats.coins > 0) {
+            delete parsed.coins;
+            delete parsed.gold;
+            delete parsed.lockedGold;
+          }
           this.playerStats = {
             ...this.playerStats,
             ...parsed

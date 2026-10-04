@@ -40,10 +40,10 @@ class HttpServer {
     this.fileProfileService = new FileProfileService(this.configRepo, this.multiBotManager);
     this.proxyService = new ProxyService(this.configRepo, this.multiBotManager, this.sseEventBus);
 
-    this.accountController = new AccountController(this.accountService, this.configRepo);
+    this.accountController = new AccountController(this.accountService, this.configRepo, this.sseEventBus);
     this.botController = new BotController(this.multiBotManager, this.configRepo, this.sseEventBus);
-    this.fileController = new FileController(this.fileProfileService, this.configRepo);
-    this.proxyController = new ProxyController(this.proxyService);
+    this.fileController = new FileController(this.fileProfileService, this.configRepo, this.sseEventBus);
+    this.proxyController = new ProxyController(this.proxyService, this.sseEventBus);
     this.systemController = new SystemController(this.configRepo, this.sseEventBus);
 
     this.publicDir = path.resolve(__dirname, '../../../public');
@@ -53,6 +53,9 @@ class HttpServer {
   sendJson(res, statusCode, data) {
     res.writeHead(statusCode, {
       'Content-Type': 'application/json; charset=utf-8',
+      'Cache-Control': 'no-store, no-cache, must-revalidate, proxy-revalidate, max-age=0',
+      'Pragma': 'no-cache',
+      'Expires': '0',
       'Access-Control-Allow-Origin': '*',
       'Access-Control-Allow-Headers': 'Content-Type, Authorization, X-Dashboard-Auth, x-filename',
       'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS'

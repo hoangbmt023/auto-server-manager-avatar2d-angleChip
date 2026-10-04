@@ -3,9 +3,18 @@
  * Handles HTTP requests related to Avatar accounts.
  */
 class AccountController {
-  constructor(accountService, configRepo) {
+  constructor(accountService, configRepo, sseEventBus = null) {
     this.accountService = accountService;
     this.configRepo = configRepo;
+    this.sseEventBus = sseEventBus;
+  }
+
+  broadcastChange() {
+    if (this.sseEventBus) {
+      try {
+        this.sseEventBus.broadcast('bot-status-changed', { timestamp: Date.now() });
+      } catch (e) {}
+    }
   }
 
   async getAccounts(req, res, sendJson) {
@@ -48,6 +57,7 @@ class AccountController {
     try {
       const body = await parseJsonBody(req);
       const saved = this.accountService.saveAccount(body);
+      this.broadcastChange();
       return sendJson(res, 200, {
         success: true,
         message: 'Đã lưu tài khoản thành công!',
@@ -68,6 +78,7 @@ class AccountController {
         return sendJson(res, 400, { success: false, message: 'Thiếu ID tài khoản!' });
       }
       this.accountService.deleteAccount(body.id);
+      this.broadcastChange();
       return sendJson(res, 200, { success: true, message: 'Đã xóa tài khoản.' });
     } catch (err) {
       return sendJson(res, 400, { success: false, message: err.message });
@@ -81,6 +92,7 @@ class AccountController {
         return sendJson(res, 400, { success: false, message: 'Thiếu ID tài khoản!' });
       }
       const updated = this.accountService.switchServer(body.id, body.newServerId);
+      this.broadcastChange();
       return sendJson(res, 200, {
         success: true,
         message: `Đã chuyển tài khoản [${updated.username}] sang Server [${updated.serverName}]!`,
@@ -105,6 +117,7 @@ class AccountController {
         fishSettings: body.fishSettings,
         sellOreSettings: body.sellOreSettings
       });
+      this.broadcastChange();
       return sendJson(res, 200, {
         success: true,
         message: `Đã cập nhật cài đặt cho [${updated.username}]!`,
@@ -122,6 +135,7 @@ class AccountController {
         return sendJson(res, 400, { success: false, message: 'Thiếu ID tài khoản!' });
       }
       const result = this.accountService.resetData(body.id);
+      this.broadcastChange();
       return sendJson(res, 200, result);
     } catch (err) {
       return sendJson(res, 400, { success: false, message: err.message });

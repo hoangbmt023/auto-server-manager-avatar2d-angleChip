@@ -6,10 +6,19 @@ const fs = require('fs');
  * Handles bot profiles/files and custom JAR file uploads.
  */
 class FileController {
-  constructor(fileProfileService, configRepo) {
+  constructor(fileProfileService, configRepo, sseEventBus = null) {
     this.fileProfileService = fileProfileService;
     this.configRepo = configRepo;
+    this.sseEventBus = sseEventBus;
     this.workspaceRoot = path.resolve(__dirname, '../../../../');
+  }
+
+  broadcastChange() {
+    if (this.sseEventBus) {
+      try {
+        this.sseEventBus.broadcast('bot-status-changed', { timestamp: Date.now() });
+      } catch (e) {}
+    }
   }
 
   async getFiles(req, res, sendJson) {
@@ -26,6 +35,7 @@ class FileController {
     try {
       const body = await parseJsonBody(req);
       const saved = this.fileProfileService.saveFile(body);
+      this.broadcastChange();
       return sendJson(res, 200, {
         success: true,
         message: `Đã lưu File [${saved.name}] thành công!`,
@@ -43,6 +53,7 @@ class FileController {
         return sendJson(res, 400, { success: false, message: 'Thiếu ID File!' });
       }
       this.fileProfileService.deleteFile(body.id);
+      this.broadcastChange();
       return sendJson(res, 200, { success: true, message: 'Đã xóa File thành công.' });
     } catch (err) {
       return sendJson(res, 400, { success: false, message: err.message });
@@ -56,6 +67,7 @@ class FileController {
         return sendJson(res, 400, { success: false, message: 'Thiếu ID File!' });
       }
       const switched = this.fileProfileService.switchFile(body.id);
+      this.broadcastChange();
       return sendJson(res, 200, {
         success: true,
         message: `Đã chuyển sang [${switched.name}]!`,

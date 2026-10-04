@@ -239,8 +239,27 @@ function App() {
 
     connectSSE();
 
+    // Periodic synchronization fallback (ensures mobile browsers stay 100% in sync with desktop)
+    const syncInterval = setInterval(() => {
+      fetchStatus();
+      fetchAccounts();
+    }, 5000);
+
+    const onVisibilityChange = () => {
+      if (document.visibilityState === 'visible') {
+        fetchStatus();
+        fetchAccounts();
+        fetchProxies();
+        fetchFiles();
+        fetchLogs();
+      }
+    };
+    document.addEventListener('visibilitychange', onVisibilityChange);
+
     return () => {
       if (sseRef.current) sseRef.current.close();
+      clearInterval(syncInterval);
+      document.removeEventListener('visibilitychange', onVisibilityChange);
     };
   }, [fetchStatus, fetchFiles, fetchProxies, fetchAccounts, fetchLogs, fetchJars]);
 

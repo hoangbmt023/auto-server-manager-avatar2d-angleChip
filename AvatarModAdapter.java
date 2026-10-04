@@ -377,6 +377,10 @@ public class AvatarModAdapter {
 
     // =========================================================================
     // 3. TRÍCH XUẤT THÔNG SỐ TÀI KHOẢN (PLAYER STATS)
+    private static long lastKnownCoins = 0;
+    private static int lastKnownGold = 0;
+    private static int lastKnownLockedGold = 0;
+
     // =========================================================================
 
     public static PlayerStats extractPlayerStats() {
@@ -423,14 +427,22 @@ public class AvatarModAdapter {
                                 int[] moneyArr = (int[]) f.get(playerObj);
                                 if (moneyArr != null && moneyArr.length > 0) {
                                     stats.coins = moneyArr[0];
-                                    if (moneyArr.length > 1 && moneyArr[1] > 0) stats.gold = moneyArr[1];
-                                    if (moneyArr.length > 2 && moneyArr[2] > 0) stats.gold = moneyArr[2];
+                                    if (stats.coins > 0) lastKnownCoins = stats.coins;
+                                    if (moneyArr.length > 1 && moneyArr[1] > 0) {
+                                        stats.gold = moneyArr[1];
+                                        lastKnownGold = stats.gold;
+                                    }
+                                    if (moneyArr.length > 2 && moneyArr[2] > 0) {
+                                        stats.gold = moneyArr[2];
+                                        lastKnownGold = stats.gold;
+                                    }
                                 }
                             }
 
                             // Lượng khóa (int)
                             if (!isStatic && f.getName().equals(schema.playerLockedGoldField) && f.getType().equals(int.class)) {
                                 stats.lockedGold = f.getInt(playerObj);
+                                if (stats.lockedGold > 0) lastKnownLockedGold = stats.lockedGold;
                             }
 
                             // Tên nhân vật (String)
@@ -453,6 +465,10 @@ public class AvatarModAdapter {
                 }
             }
         } catch (Throwable ignored) {}
+
+        if (stats.coins == 0 && lastKnownCoins > 0) stats.coins = lastKnownCoins;
+        if (stats.gold == 0 && lastKnownGold > 0) stats.gold = lastKnownGold;
+        if (stats.lockedGold == 0 && lastKnownLockedGold > 0) stats.lockedGold = lastKnownLockedGold;
 
         // 3.2. Thông số Up Thuê
         try {
@@ -1209,6 +1225,14 @@ public class AvatarModAdapter {
                 System.out.println("[AUTO_STATUS]: {\"isRunning\":true,\"autoType\":\"farm\",\"status\":\"running\",\"message\":\"Đang chạy Auto Farm...\"}");
                 return true;
             } else if ("diamond".equalsIgnoreCase(autoType) || "kc".equalsIgnoreCase(autoType)) {
+                // 1. Thử gọi lệnh chat native của Mod "kc" (giống hệt người chơi gõ phím 'kc' trong game)
+                boolean triggeredViaCmd = false;
+                try {
+                    Method cmdMethod = taskCtrlCls.getMethod("do", String.class);
+                    Object res = cmdMethod.invoke(null, "kc");
+                    triggeredViaCmd = (res instanceof Boolean) ? ((Boolean) res).booleanValue() : true;
+                } catch (Throwable ignored) {}
+
                 Class<?> diamCls = cl.loadClass(schema.diamondClassName);
                 taskObj = null;
                 try {
@@ -1216,30 +1240,63 @@ public class AvatarModAdapter {
                     taskObj = getInst.invoke(null);
                 } catch (Throwable ignored) {}
                 if (taskObj == null) {
-                    taskObj = diamCls.newInstance();
+                    try { taskObj = diamCls.newInstance(); } catch (Throwable ignored) {}
                 }
 
-                // Khởi tạo phương thức reset/init của Mod (void_do() / do() trong X)
-                try {
-                    Method initM = diamCls.getMethod("do");
-                    initM.invoke(taskObj);
-                } catch (Throwable ignored) {}
+                if (taskObj != null) {
+                    // Khởi tạo phương thức void do() hoặc new() của task kim cương
+                    for (Method m : diamCls.getDeclaredMethods()) {
+                        if (m.getParameterCount() == 0 && m.getReturnType().equals(void.class) && 
+                            (m.getName().equals("do") || m.getName().equals("new"))) {
+                            try {
+                                m.setAccessible(true);
+                                m.invoke(taskObj);
+                                break;
+                            } catch (Throwable ignored) {}
+                        }
+                    }
 
-                // Đặt thời gian hẹn giờ về farm (soXu = now + intervalMs) để không bị lập tức nhảy về nông trại
-                long intervalMs = 60 * 60000L;
+                    // QUAN TRỌNG: Cập nhật biến watchdog int:J (tránh mod hiểu nhầm bị đứng 10 phút rồi gọi aQ.void() đăng xuất!)
+                    try {
+                        Field intF = taskObj.getClass().getField("int");
+                        intF.setAccessible(true);
+                        intF.setLong(taskObj, System.currentTimeMillis());
+                    } catch (Throwable t) {
+                        try {
+                            Field intF = taskObj.getClass().getSuperclass().getDeclaredField("int");
+                            intF.setAccessible(true);
+                            intF.setLong(taskObj, System.currentTimeMillis());
+                        } catch (Throwable ignored) {}
+                    }
+
+                    // Đặt thời gian hẹn giờ về farm (soXu = now + intervalMs) để không bị lập tức nhảy về nông trại
+                    long intervalMs = 60 * 60000L;
+                    try {
+                        Integer minsObj = (Integer) getStaticField(diamCls, schema.diamondIntervalField, int.class);
+                        if (minsObj != null && minsObj.intValue() > 0) {
+                            intervalMs = (long) minsObj.intValue() * 60000L;
+                        }
+                    } catch (Throwable ignored) {}
+
+                    setField(taskObj, schema.diamondTargetMsField, intervalMs, long.class);
+                    setField(taskObj, schema.diamondAbsTargetMsField, System.currentTimeMillis() + intervalMs, long.class);
+
+                    if (!triggeredViaCmd) {
+                        Method doMethod = taskCtrlCls.getMethod(schema.taskStartMethod, taskArgCls);
+                        doMethod.invoke(null, taskObj);
+                    }
+                }
+
+                // Đảm bảo thread worker của taskController đang chạy
                 try {
-                    Integer minsObj = (Integer) getStaticField(diamCls, schema.diamondIntervalField, int.class);
-                    if (minsObj != null && minsObj.intValue() > 0) {
-                        intervalMs = (long) minsObj.intValue() * 60000L;
+                    Object ctrlInst = getStaticField(taskCtrlCls, "do", taskCtrlCls);
+                    if (ctrlInst != null) {
+                        Method startRunner = taskCtrlCls.getMethod("do");
+                        startRunner.invoke(ctrlInst);
                     }
                 } catch (Throwable ignored) {}
 
-                setField(taskObj, schema.diamondTargetMsField, intervalMs, long.class);
-                setField(taskObj, schema.diamondAbsTargetMsField, System.currentTimeMillis() + intervalMs, long.class);
-
-                Method doMethod = taskCtrlCls.getMethod(schema.taskStartMethod, taskArgCls);
-                doMethod.invoke(null, taskObj);
-                System.out.println("💎 [BẬT AUTO KIM CƯƠNG]: Đã kích hoạt Auto Đào Kim Cương [" + schema.name + "] (Hẹn về farm: " + (intervalMs / 60000) + " phút)!");
+                System.out.println("💎 [BẬT AUTO KIM CƯƠNG]: Đã kích hoạt Auto Đào Kim Cương [" + schema.name + "]!");
                 System.out.println("[AUTO_STATUS]: {\"isRunning\":true,\"autoType\":\"diamond\",\"status\":\"running\",\"message\":\"Đang chạy Auto Đào Kim Cương...\"}");
                 return true;
             } else if ("fish".equalsIgnoreCase(autoType) || "cau_ca".equalsIgnoreCase(autoType) || "cc".equalsIgnoreCase(autoType)) {
