@@ -273,7 +273,6 @@ public class AvatarHeadlessLauncher {
                     boolean initialSetupApplied = false;
                     boolean isCurrentlyOnline = false;
                     AvatarModAdapter.AutoTaskInfo lastAutoTask = null;
-                    String lastHandledDialog = "";
 
                     // Vòng lặp giám sát liên tục 24/7
                     while (true) {
@@ -299,9 +298,9 @@ public class AvatarHeadlessLauncher {
 
                         // 2.1. Kiểm tra thông báo từ Server / Mod (Popup Dialog)
                         String currentDialog = AvatarModAdapter.checkActiveGameDialog();
-                        if (currentDialog != null && !currentDialog.trim().isEmpty() && !currentDialog.equals(lastHandledDialog)) {
-                            lastHandledDialog = currentDialog;
-                            System.out.println("[THÔNG BÁO TỪ GAME]: " + currentDialog);
+                        if (currentDialog != null && !currentDialog.trim().isEmpty()) {
+                            // In toàn bộ thông báo Popup ra log để hiển thị trực tiếp lên web
+                            System.out.println("💬 [POPUP GAME]: " + currentDialog);
 
                             String lower = currentDialog.toLowerCase();
 
@@ -336,111 +335,55 @@ public class AvatarHeadlessLauncher {
                                 continue;
                             }
 
-                            // 3. Server bảo trì
-                            if (lower.contains("bảo trì") || lower.contains("máy chủ bảo trì") || lower.contains("đang bảo trì")) {
-                                isCurrentlyOnline = false;
-                                System.out.println("🛠️ [SERVER BẢO TRÌ]: " + currentDialog);
-                                System.out.println("[ACCOUNT_STATUS]: {\"state\":\"maintenance\",\"message\":\"" + currentDialog + "\",\"isMaintenance\":true}");
-                                Thread.sleep(30000);
-                                lastLoginAttemptTime = System.currentTimeMillis();
-                                AvatarModAdapter.login(customUser, customPass, finalServerId, finalServerName);
-                                continue;
-                            }
-
-                            // 4. Tài khoản đang online ở nơi khác / Có người đăng nhập
-                            if (lower.contains("nơi khác") || lower.contains("khác đăng nhập") || lower.contains("đang online") || 
-                                lower.contains("máy khác") || lower.contains("người đăng nhập")) {
-                                isCurrentlyOnline = false;
-                                System.out.println("🔄 [TÀI KHOẢN ĐĂNG NHẬP NƠI KHÁC]: " + currentDialog);
-                                System.out.println("[ACCOUNT_STATUS]: {\"state\":\"other_login\",\"message\":\"" + currentDialog + "\"}");
+                            // 3. Popup có chữ Thoát lúc khởi động -> Bấm Thoát, kiểm tra xem file có mất/hỏng không
+                            if (!isCurrentlyOnline && lower.contains("thoát") && !lower.contains("đối thủ") && !lower.contains("bỏ cuộc") && !lower.contains("để sau")) {
+                                System.err.println("⚠️ [PHÁT HIỆN POPUP CÓ NÚT THOÁT]: \"" + currentDialog + "\" -> Bấm Thoát & Kiểm tra file game...");
                                 AvatarModAdapter.dismissCurrentDialog();
-                                Thread.sleep(15000);
-                                lastHandledDialog = "";
-                                lastLoginAttemptTime = System.currentTimeMillis();
-                                AvatarModAdapter.login(customUser, customPass, finalServerId, finalServerName);
+                                checkAndRestoreGameJar(activeJarPath);
+                                Thread.sleep(1500);
+                                System.exit(1);
+                                return;
+                            }
+
+                            // 4. Các thông báo nạp game bình thường (đang lấy dữ liệu nông trại, đang tải, xin chờ...) -> Bỏ qua, chờ game nạp xong
+                            if (lower.contains("đang lấy dữ liệu") || lower.contains("đang kết nối") || lower.contains("đang tải") || lower.contains("xin chờ")) {
                                 continue;
                             }
 
-                            // 4.1. Đang đăng nhập quá nhanh / Thao tác quá nhanh
-                            if (lower.contains("quá nhanh") || lower.contains("thao tác nhanh") || lower.contains("chờ giây lát") || lower.contains("thử lại sau")) {
-                                isCurrentlyOnline = false;
-                                System.out.println("⏳ [CHỜ GIÂY LÁT VÌ QUÁ NHANH]: " + currentDialog);
-                                System.out.println("[ACCOUNT_STATUS]: {\"state\":\"rate_limited\",\"message\":\"" + currentDialog + "\"}");
-                                AvatarModAdapter.dismissCurrentDialog();
-                                Thread.sleep(20000);
-                                lastHandledDialog = "";
-                                lastLoginAttemptTime = System.currentTimeMillis();
-                                AvatarModAdapter.login(customUser, customPass, finalServerId, finalServerName);
-                                continue;
-                            }
-
-                            // 4.2. Mất kết nối từ game / Server đóng kết nối
-                            if (lower.contains("mất kết nối") || lower.contains("kết nối thất bại") || lower.contains("mạng game bị ngắt")) {
-                                isCurrentlyOnline = false;
-                                System.out.println("⚠️ [MẤT KẾT NỐI TỪ GAME]: " + currentDialog);
-                                System.out.println("[ACCOUNT_STATUS]: {\"state\":\"disconnected\",\"message\":\"" + currentDialog + "\"}");
-                                AvatarModAdapter.dismissCurrentDialog();
-                                Thread.sleep(10000);
-                                lastHandledDialog = "";
-                                lastLoginAttemptTime = System.currentTimeMillis();
-                                AvatarModAdapter.login(customUser, customPass, finalServerId, finalServerName);
-                                continue;
-                            }
-
-                            // 5. TOÀN BỘ CÁC POPUP NGOÀI MÀN HÌNH LOGIN
-                            if (!isCurrentlyOnline) {
-                                // Các thông báo nạp game bình thường (đang lấy dữ liệu nông trại, đang tải, xin chờ...) -> Bỏ qua, chờ game nạp xong
-                                if (lower.contains("đang lấy dữ liệu") || lower.contains("đang kết nối") || lower.contains("đang tải") || lower.contains("xin chờ")) {
-                                    continue;
-                                }
-
-                                // Nếu là Popup có chữ Thoát -> Bấm Thoát, kiểm tra xem file có mất/hỏng không, nếu mất thì nạp lại rồi restart
-                                if (lower.contains("thoát") && !lower.contains("đối thủ") && !lower.contains("bỏ cuộc") && !lower.contains("để sau")) {
-                                    System.err.println("⚠️ [PHÁT HIỆN POPUP CÓ NÚT THOÁT]: \"" + currentDialog + "\" -> Bấm Thoát & Kiểm tra file game...");
-                                    AvatarModAdapter.dismissCurrentDialog();
-                                    checkAndRestoreGameJar(activeJarPath);
-                                    Thread.sleep(1500);
-                                    System.exit(1);
-                                    return;
-                                }
-
-                                // Các popup thông báo khác ở login (Captcha, Bản cập nhật, Để sau, Thông báo,...) -> Tự động bỏ qua và tiếp tục đăng nhập
-                                System.out.println("ℹ️ [TỰ ĐỘNG BỎ QUA POPUP LOGIN]: \"" + currentDialog + "\" -> Đóng thông báo và tiếp tục...");
-                                AvatarModAdapter.selectDialogOptionLeftAndConfirm();
-                                Thread.sleep(1000);
-                                AvatarModAdapter.login(customUser, customPass, finalServerId, finalServerName);
-                                continue;
-                            }
-
-                            // 6. Các Popup thông báo thường khi đã vào trong game -> Tự bấm OK/Đóng
-                            AvatarModAdapter.dismissCurrentDialog();
-                        }
-
-                        // 2.2. Kiểm tra trạng thái người chơi & kết nối mạng
-                        MIDlet activeMidlet = MIDletBridge.getCurrentMIDlet();
-                        Object ef = AvatarModAdapter.getActivePlayerInstance(activeMidlet != null ? activeMidlet.getClass().getClassLoader() : null);
-                        boolean connected = AvatarModAdapter.isNetworkConnected();
-                        long now = System.currentTimeMillis();
-                        AvatarModAdapter.AutoTaskInfo currentTask = AvatarModAdapter.getActiveAutoTask();
-                        boolean isAutoRunning = (currentTask != null && currentTask.taskInstance != null);
-
-                        // 2.2.0. Phát hiện nhân vật bị ĐĂNG XUẤT hoặc MẤT KẾT NỐI (khi trước đó đang online nhưng nay ef == null)
-                        if (isCurrentlyOnline && ef == null) {
+                            // 5. TOÀN BỘ CÁC POPUP KHÁC (Nơi khác đăng nhập, Quá nhanh, Mất kết nối, Bảo trì, v.v.):
+                            // Đóng popup, chờ đúng 15 giây và tự động kết nối lại. Nếu 15s sau vẫn chưa vào được thì lặp lại tiếp!
                             isCurrentlyOnline = false;
-                            System.out.println("⚠️ [ĐĂNG XUẤT]: Game đã đóng phiên hoặc tài khoản bị đăng xuất!");
-                            System.out.println("[ACCOUNT_STATUS]: {\"state\":\"disconnected\",\"message\":\"Đã đăng xuất / Mất kết nối, đang đăng nhập lại...\"}");
+                            System.out.println("[ACCOUNT_STATUS]: {\"state\":\"disconnected\",\"message\":\"" + currentDialog + " (Thử lại sau 15s)...\"}");
                             AvatarModAdapter.dismissCurrentDialog();
-                            Thread.sleep(8000);
-                            lastHandledDialog = "";
+                            Thread.sleep(15000);
                             lastLoginAttemptTime = System.currentTimeMillis();
                             System.out.println("🔄 [TỰ ĐỘNG ĐĂNG NHẬP LẠI]: Đang kết nối lại máy chủ...");
                             AvatarModAdapter.login(customUser, customPass, finalServerId, finalServerName);
                             continue;
                         }
 
-                        // 2.2.1. Phục hồi khi đang ở trạng thái ngắt kết nối (kể cả khi chưa bật auto)
-                        // Nếu ef == null và đã quá 15 giây kể từ lần thử đăng nhập gần nhất
-                        if (ef == null && (now - lastLoginAttemptTime > 15000L)) {
+                        // 2.2. Kiểm tra trạng thái người chơi & kết nối mạng socket
+                        MIDlet activeMidlet = MIDletBridge.getCurrentMIDlet();
+                        Object ef = AvatarModAdapter.getActivePlayerInstance(activeMidlet != null ? activeMidlet.getClass().getClassLoader() : null);
+                        boolean connected = AvatarModAdapter.isNetworkConnected();
+                        long now = System.currentTimeMillis();
+
+                        // 2.2.0. Phát hiện nhân vật bị ĐĂNG XUẤT hoặc ĐÓNG SOCKET MẤT KẾT NỐI
+                        if (isCurrentlyOnline && (ef == null || !connected)) {
+                            isCurrentlyOnline = false;
+                            System.out.println("⚠️ [ĐÓNG SOCKET / MẤT KẾT NỐI]: Socket đã đóng hoặc mất kết nối máy chủ!");
+                            System.out.println("[ACCOUNT_STATUS]: {\"state\":\"disconnected\",\"message\":\"Mất kết nối / Đóng socket, đang đăng nhập lại sau 15s...\"}");
+                            AvatarModAdapter.dismissCurrentDialog();
+                            Thread.sleep(15000);
+                            lastLoginAttemptTime = System.currentTimeMillis();
+                            System.out.println("🔄 [TỰ ĐỘNG ĐĂNG NHẬP LẠI]: Đang kết nối lại máy chủ...");
+                            AvatarModAdapter.login(customUser, customPass, finalServerId, finalServerName);
+                            continue;
+                        }
+
+                        // 2.2.1. Đang ở ngoài màn hình game (chưa online, ef == null hoặc !connected)
+                        // Nếu sau 15 giây kể từ lần thử đăng nhập gần nhất mà vẫn chưa vào được game:
+                        if ((ef == null || !connected) && (now - lastLoginAttemptTime > 15000L)) {
                             // Trước khi cố kết nối lại, kiểm tra xem có phải bot đã hoàn thành mục tiêu không!
                             if (AvatarModAdapter.isTargetReached()) {
                                 isCurrentlyOnline = false;
@@ -454,12 +397,12 @@ public class AvatarHeadlessLauncher {
                             }
 
                             isCurrentlyOnline = false;
-                            System.out.println("⚠️ [MẤT KẾT NỐI / CHƯA ĐĂNG NHẬP]: Tự động kết nối lại sau 15 giây...");
-                            System.out.println("[ACCOUNT_STATUS]: {\"state\":\"disconnected\",\"message\":\"Đang kết nối lại máy chủ...\"}");
+                            System.out.println("⚠️ [CHƯA VÀO ĐƯỢC GAME]: Tự động kết nối lại sau 15 giây...");
+                            System.out.println("[ACCOUNT_STATUS]: {\"state\":\"disconnected\",\"message\":\"Đang kết nối lại máy chủ sau 15s...\"}");
                             AvatarModAdapter.dismissCurrentDialog();
                             Thread.sleep(15000);
-                            lastHandledDialog = "";
                             lastLoginAttemptTime = System.currentTimeMillis();
+                            System.out.println("🔄 [TỰ ĐỘNG ĐĂNG NHẬP LẠI]: Đang kết nối lại máy chủ...");
                             AvatarModAdapter.login(customUser, customPass, finalServerId, finalServerName);
                             continue;
                         }
