@@ -229,7 +229,7 @@ public class AvatarModAdapter {
             }
         }
 
-        // 3. Fallback kiểm tra qua Network class (nếu reflective call khả dụng và không bị lỗi classloader)
+        // 3. Fallback kiểm tra qua Network class
         ModSchema schema = getCurrentSchema();
         try {
             Class<?> netCls = cl.loadClass(schema.networkClassName);
@@ -250,8 +250,8 @@ public class AvatarModAdapter {
             }
         } catch (Throwable ignored) {}
 
-        // Nếu không có popup lỗi mạng, coi như socket vẫn đang duy trì
-        return true;
+        // Nếu không có player và không có kết nối socket xác thực -> Chưa kết nối
+        return false;
     }
 
     public static String checkActiveGameDialog() {
@@ -262,51 +262,19 @@ public class AvatarModAdapter {
 
         try {
             Class<?> containerCls = cl.loadClass(schema.dialogContainerClass);
-            Class<?> dialogCls = cl.loadClass(schema.dialogClass);
 
+            // 1. Kiểm tra đối tượng active dialog trong container
+            // Trong Up Xu (br.class): public static bt do là con trỏ dialog đang mở (h extends bt).
+            // Trong Fish (bx.class): public static dJ do là con trỏ dialog đang mở (s extends dJ).
+            // Khi không có dialog, con trỏ này bằng null! Khi có dialog, đọc trường String từ dialog đó.
             for (Field f : containerCls.getDeclaredFields()) {
-                if (f.getType().equals(dialogCls)) {
+                if (java.lang.reflect.Modifier.isStatic(f.getModifiers())) {
                     f.setAccessible(true);
                     Object dObj = f.get(null);
                     if (dObj != null) {
-                        // Kiểm tra trạng thái hiển thị
-                        for (Field sf : dialogCls.getDeclaredFields()) {
-                            if (sf.getType().equals(boolean.class)) {
-                                sf.setAccessible(true);
-                                if (sf.getBoolean(dObj)) {
-                                    for (Field msgF : dialogCls.getDeclaredFields()) {
-                                        if (msgF.getType().equals(String.class)) {
-                                            msgF.setAccessible(true);
-                                            String msg = (String) msgF.get(dObj);
-                                            if (msg != null && !msg.trim().isEmpty() && msg.length() > 2) {
-                                                return msg.trim();
-                                            }
-                                        }
-                                    }
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-
-            // Kiểm tra Alert Dialog phụ nếu có (như fA trong Mod Fish)
-            if (schema.alertDialogClass != null) {
-                Class<?> alertCls = cl.loadClass(schema.alertDialogClass);
-                for (Field f : containerCls.getDeclaredFields()) {
-                    if (f.getType().equals(alertCls)) {
-                        f.setAccessible(true);
-                        Object alertObj = f.get(null);
-                        if (alertObj != null) {
-                            for (Field af : alertCls.getDeclaredFields()) {
-                                if (af.getType().equals(String.class)) {
-                                    af.setAccessible(true);
-                                    String msg = (String) af.get(alertObj);
-                                    if (msg != null && !msg.trim().isEmpty() && msg.length() > 2) {
-                                        return msg.trim();
-                                    }
-                                }
-                            }
+                        String msg = extractDialogText(dObj);
+                        if (msg != null && !msg.trim().isEmpty() && msg.length() > 2) {
+                            return msg.trim();
                         }
                     }
                 }
@@ -316,8 +284,30 @@ public class AvatarModAdapter {
         return null;
     }
 
+    private static String extractDialogText(Object obj) {
+        if (obj == null) return null;
+        Class<?> cls = obj.getClass();
+        while (cls != null && !cls.equals(Object.class)) {
+            for (Field f : cls.getDeclaredFields()) {
+                if (f.getType().equals(String.class)) {
+                    try {
+                        f.setAccessible(true);
+                        String s = (String) f.get(obj);
+                        if (s != null && !s.trim().isEmpty() && s.length() > 2) {
+                            if (!s.startsWith("http") && !s.endsWith(".png") && !s.endsWith(".av") && !s.endsWith(".on")) {
+                                return s.trim();
+                            }
+                        }
+                    } catch (Throwable ignored) {}
+                }
+            }
+            cls = cls.getSuperclass();
+        }
+        return null;
+    }
+
     public static void dismissStartupPopups() {
-        selectDialogOptionLeftAndConfirm();
+        dismissCurrentDialog();
     }
 
     public static void selectDialogOptionLeftAndConfirm() {
@@ -372,6 +362,17 @@ public class AvatarModAdapter {
     }
 
     public static void dismissCurrentDialog() {
+        ClassLoader cl = getClassLoader();
+        if (cl != null) {
+            ModSchema schema = getCurrentSchema();
+            if (schema.dialogContainerClass != null) {
+                try {
+                    Class<?> containerCls = cl.loadClass(schema.dialogContainerClass);
+                    Method caseM = containerCls.getMethod("case");
+                    caseM.invoke(null);
+                } catch (Throwable ignored) {}
+            }
+        }
         selectDialogOptionLeftAndConfirm();
     }
 
