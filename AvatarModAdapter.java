@@ -408,7 +408,10 @@ public class AvatarModAdapter {
     }
 
     public static void dismissStartupPopups() {
-        dismissCurrentDialog();
+        String activeDlg = checkActiveGameDialog();
+        if (activeDlg != null && !activeDlg.trim().isEmpty()) {
+            dismissCurrentDialog();
+        }
     }
 
     public static void selectDialogOptionLeftAndConfirm() {
@@ -448,8 +451,8 @@ public class AvatarModAdapter {
 
                         try { Thread.sleep(80); } catch (Throwable ignored) {}
 
-                        // 2. Nhấn xác nhận (Center key -5, Left Softkey -6, Enter 10, Phím 5 53)
-                        int[] confirmKeys = new int[] { -5, -6, 10, 53 };
+                        // 2. Nhấn xác nhận (Center key -5, Left Softkey -6, Enter 10)
+                        int[] confirmKeys = new int[] { -5, -6, 10 };
                         for (int k : confirmKeys) {
                             try {
                                 kp.invoke(inst, k);
@@ -730,6 +733,18 @@ public class AvatarModAdapter {
         try {
             if (schema.farmClassName != null && !schema.farmClassName.isEmpty()) {
                 Class<?> farmCls = cl.loadClass(schema.farmClassName);
+
+                // 0. Kiểm tra an toàn: nếu mảng ô đất nông sản trong RAM chưa nạp (chưa vào farm lần nào) -> bỏ qua
+                try {
+                    Class<?> bFCls = cl.loadClass("bF");
+                    Field intF = bFCls.getDeclaredField("int");
+                    intF.setAccessible(true);
+                    Object plots = intF.get(null);
+                    if (plots == null) {
+                        return false;
+                    }
+                } catch (Throwable ignored) {}
+
                 // 1. Kiểm tra thời gian còn lại của cây trồng trong RAM (hàm static long do() của aC / bq)
                 long remainingCropMs = -1L;
                 try {
@@ -762,14 +777,10 @@ public class AvatarModAdapter {
                     System.out.println("🌾 [FARM THÔNG MINH]: Cây trồng trong farm sẽ chín sau " + mins + " phút (" + (remainingCropMs / 1000) + "s). Đã tự động hẹn giờ về thu hoạch đúng giờ!");
                 } else if (remainingCropMs == 0) {
                     System.out.println("🌾 [FARM THÔNG MINH]: Nông sản đã chín! Đang hẹn giờ về thu hoạch ngay...");
-                } else {
-                    System.out.println("🌾 [FARM THÔNG MINH]: Chưa có dữ liệu nông trại trong RAM (chưa vào farm lần nào sau khi login). Bot sẽ về farm sau chu kỳ lần đầu để nạp dữ liệu và tự động canh giờ chín cho các vụ sau.");
                 }
                 return true;
             }
-        } catch (Throwable t) {
-            System.err.println("[SMART FARM TIMER ERR]: " + t.getMessage());
-        }
+        } catch (Throwable ignored) {}
         return false;
     }
 
