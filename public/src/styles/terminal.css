@@ -4,13 +4,13 @@
 
 .console-card {
   background: var(--bg-card);
-  backdrop-filter: blur(14px);
   border: 1px solid var(--border-color);
   border-radius: var(--radius-md);
   overflow: hidden;
   box-shadow: 0 12px 36px rgba(0, 0, 0, 0.45);
   display: flex;
   flex-direction: column;
+  isolation: isolate;
 }
 
 .console-header {
@@ -88,18 +88,22 @@
   font-family: 'JetBrains Mono', Consolas, Monaco, monospace;
   font-size: 0.84rem;
   line-height: 1.6;
+  transform: translateZ(0);
+  will-change: scroll-position;
+  contain: content;
+  -webkit-overflow-scrolling: touch;
 }
 
 .log-list {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
+  display: block;
 }
 
 .log-item {
   display: flex;
   gap: 10px;
   word-break: break-all;
+  margin-bottom: 4px;
+  min-height: 22px;
 }
 
 .log-time {
@@ -112,13 +116,64 @@
 
 .log-msg {
   color: var(--terminal-text);
+  flex: 1;
 }
 
-.log-item.log-system .log-msg { color: #60a5fa; }
-.log-item.log-warn .log-msg { color: #fbbf24; }
-.log-item.log-err .log-msg { color: #f87171; }
-.log-item.log-info .log-msg { color: #34d399; }
-.log-item.log-out .log-msg { color: #e2e8f0; }
+.log-user-badge {
+  color: #38bdf8;
+  font-weight: 600;
+  margin-right: 4px;
+}
+
+/* Feature & Status Log Color Palette */
+.log-item.log-error .log-msg,
+.log-item.log-err .log-msg {
+  color: #f87171;
+  font-weight: 500;
+}
+
+.log-item.log-warn .log-msg {
+  color: #fbbf24;
+}
+
+.log-item.log-success .log-msg {
+  color: #34d399;
+  font-weight: 500;
+}
+
+.log-item.log-info .log-msg {
+  color: #38bdf8;
+}
+
+.log-item.log-popup .log-msg {
+  color: #c084fc;
+  font-weight: 500;
+}
+
+.log-item.log-retry .log-msg {
+  color: #fde047;
+}
+
+.log-item.log-farm .log-msg {
+  color: #a3e635;
+}
+
+.log-item.log-diamond .log-msg {
+  color: #f472b6;
+}
+
+.log-item.log-fish .log-msg {
+  color: #22d3ee;
+}
+
+.log-item.log-system .log-msg {
+  color: #818cf8;
+}
+
+.log-item.log-out .log-msg,
+.log-item.log-stdout .log-msg {
+  color: #cbd5e1;
+}
 
 .console-footer {
   display: flex;

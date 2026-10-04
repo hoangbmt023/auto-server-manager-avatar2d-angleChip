@@ -247,7 +247,7 @@ body {
   flex-direction: column;
   gap: 10px;
   padding: 16px 20px;
-  margin-bottom: 20px;
+  margin: 0;
   border-radius: var(--radius-md);
 }
 

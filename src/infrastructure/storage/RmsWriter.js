@@ -164,10 +164,11 @@ class RmsWriter {
         payload.writeInt8(diamondSettings.sellOreOnFull !== false ? 1 : 0, offset++);
         payload.writeInt8(diamondSettings.autoDropKcx ? 1 : 0, offset++);
         payload.writeInt8(diamondSettings.autoDropNhb ? 1 : 0, offset++);
-        payload.writeInt8(diamondSettings.autoFarm !== false ? 1 : 0, offset++);
+        const autoFarm = diamondSettings.autoFarm !== false ? 1 : 0;
+        payload.writeInt8(autoFarm, offset++);
         payload.writeInt32BE(Math.max(1, parseInt(diamondSettings.farmIntervalMinutes, 10) || 60), offset);
         offset += 4;
-        payload.writeInt8(diamondSettings.harvestOnTime !== false ? 1 : 0, offset++);
+        payload.writeInt8(autoFarm && diamondSettings.harvestOnTime !== false ? 1 : 0, offset++);
         payload.writeInt8(parseInt(diamondSettings.priorityOrder, 10) >= 0 ? parseInt(diamondSettings.priorityOrder, 10) : 6, offset++);
 
         const dBuf1 = this.buildRecordStore('DiamondSettings', payload);
@@ -294,7 +295,7 @@ class RmsWriter {
       const backToFarm = fishSettings.backToFarm !== false ? 1 : 0;
       const farmIntervalMinutes = Math.max(1, parseInt(fishSettings.farmIntervalMinutes, 10) || 30);
       const sellKcxThreshold = Math.max(1, parseInt(fishSettings.sellKcxThreshold, 10) || 5);
-      const harvestOnTime = fishSettings.harvestOnTime !== false ? 1 : 0;
+      const harvestOnTime = (backToFarm && fishSettings.harvestOnTime !== false) ? 1 : 0;
 
       const encUtf = (str) => {
         const b = Buffer.from(str, 'utf-8');

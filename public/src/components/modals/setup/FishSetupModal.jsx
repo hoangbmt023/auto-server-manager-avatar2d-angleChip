@@ -47,15 +47,16 @@ window.FishSetupModal = function FishSetupModal({
     if (e) e.preventDefault();
     try {
       setIsSubmitting(true);
+      const isBackToFarm = Boolean(fishState.backToFarm);
       const payload = {
         fishSettings: {
           mapType: parseInt(fishState.mapType, 10) || 0,
           rodType: parseInt(fishState.rodType, 10) || 0,
           sellFishType: parseInt(fishState.sellFishType, 10) || 0,
           autoBuyTicket: Boolean(fishState.autoBuyTicket),
-          backToFarm: Boolean(fishState.backToFarm),
+          backToFarm: isBackToFarm,
           farmIntervalMinutes: Math.max(1, parseInt(fishState.farmIntervalMinutes, 10) || 30),
-          harvestOnTime: Boolean(fishState.harvestOnTime),
+          harvestOnTime: isBackToFarm ? Boolean(fishState.harvestOnTime) : false,
           sellKcx: Boolean(fishState.sellKcx),
           sellKcxThreshold: Math.max(1, parseInt(fishState.sellKcxThreshold, 10) || 5),
           excludeFish: String(fishState.excludeFish || '').trim()
@@ -287,7 +288,14 @@ window.FishSetupModal = function FishSetupModal({
                   <input
                     type="checkbox"
                     checked={fishState.backToFarm}
-                    onChange={(e) => setFishState({ ...fishState, backToFarm: e.target.checked })}
+                    onChange={(e) => {
+                      const isChecked = e.target.checked;
+                      setFishState({
+                        ...fishState,
+                        backToFarm: isChecked,
+                        harvestOnTime: isChecked ? fishState.harvestOnTime : false
+                      });
+                    }}
                   />
                   <span>🌾 <strong>Tự về chăm farm</strong></span>
                 </label>
