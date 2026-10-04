@@ -259,7 +259,7 @@ public class AvatarModAdapter {
         if (cl == null) return null;
 
         ModSchema schema = getCurrentSchema();
-        String targetDialogCls = (schema.dialogClass != null && !schema.dialogClass.isEmpty()) ? schema.dialogClass : "h";
+        String pointerType = (schema.dialogPointerType != null && !schema.dialogPointerType.isEmpty()) ? schema.dialogPointerType : "bt";
 
         try {
             Class<?> containerCls = cl.loadClass(schema.dialogContainerClass);
@@ -267,23 +267,22 @@ public class AvatarModAdapter {
             // 1. Kiểm tra đối tượng active dialog trong container
             // Trong Up Xu (br.class): public static bt do là con trỏ dialog đang mở (h extends bt).
             // Trong Fish (bx.class): public static dJ do là con trỏ dialog đang mở (s extends dJ).
-            // Khi không có dialog, con trỏ này bằng null! Khi có dialog, đọc trường String từ dialog đó.
+            // CHÚ Ý: Biến h do và s do là instance tái sử dụng (luôn != null và giữ nội dung cũ).
+            // CHỈ DUY NHẤT biến kiểu bt (hoặc dJ) là con trỏ dialog thực: khi đóng = null, khi mở != null!
             for (Field f : containerCls.getDeclaredFields()) {
                 if (java.lang.reflect.Modifier.isStatic(f.getModifiers())) {
-                    f.setAccessible(true);
-                    Object dObj = f.get(null);
-                    if (dObj != null) {
-                        String cName = dObj.getClass().getSimpleName();
-                        String sName = (dObj.getClass().getSuperclass() != null) ? dObj.getClass().getSuperclass().getSimpleName() : "";
-
-                        // CHỈ CHẤP NHẬN ĐỐI TƯỢNG DIALOG THẬT SỰ (h extends bt, hoặc s extends dJ)
-                        // Bỏ qua hoàn toàn các đối tượng tĩnh khác như font ew, hình ảnh, cấu hình...
-                        if (cName.equals(targetDialogCls) || cName.equals("h") || cName.equals("s") || 
-                            sName.equals("bt") || sName.equals("dJ")) {
-                            String msg = extractDialogText(dObj);
-                            if (msg != null && !msg.trim().isEmpty() && msg.length() > 2) {
-                                return msg.trim();
-                            }
+                    String fTypeName = f.getType().getSimpleName();
+                    if (fTypeName.equals(pointerType) || fTypeName.equals("bt") || fTypeName.equals("dJ")) {
+                        f.setAccessible(true);
+                        Object dObj = f.get(null);
+                        // Khi dialog đóng (sau br.case() hoặc chưa mở), con trỏ này bằng null 100%!
+                        if (dObj == null) {
+                            return null;
+                        }
+                        // Khi có dialog mở, trích xuất chuỗi thông báo từ dialog đó
+                        String msg = extractDialogText(dObj);
+                        if (msg != null && !msg.trim().isEmpty() && msg.length() > 2) {
+                            return msg.trim();
                         }
                     }
                 }

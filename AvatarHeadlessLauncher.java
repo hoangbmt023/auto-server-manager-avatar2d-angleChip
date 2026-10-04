@@ -402,9 +402,13 @@ public class AvatarHeadlessLauncher {
                             continue;
                         }
 
-                        // 2.2.1. Đang ở ngoài màn hình game (chưa online, ef == null hoặc !connected)
-                        // Nếu sau 15 giây kể từ lần thử đăng nhập gần nhất mà vẫn chưa vào được game:
-                        if ((ef == null || !connected) && (now - lastLoginAttemptTime > 15000L)) {
+                        // 2.2.1. Đang ở ngoài màn hình game (chưa online):
+                        // - Nếu socket đã đóng (!connected): Chờ đủ 15 giây rồi tự động kết nối lại
+                        // - Nếu socket đang kết nối (đang tải dữ liệu map/item): Cho phép chờ tối đa 35 giây để game nạp xong, không ngắt giữa chừng
+                        boolean isSocketDead = !connected && (now - lastLoginAttemptTime > 15000L);
+                        boolean isStuckLoading = connected && (ef == null) && (now - lastLoginAttemptTime > 35000L);
+
+                        if (!isCurrentlyOnline && (isSocketDead || isStuckLoading)) {
                             // Trước khi cố kết nối lại, kiểm tra xem có phải bot đã hoàn thành mục tiêu không!
                             if (AvatarModAdapter.isTargetReached()) {
                                 isCurrentlyOnline = false;
