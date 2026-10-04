@@ -333,14 +333,19 @@ window.FishSetupModal = function FishSetupModal({
                     </div>
                   </div>
 
-                  <label className="farm-checkbox-item" style={{ marginTop: '2px' }}>
-                    <input
-                      type="checkbox"
-                      checked={fishState.harvestOnTime}
-                      onChange={(e) => setFishState({ ...fishState, harvestOnTime: e.target.checked })}
-                    />
-                    <span>⏰ <strong>Farm thông minh:</strong> Tự động thu hoạch đúng giờ nông sản chín</span>
-                  </label>
+                  <div>
+                    <label className="farm-checkbox-item" style={{ marginTop: '2px' }}>
+                      <input
+                        type="checkbox"
+                        checked={fishState.harvestOnTime}
+                        onChange={(e) => setFishState({ ...fishState, harvestOnTime: e.target.checked })}
+                      />
+                      <span>⏰ <strong>Farm thông minh:</strong> Tự động thu hoạch đúng giờ nông sản chín</span>
+                    </label>
+                    <small style={{ color: '#94a3b8', fontSize: '0.75rem', marginTop: '4px', display: 'block' }}>
+                      Chỉ tính cây trồng trên đất chín (không tính vật nuôi). Nếu cây chưa chín vẫn về farm định kỳ theo số phút đã đặt để chăm sóc.
+                    </small>
+                  </div>
                 </div>
               )}
 

@@ -224,7 +224,7 @@ window.DiamondSetupModal = function DiamondSetupModal({
                 </small>
               </div>
 
-              <div style={{ paddingLeft: '8px' }}>
+              <div>
                 <label
                   className="farm-checkbox-item"
                   style={{
@@ -246,9 +246,9 @@ window.DiamondSetupModal = function DiamondSetupModal({
                   />
                   <span>✨ <strong>Thu hoạch đúng giờ</strong> (Farm thông minh)</span>
                 </label>
-                <small style={{ color: diamondState.autoFarm ? '#94a3b8' : '#64748b', fontSize: '0.75rem', marginLeft: '26px', display: 'block' }}>
+                <small style={{ color: diamondState.autoFarm ? '#94a3b8' : '#64748b', fontSize: '0.75rem', marginTop: '4px', display: 'block' }}>
                   {diamondState.autoFarm
-                    ? 'Tự động canh đúng lúc cây trồng chín để bay về thu hoạch.'
+                    ? 'Chỉ tính cây trồng trên đất chín (không tính vật nuôi). Nếu cây chưa chín vẫn về theo số phút đã đặt.'
                     : '(Yêu cầu bật "Tự về chăm farm" để kích hoạt tính năng này)'}
                 </small>
               </div>

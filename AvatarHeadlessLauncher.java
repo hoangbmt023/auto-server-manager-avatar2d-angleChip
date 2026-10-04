@@ -356,9 +356,9 @@ public class AvatarHeadlessLauncher {
                                     lower.contains("người đăng nhập") || lower.contains("phiên làm việc") ||
                                     lower.contains("quá nhanh") || lower.contains("bảo trì")) {
                                     isCurrentlyOnline = false;
-                                    System.out.println("[ACCOUNT_STATUS]: {\"state\":\"disconnected\",\"message\":\"" + currentDialog + " (Thử lại sau 15s)...\"}");
+                                    System.out.println("[ACCOUNT_STATUS]: {\"state\":\"disconnected\",\"message\":\"" + currentDialog + " (Thử lại sau 20s)...\"}");
                                     AvatarModAdapter.dismissCurrentDialog();
-                                    Thread.sleep(15000);
+                                    Thread.sleep(20000);
                                     lastLoginAttemptTime = System.currentTimeMillis();
                                     System.out.println("🔄 [TỰ ĐỘNG ĐĂNG NHẬP LẠI]: Đang kết nối lại máy chủ...");
                                     AvatarModAdapter.login(customUser, customPass, finalServerId, finalServerName);
@@ -368,11 +368,11 @@ public class AvatarHeadlessLauncher {
                                 AvatarModAdapter.dismissCurrentDialog();
                             } else {
                                 // 6. NẾU ĐANG NGOÀI MÀN HÌNH ĐĂNG NHẬP (!isCurrentlyOnline):
-                                // Toàn bộ các popup (Nơi khác, Quá nhanh, Mất kết nối, Bảo trì...) -> Đóng popup, chờ 15s rồi tự động đăng nhập lại
+                                // Toàn bộ các popup (Nơi khác, Quá nhanh, Mất kết nối, Bảo trì...) -> Đóng popup, chờ 20s rồi tự động đăng nhập lại
                                 isCurrentlyOnline = false;
-                                System.out.println("[ACCOUNT_STATUS]: {\"state\":\"disconnected\",\"message\":\"" + currentDialog + " (Thử lại sau 15s)...\"}");
+                                System.out.println("[ACCOUNT_STATUS]: {\"state\":\"disconnected\",\"message\":\"" + currentDialog + " (Thử lại sau 20s)...\"}");
                                 AvatarModAdapter.dismissCurrentDialog();
-                                Thread.sleep(15000);
+                                Thread.sleep(20000);
                                 lastLoginAttemptTime = System.currentTimeMillis();
                                 System.out.println("🔄 [TỰ ĐỘNG ĐĂNG NHẬP LẠI]: Đang kết nối lại máy chủ...");
                                 AvatarModAdapter.login(customUser, customPass, finalServerId, finalServerName);
@@ -390,9 +390,9 @@ public class AvatarHeadlessLauncher {
                         if (isCurrentlyOnline && (ef == null || !connected)) {
                             isCurrentlyOnline = false;
                             System.out.println("⚠️ [ĐÓNG SOCKET / MẤT KẾT NỐI]: Socket đã đóng hoặc mất kết nối máy chủ!");
-                            System.out.println("[ACCOUNT_STATUS]: {\"state\":\"disconnected\",\"message\":\"Mất kết nối / Đóng socket, đang đăng nhập lại sau 15s...\"}");
+                            System.out.println("[ACCOUNT_STATUS]: {\"state\":\"disconnected\",\"message\":\"Mất kết nối / Đóng socket, đang đăng nhập lại sau 20s...\"}");
                             AvatarModAdapter.dismissCurrentDialog();
-                            Thread.sleep(15000);
+                            Thread.sleep(20000);
                             lastLoginAttemptTime = System.currentTimeMillis();
                             System.out.println("🔄 [TỰ ĐỘNG ĐĂNG NHẬP LẠI]: Đang kết nối lại máy chủ...");
                             AvatarModAdapter.login(customUser, customPass, finalServerId, finalServerName);
@@ -400,9 +400,9 @@ public class AvatarHeadlessLauncher {
                         }
 
                         // 2.2.1. Đang ở ngoài màn hình game (chưa online):
-                        // - Nếu socket đã đóng (!connected): Chờ đủ 15 giây rồi tự động kết nối lại
+                        // - Nếu socket đã đóng (!connected): Chờ đủ 20 giây rồi tự động kết nối lại
                         // - Nếu socket đang kết nối (đang tải dữ liệu map/item): Cho phép chờ tối đa 35 giây để game nạp xong, không ngắt giữa chừng
-                        boolean isSocketDead = !connected && (now - lastLoginAttemptTime > 15000L);
+                        boolean isSocketDead = !connected && (now - lastLoginAttemptTime > 20000L);
                         boolean isStuckLoading = connected && (ef == null) && (now - lastLoginAttemptTime > 35000L);
 
                         if (!isCurrentlyOnline && (isSocketDead || isStuckLoading)) {
@@ -419,10 +419,10 @@ public class AvatarHeadlessLauncher {
                             }
 
                             isCurrentlyOnline = false;
-                            System.out.println("⚠️ [CHƯA VÀO ĐƯỢC GAME]: Tự động kết nối lại sau 15 giây...");
-                            System.out.println("[ACCOUNT_STATUS]: {\"state\":\"disconnected\",\"message\":\"Đang kết nối lại máy chủ sau 15s...\"}");
+                            System.out.println("⚠️ [CHƯA VÀO ĐƯỢC GAME]: Tự động kết nối lại sau 20 giây...");
+                            System.out.println("[ACCOUNT_STATUS]: {\"state\":\"disconnected\",\"message\":\"Đang kết nối lại máy chủ sau 20s...\"}");
                             AvatarModAdapter.dismissCurrentDialog();
-                            Thread.sleep(15000);
+                            Thread.sleep(20000);
                             lastLoginAttemptTime = System.currentTimeMillis();
                             System.out.println("🔄 [TỰ ĐỘNG ĐĂNG NHẬP LẠI]: Đang kết nối lại máy chủ...");
                             AvatarModAdapter.login(customUser, customPass, finalServerId, finalServerName);
