@@ -681,8 +681,11 @@ public class AvatarModAdapter {
         } catch (Throwable ignored) {}
 
         // 3.3. Thông số Kim Cương, Câu Cá, Bán Đá & Đếm ngược Farming
-        extractDiamondStats(cl, schema, stats);
-        extractFishStats(cl, schema, stats);
+        if (stats.isFishMod) {
+            extractFishStats(cl, schema, stats);
+        } else {
+            extractDiamondStats(cl, schema, stats);
+        }
         extractSellOreStats(cl, schema, stats);
 
         // 3.4. Trạng thái Auto đang chạy
@@ -986,6 +989,29 @@ public class AvatarModAdapter {
                     }
                 }
 
+                // Nếu Auto Kim Cương đang chạy và BẬT về farm mà Mod chưa kịp nạp targetMs (> 0), tự động gán mốc đếm lùi
+                if (targetMs <= now && isDiamondActive && autoFarmEnabled) {
+                    long intervalMs = 60 * 60000L;
+                    for (Field f : diamCls.getDeclaredFields()) {
+                        if (java.lang.reflect.Modifier.isStatic(f.getModifiers()) && f.getType().equals(int.class)) {
+                            if (f.getName().equals(schema.diamondIntervalField)) {
+                                try {
+                                    f.setAccessible(true);
+                                    int mins = f.getInt(null);
+                                    if (mins > 0) intervalMs = (long) mins * 60000L;
+                                } catch (Throwable ignored) {}
+                            }
+                        }
+                    }
+                    targetMs = now + intervalMs;
+                    if (diamInst != null) {
+                        setField(diamInst, schema.diamondAbsTargetMsField, targetMs, long.class);
+                    }
+                    if (activeTask != null && activeTask.taskInstance != null) {
+                        setField(activeTask.taskInstance, schema.diamondAbsTargetMsField, targetMs, long.class);
+                    }
+                }
+
                 if (!autoFarmEnabled) {
                     stats.farmingCountdown = "Không hẹn giờ";
                 } else if (isCurrentlyInFarmFromAuto) {
@@ -1193,6 +1219,29 @@ public class AvatarModAdapter {
                             break;
                         }
                     }
+                }
+            }
+
+            // Nếu Auto Câu Cá đang chạy và BẬT về farm mà Mod chưa nạp targetMs (> 0), tự động gán mốc đếm lùi
+            if (targetMs <= now && isFishActive && backToFarmEnabled) {
+                long intervalMs = 30 * 60000L;
+                for (Field f : fishCls.getDeclaredFields()) {
+                    if (java.lang.reflect.Modifier.isStatic(f.getModifiers()) && f.getType().equals(int.class)) {
+                        if (f.getName().equals(schema.fishFarmIntervalField)) {
+                            try {
+                                f.setAccessible(true);
+                                int mins = f.getInt(null);
+                                if (mins > 0) intervalMs = (long) mins * 60000L;
+                            } catch (Throwable ignored) {}
+                        }
+                    }
+                }
+                targetMs = now + intervalMs;
+                if (fishInst != null) {
+                    setField(fishInst, schema.fishTargetMsField, targetMs, long.class);
+                }
+                if (activeTask != null && activeTask.taskInstance != null) {
+                    setField(activeTask.taskInstance, schema.fishTargetMsField, targetMs, long.class);
                 }
             }
 
