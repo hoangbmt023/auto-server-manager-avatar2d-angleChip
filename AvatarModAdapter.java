@@ -81,6 +81,11 @@ public class AvatarModAdapter {
         }
     }
 
+    private static long lastLoggedCropRemainingSec = -1L;
+    private static long lastSmartFarmLogTs = 0L;
+    private static boolean wasInFarmDiamond = false;
+    private static boolean wasInFarmFish = false;
+
     private static ClassLoader getClassLoader() {
         MIDlet midlet = MIDletBridge.getCurrentMIDlet();
         return midlet != null ? midlet.getClass().getClassLoader() : null;
@@ -729,6 +734,10 @@ public class AvatarModAdapter {
      * Fish mod: bq.byte() cho Kim Cương (aj.do), bq.break() cho Câu Cá (bS.if).
      */
     public static boolean updateSmartCropTimer(ClassLoader cl, ModSchema schema, boolean isDiamond) {
+        return updateSmartCropTimer(cl, schema, isDiamond, false);
+    }
+
+    public static boolean updateSmartCropTimer(ClassLoader cl, ModSchema schema, boolean isDiamond, boolean forceLog) {
         if (cl == null || schema == null) return false;
         try {
             if (schema.farmClassName != null && !schema.farmClassName.isEmpty()) {
@@ -772,11 +781,27 @@ public class AvatarModAdapter {
                 farmTimerMethod.setAccessible(true);
                 farmTimerMethod.invoke(null);
 
-                if (remainingCropMs > 0) {
-                    long mins = (remainingCropMs + 60000L) / 60000L;
-                    System.out.println("🌾 [FARM THÔNG MINH]: Cây trồng trong farm sẽ chín sau " + mins + " phút (" + (remainingCropMs / 1000) + "s). Đã tự động hẹn giờ về thu hoạch đúng giờ!");
-                } else if (remainingCropMs == 0) {
-                    System.out.println("🌾 [FARM THÔNG MINH]: Nông sản đã chín! Đang hẹn giờ về thu hoạch ngay...");
+                long remainingSec = remainingCropMs > 0 ? (remainingCropMs / 1000L) : 0L;
+                long nowTs = System.currentTimeMillis();
+
+                // Chống spam log: chỉ in khi forceLog = true hoặc qua chu kỳ mới (chênh lệch >= 300s & cách lần in trước >= 60s)
+                boolean shouldLog = forceLog || (lastLoggedCropRemainingSec == -1L) ||
+                                    (Math.abs(remainingSec - lastLoggedCropRemainingSec) >= 300L && (nowTs - lastSmartFarmLogTs >= 60000L));
+
+                // Nếu 2 luồng gọi gần như đồng thời (trong 3s) với cùng số giây còn lại thì bỏ qua log lặp lại
+                if (nowTs - lastSmartFarmLogTs < 3000L && Math.abs(remainingSec - lastLoggedCropRemainingSec) < 5L) {
+                    shouldLog = false;
+                }
+
+                if (shouldLog) {
+                    if (remainingCropMs > 0) {
+                        long mins = (remainingCropMs + 60000L) / 60000L;
+                        System.out.println("🌾 [FARM THÔNG MINH]: Cây trồng trong farm sẽ chín sau " + mins + " phút (" + remainingSec + "s). Đã tự động hẹn giờ về thu hoạch đúng giờ!");
+                    } else if (remainingCropMs == 0) {
+                        System.out.println("🌾 [FARM THÔNG MINH]: Nông sản đã chín! Đang hẹn giờ về thu hoạch ngay...");
+                    }
+                    lastLoggedCropRemainingSec = remainingSec;
+                    lastSmartFarmLogTs = nowTs;
                 }
                 return true;
             }
@@ -883,45 +908,49 @@ public class AvatarModAdapter {
                     }
                 }
 
-                // Nếu bot đang về chăm farm từ Auto Kim Cương:
+                // Xử lý khi bot về chăm farm từ Auto Kim Cương:
                 // Trong code Mod gốc (X.class), biến đếm lùi thời gian về farm (this.do) được gán mốc tương lai ngay trước khi rời sang Farm.
                 // Do thời gian làm nông trại có thể kéo dài 1-2 phút, khi vừa quay lại Kim Cương thì targetMs đã bị quá hạn hoặc sắp hết.
-                // Vì vậy, khi đang ở trong farm, ta liên tục gia hạn targetMs:
+                // Vì vậy, khi hoàn thành chu kỳ chăm farm và quay lại Kim Cương (wasInFarmDiamond -> false):
                 // - Nếu BẬT "Thu hoạch đúng giờ": kích hoạt hàm tính giờ cây chín (aC.goto() trên Up Xu hoặc bq.byte() trên Fish)
-                // - Nếu TẮT: gia hạn targetMs = now + intervalMs (ví dụ 2 phút).
-                // Khi vừa hoàn thành farm quay lại Kim Cương, nick sẽ có trọn vẹn đúng thời gian đánh kim cương tiếp!
-                if (isCurrentlyInFarmFromAuto && diamInst != null && autoFarmEnabled) {
+                // - Nếu TẮT: gia hạn targetMs = now + intervalMs (ví dụ 2 phút tính từ lúc xong farm).
+                if (isCurrentlyInFarmFromAuto) {
+                    wasInFarmDiamond = true;
+                } else if (wasInFarmDiamond) {
+                    wasInFarmDiamond = false;
                     try {
-                        if (harvestOnTimeEnabled) {
-                            updateSmartCropTimer(cl, schema, true);
-                        } else {
-                            long intervalMs = 0;
-                            Field targetField = null;
-                            for (Field f : diamCls.getDeclaredFields()) {
-                                if (!java.lang.reflect.Modifier.isStatic(f.getModifiers()) && f.getType().equals(long.class)) {
-                                    f.setAccessible(true);
-                                    if (f.getName().equals(schema.diamondAbsTargetMsField)) {
-                                        targetField = f;
-                                    } else if (f.getName().equals(schema.diamondIntervalField) || f.getName().equals(schema.diamondTargetMsField)) {
-                                        long val = f.getLong(diamInst);
-                                        if (val > 0) intervalMs = val;
-                                    }
-                                }
-                            }
-                            if (intervalMs <= 0) {
+                        if (diamInst != null && autoFarmEnabled) {
+                            if (harvestOnTimeEnabled) {
+                                updateSmartCropTimer(cl, schema, true, true);
+                            } else {
+                                long intervalMs = 0;
+                                Field targetField = null;
                                 for (Field f : diamCls.getDeclaredFields()) {
-                                    if (java.lang.reflect.Modifier.isStatic(f.getModifiers()) && f.getType().equals(int.class)) {
-                                        if (f.getName().equals(schema.diamondIntervalField)) {
-                                            f.setAccessible(true);
-                                            int mins = f.getInt(null);
-                                            if (mins > 0) intervalMs = (long) mins * 60000L;
+                                    if (!java.lang.reflect.Modifier.isStatic(f.getModifiers()) && f.getType().equals(long.class)) {
+                                        f.setAccessible(true);
+                                        if (f.getName().equals(schema.diamondAbsTargetMsField)) {
+                                            targetField = f;
+                                        } else if (f.getName().equals(schema.diamondIntervalField) || f.getName().equals(schema.diamondTargetMsField)) {
+                                            long val = f.getLong(diamInst);
+                                            if (val > 0) intervalMs = val;
                                         }
                                     }
                                 }
-                            }
-                            if (targetField != null && intervalMs > 0) {
-                                targetField.setLong(diamInst, now + intervalMs);
-                                targetMs = now + intervalMs;
+                                if (intervalMs <= 0) {
+                                    for (Field f : diamCls.getDeclaredFields()) {
+                                        if (java.lang.reflect.Modifier.isStatic(f.getModifiers()) && f.getType().equals(int.class)) {
+                                            if (f.getName().equals(schema.diamondIntervalField)) {
+                                                f.setAccessible(true);
+                                                int mins = f.getInt(null);
+                                                if (mins > 0) intervalMs = (long) mins * 60000L;
+                                            }
+                                        }
+                                    }
+                                }
+                                if (targetField != null && intervalMs > 0) {
+                                    targetField.setLong(diamInst, now + intervalMs);
+                                    targetMs = now + intervalMs;
+                                }
                             }
                         }
                     } catch (Throwable ignored) {}
@@ -1105,30 +1134,35 @@ public class AvatarModAdapter {
                 }
             }
 
-            // Nếu bot đang về chăm farm từ Auto Câu Cá:
-            if (isCurrentlyInFarmFromFish && fishInst != null && backToFarmEnabled) {
+            // Xử lý khi bot về chăm farm từ Auto Câu Cá:
+            if (isCurrentlyInFarmFromFish) {
+                wasInFarmFish = true;
+            } else if (wasInFarmFish) {
+                wasInFarmFish = false;
                 try {
-                    if (fishHarvestOnTime) {
-                        updateSmartCropTimer(cl, schema, false);
-                    } else {
-                        long intervalMs = 0;
-                        Field targetField = null;
-                        for (Field f : fishCls.getDeclaredFields()) {
-                            if (!java.lang.reflect.Modifier.isStatic(f.getModifiers()) && f.getType().equals(long.class)) {
-                                f.setAccessible(true);
-                                if (f.getName().equals(schema.fishTargetMsField)) {
-                                    targetField = f;
-                                }
-                            } else if (java.lang.reflect.Modifier.isStatic(f.getModifiers()) && f.getType().equals(int.class)) {
-                                if (f.getName().equals(schema.fishFarmIntervalField)) {
+                    if (fishInst != null && backToFarmEnabled) {
+                        if (fishHarvestOnTime) {
+                            updateSmartCropTimer(cl, schema, false, true);
+                        } else {
+                            long intervalMs = 0;
+                            Field targetField = null;
+                            for (Field f : fishCls.getDeclaredFields()) {
+                                if (!java.lang.reflect.Modifier.isStatic(f.getModifiers()) && f.getType().equals(long.class)) {
                                     f.setAccessible(true);
-                                    int mins = f.getInt(null);
-                                    if (mins > 0) intervalMs = (long) mins * 60000L;
+                                    if (f.getName().equals(schema.fishTargetMsField)) {
+                                        targetField = f;
+                                    }
+                                } else if (java.lang.reflect.Modifier.isStatic(f.getModifiers()) && f.getType().equals(int.class)) {
+                                    if (f.getName().equals(schema.fishFarmIntervalField)) {
+                                        f.setAccessible(true);
+                                        int mins = f.getInt(null);
+                                        if (mins > 0) intervalMs = (long) mins * 60000L;
+                                    }
                                 }
                             }
-                        }
-                        if (targetField != null && intervalMs > 0) {
-                            targetField.setLong(fishInst, now + intervalMs);
+                            if (targetField != null && intervalMs > 0) {
+                                targetField.setLong(fishInst, now + intervalMs);
+                            }
                         }
                     }
                 } catch (Throwable ignored) {}
@@ -1353,7 +1387,7 @@ public class AvatarModAdapter {
                     long newIntervalMs = (long) farmIntervalMinutes * 60000L;
                     setField(activeTask.taskInstance, schema.diamondTargetMsField, newIntervalMs, long.class);
                     if (harvestOnTime) {
-                        boolean updated = updateSmartCropTimer(cl, schema, true);
+                        boolean updated = updateSmartCropTimer(cl, schema, true, true);
                         if (!updated) {
                             setField(activeTask.taskInstance, schema.diamondAbsTargetMsField, System.currentTimeMillis() + newIntervalMs, long.class);
                         }
@@ -1425,7 +1459,7 @@ public class AvatarModAdapter {
                     long newIntervalMs = (long) farmIntervalMinutes * 60000L;
                     setField(activeTask.taskInstance, "do", newIntervalMs, long.class);
                     if (harvestOnTime) {
-                        boolean updated = updateSmartCropTimer(cl, schema, false);
+                        boolean updated = updateSmartCropTimer(cl, schema, false, true);
                         if (!updated) {
                             setField(activeTask.taskInstance, schema.fishTargetMsField, System.currentTimeMillis() + newIntervalMs, long.class);
                         }
@@ -1655,7 +1689,7 @@ public class AvatarModAdapter {
                     setField(taskObj, schema.diamondTargetMsField, intervalMs, long.class);
                     if (autoFarmOn) {
                         if (harvestOnTimeOn) {
-                            boolean updated = updateSmartCropTimer(cl, schema, true);
+                            boolean updated = updateSmartCropTimer(cl, schema, true, true);
                             if (!updated) {
                                 setField(taskObj, schema.diamondAbsTargetMsField, System.currentTimeMillis() + intervalMs, long.class);
                             }
@@ -1727,7 +1761,7 @@ public class AvatarModAdapter {
                         setField(taskObj, "do", intervalMs, long.class);
                         if (backToFarmOn) {
                             if (harvestOnTimeOn) {
-                                boolean updated = updateSmartCropTimer(cl, schema, false);
+                                boolean updated = updateSmartCropTimer(cl, schema, false, true);
                                 if (!updated) {
                                     setField(taskObj, schema.fishTargetMsField, System.currentTimeMillis() + intervalMs, long.class);
                                 }
