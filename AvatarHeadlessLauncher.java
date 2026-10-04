@@ -350,8 +350,29 @@ public class AvatarHeadlessLauncher {
                                 continue;
                             }
 
-                            // 5. TOÀN BỘ CÁC POPUP KHÁC (Nơi khác đăng nhập, Quá nhanh, Mất kết nối, Bảo trì, v.v.):
-                            // Đóng popup, chờ đúng 15 giây và tự động kết nối lại. Nếu 15s sau vẫn chưa vào được thì lặp lại tiếp!
+                            // 5. NẾU ĐANG ONLINE TRONG GAME: Chỉ ngắt kết nối khi Popup là Mất kết nối / Nơi khác đăng nhập
+                            if (isCurrentlyOnline) {
+                                if (lower.contains("mất kết nối") || lower.contains("kết nối thất bại") || 
+                                    lower.contains("nơi khác") || lower.contains("khác đăng nhập") || 
+                                    lower.contains("đang online") || lower.contains("máy khác") || 
+                                    lower.contains("người đăng nhập") || lower.contains("phiên làm việc") ||
+                                    lower.contains("quá nhanh") || lower.contains("bảo trì")) {
+                                    isCurrentlyOnline = false;
+                                    System.out.println("[ACCOUNT_STATUS]: {\"state\":\"disconnected\",\"message\":\"" + currentDialog + " (Thử lại sau 15s)...\"}");
+                                    AvatarModAdapter.dismissCurrentDialog();
+                                    Thread.sleep(15000);
+                                    lastLoginAttemptTime = System.currentTimeMillis();
+                                    System.out.println("🔄 [TỰ ĐỘNG ĐĂNG NHẬP LẠI]: Đang kết nối lại máy chủ...");
+                                    AvatarModAdapter.login(customUser, customPass, finalServerId, finalServerName);
+                                    continue;
+                                }
+                                // Popup thông thường trong game (nông trại, đối thoại NPC...) -> Tự đóng để tiếp tục
+                                AvatarModAdapter.dismissCurrentDialog();
+                                continue;
+                            }
+
+                            // 6. NẾU ĐANG NGOÀI MÀN HÌNH ĐĂNG NHẬP (!isCurrentlyOnline):
+                            // Toàn bộ các popup (Nơi khác, Quá nhanh, Mất kết nối, Bảo trì...) -> Đóng popup, chờ 15s rồi tự động đăng nhập lại
                             isCurrentlyOnline = false;
                             System.out.println("[ACCOUNT_STATUS]: {\"state\":\"disconnected\",\"message\":\"" + currentDialog + " (Thử lại sau 15s)...\"}");
                             AvatarModAdapter.dismissCurrentDialog();

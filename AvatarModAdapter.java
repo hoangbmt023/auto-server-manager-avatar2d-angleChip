@@ -259,6 +259,7 @@ public class AvatarModAdapter {
         if (cl == null) return null;
 
         ModSchema schema = getCurrentSchema();
+        String targetDialogCls = (schema.dialogClass != null && !schema.dialogClass.isEmpty()) ? schema.dialogClass : "h";
 
         try {
             Class<?> containerCls = cl.loadClass(schema.dialogContainerClass);
@@ -272,9 +273,17 @@ public class AvatarModAdapter {
                     f.setAccessible(true);
                     Object dObj = f.get(null);
                     if (dObj != null) {
-                        String msg = extractDialogText(dObj);
-                        if (msg != null && !msg.trim().isEmpty() && msg.length() > 2) {
-                            return msg.trim();
+                        String cName = dObj.getClass().getSimpleName();
+                        String sName = (dObj.getClass().getSuperclass() != null) ? dObj.getClass().getSuperclass().getSimpleName() : "";
+
+                        // CHỈ CHẤP NHẬN ĐỐI TƯỢNG DIALOG THẬT SỰ (h extends bt, hoặc s extends dJ)
+                        // Bỏ qua hoàn toàn các đối tượng tĩnh khác như font ew, hình ảnh, cấu hình...
+                        if (cName.equals(targetDialogCls) || cName.equals("h") || cName.equals("s") || 
+                            sName.equals("bt") || sName.equals("dJ")) {
+                            String msg = extractDialogText(dObj);
+                            if (msg != null && !msg.trim().isEmpty() && msg.length() > 2) {
+                                return msg.trim();
+                            }
                         }
                     }
                 }
@@ -294,9 +303,12 @@ public class AvatarModAdapter {
                         f.setAccessible(true);
                         String s = (String) f.get(obj);
                         if (s != null && !s.trim().isEmpty() && s.length() > 2) {
-                            if (!s.startsWith("http") && !s.endsWith(".png") && !s.endsWith(".av") && !s.endsWith(".on")) {
-                                return s.trim();
+                            // Loại trừ link, file extension và bảng mã ký tự font
+                            if (s.contains("0123456789") || s.contains("abcdefghijklmnopqrstuvwxyz") || 
+                                s.startsWith("http") || s.endsWith(".png") || s.endsWith(".av") || s.endsWith(".on")) {
+                                continue;
                             }
+                            return s.trim();
                         }
                     } catch (Throwable ignored) {}
                 }
