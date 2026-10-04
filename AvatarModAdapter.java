@@ -283,8 +283,11 @@ public class AvatarModAdapter {
                         String msg = extractDialogText(dObj);
                         if (msg != null && !msg.trim().isEmpty() && msg.length() > 2) {
                             String buttons = extractDialogButtons(dObj);
-                            if (buttons != null && !buttons.isEmpty() && !msg.endsWith(")")) {
-                                return msg.trim() + " (" + buttons + ")";
+                            if (buttons != null && !buttons.trim().isEmpty()) {
+                                String trimmedButtons = buttons.trim();
+                                if (!msg.contains("(" + trimmedButtons + ")") && !msg.equalsIgnoreCase(trimmedButtons)) {
+                                    return msg.trim() + " (" + trimmedButtons + ")";
+                                }
                             }
                             return msg.trim();
                         }
@@ -339,21 +342,27 @@ public class AvatarModAdapter {
 
     private static String extractButtonLabel(Object item) {
         if (item == null) return null;
-        if (item instanceof String) {
-            String s = ((String) item).trim();
-            if (isValidButtonLabel(s)) return s;
+        if (item instanceof String) return null; // Tuyệt đối không lấy String thông thường làm nút bấm
+
+        Class<?> cCls = item.getClass();
+        String sName = cCls.getSimpleName();
+        // Chỉ chấp nhận Command / Button object chính thức của Avatar Mod:
+        // "ei" trong Avatar Up Xu (build 34)
+        // "fL" trong Avatar Fish (build 40)
+        if (!sName.equals("ei") && !sName.equals("fL")) {
             return null;
         }
-        Class<?> cCls = item.getClass();
-        if (cCls.getName().startsWith("java.") || cCls.isArray()) return null;
 
         for (Field f : cCls.getDeclaredFields()) {
             if (!java.lang.reflect.Modifier.isStatic(f.getModifiers()) && f.getType().equals(String.class)) {
                 try {
                     f.setAccessible(true);
                     String s = (String) f.get(item);
-                    if (s != null && isValidButtonLabel(s.trim())) {
-                        return s.trim();
+                    if (s != null) {
+                        s = s.trim();
+                        if (isValidButtonLabel(s)) {
+                            return s;
+                        }
                     }
                 } catch (Throwable ignored) {}
             }
@@ -796,6 +805,44 @@ public class AvatarModAdapter {
                 long now = System.currentTimeMillis();
                 long targetMs = 0;
 
+                // Nếu bot đang về chăm farm từ Auto Kim Cương:
+                // Trong code Mod gốc (X.class), biến đếm lùi thời gian về farm (this.do) được gán mốc tương lai ngay trước khi rời sang Farm.
+                // Do thời gian làm nông trại có thể kéo dài 1-2 phút, khi vừa quay lại Kim Cương thì targetMs đã bị quá hạn hoặc sắp hết.
+                // Vì vậy, khi đang ở trong farm, ta liên tục gia hạn targetMs = now + intervalMs.
+                // Khi vừa hoàn thành farm quay lại Kim Cương, nick sẽ có trọn vẹn đúng thời gian (ví dụ 2 phút) đánh kim cương tiếp!
+                if (isCurrentlyInFarmFromAuto && diamInst != null) {
+                    try {
+                        long intervalMs = 0;
+                        Field targetField = null;
+                        for (Field f : diamCls.getDeclaredFields()) {
+                            if (!java.lang.reflect.Modifier.isStatic(f.getModifiers()) && f.getType().equals(long.class)) {
+                                f.setAccessible(true);
+                                if (f.getName().equals(schema.diamondAbsTargetMsField)) {
+                                    targetField = f;
+                                } else if (f.getName().equals(schema.diamondIntervalField) || f.getName().equals(schema.diamondTargetMsField)) {
+                                    long val = f.getLong(diamInst);
+                                    if (val > 0) intervalMs = val;
+                                }
+                            }
+                        }
+                        if (intervalMs <= 0) {
+                            for (Field f : diamCls.getDeclaredFields()) {
+                                if (java.lang.reflect.Modifier.isStatic(f.getModifiers()) && f.getType().equals(int.class)) {
+                                    if (f.getName().equals(schema.diamondIntervalField)) {
+                                        f.setAccessible(true);
+                                        int mins = f.getInt(null);
+                                        if (mins > 0) intervalMs = (long) mins * 60000L;
+                                    }
+                                }
+                            }
+                        }
+                        if (targetField != null && intervalMs > 0) {
+                            targetField.setLong(diamInst, now + intervalMs);
+                            targetMs = now + intervalMs;
+                        }
+                    } catch (Throwable ignored) {}
+                }
+
                 if (diamInst != null) {
                     // Duyệt tất cả các instance field kiểu long để đọc chính xác trường soXu (do: long)
                     for (Field f : diamCls.getDeclaredFields()) {
@@ -959,6 +1006,32 @@ public class AvatarModAdapter {
 
             long targetMs = 0;
             long now = System.currentTimeMillis();
+
+            // Nếu bot đang về chăm farm từ Auto Câu Cá: gia hạn targetMs trong khi đang ở farm
+            if (isCurrentlyInFarmFromFish && fishInst != null) {
+                try {
+                    long intervalMs = 0;
+                    Field targetField = null;
+                    for (Field f : fishCls.getDeclaredFields()) {
+                        if (!java.lang.reflect.Modifier.isStatic(f.getModifiers()) && f.getType().equals(long.class)) {
+                            f.setAccessible(true);
+                            if (f.getName().equals(schema.fishTargetMsField)) {
+                                targetField = f;
+                            }
+                        } else if (java.lang.reflect.Modifier.isStatic(f.getModifiers()) && f.getType().equals(int.class)) {
+                            if (f.getName().equals(schema.fishFarmIntervalField)) {
+                                f.setAccessible(true);
+                                int mins = f.getInt(null);
+                                if (mins > 0) intervalMs = (long) mins * 60000L;
+                            }
+                        }
+                    }
+                    if (targetField != null && intervalMs > 0) {
+                        targetField.setLong(fishInst, now + intervalMs);
+                        targetMs = now + intervalMs;
+                    }
+                } catch (Throwable ignored) {}
+            }
 
             if (fishInst != null) {
                 for (Field f : fishCls.getDeclaredFields()) {
