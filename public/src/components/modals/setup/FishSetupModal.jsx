@@ -317,6 +317,7 @@ window.FishSetupModal = function FishSetupModal({
                         max="720"
                         className="form-control"
                         value={fishState.farmIntervalMinutes}
+                        onFocus={(e) => { if (e.target.value === '0') e.target.select(); }}
                         onChange={(e) => setFishState({ ...fishState, farmIntervalMinutes: e.target.value })}
                         style={{ width: '90px', height: '32px', background: '#0f172a', color: '#38bdf8', textAlign: 'center', border: '1px solid #0284c7', borderRadius: '6px', fontWeight: 'bold' }}
                       />
@@ -352,6 +353,7 @@ window.FishSetupModal = function FishSetupModal({
                     max="1000"
                     className="form-control"
                     value={fishState.sellKcxThreshold}
+                    onFocus={(e) => { if (e.target.value === '0') e.target.select(); }}
                     onChange={(e) => setFishState({ ...fishState, sellKcxThreshold: e.target.value })}
                     style={{ width: '90px', height: '32px', background: '#0f172a', color: '#a78bfa', textAlign: 'center', border: '1px solid #7c3aed', borderRadius: '6px', fontWeight: 'bold' }}
                   />

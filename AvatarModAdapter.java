@@ -282,6 +282,10 @@ public class AvatarModAdapter {
                         // Khi có dialog mở, trích xuất chuỗi thông báo từ dialog đó
                         String msg = extractDialogText(dObj);
                         if (msg != null && !msg.trim().isEmpty() && msg.length() > 2) {
+                            String buttons = extractDialogButtons(dObj);
+                            if (buttons != null && !buttons.isEmpty() && !msg.endsWith(")")) {
+                                return msg.trim() + " (" + buttons + ")";
+                            }
                             return msg.trim();
                         }
                     }
@@ -290,6 +294,83 @@ public class AvatarModAdapter {
         } catch (Throwable ignored) {}
 
         return null;
+    }
+
+    public static String extractDialogButtons(Object obj) {
+        if (obj == null) return null;
+        java.util.LinkedHashSet<String> buttons = new java.util.LinkedHashSet<String>();
+        Class<?> cls = obj.getClass();
+        while (cls != null && !cls.equals(Object.class)) {
+            for (Field f : cls.getDeclaredFields()) {
+                if (!java.lang.reflect.Modifier.isStatic(f.getModifiers())) {
+                    try {
+                        f.setAccessible(true);
+                        Object val = f.get(obj);
+                        if (val == null) continue;
+
+                        if (val instanceof java.util.Vector) {
+                            java.util.Vector<?> vec = (java.util.Vector<?>) val;
+                            for (int i = 0; i < vec.size(); i++) {
+                                Object item = vec.elementAt(i);
+                                String bText = extractButtonLabel(item);
+                                if (bText != null && !bText.isEmpty()) {
+                                    buttons.add(bText);
+                                }
+                            }
+                        } else {
+                            String bText = extractButtonLabel(val);
+                            if (bText != null && !bText.isEmpty()) {
+                                buttons.add(bText);
+                            }
+                        }
+                    } catch (Throwable ignored) {}
+                }
+            }
+            cls = cls.getSuperclass();
+        }
+        if (buttons.isEmpty()) return null;
+        StringBuilder sb = new StringBuilder();
+        for (String b : buttons) {
+            if (sb.length() > 0) sb.append(", ");
+            sb.append(b);
+        }
+        return sb.toString();
+    }
+
+    private static String extractButtonLabel(Object item) {
+        if (item == null) return null;
+        if (item instanceof String) {
+            String s = ((String) item).trim();
+            if (isValidButtonLabel(s)) return s;
+            return null;
+        }
+        Class<?> cCls = item.getClass();
+        if (cCls.getName().startsWith("java.") || cCls.isArray()) return null;
+
+        for (Field f : cCls.getDeclaredFields()) {
+            if (!java.lang.reflect.Modifier.isStatic(f.getModifiers()) && f.getType().equals(String.class)) {
+                try {
+                    f.setAccessible(true);
+                    String s = (String) f.get(item);
+                    if (s != null && isValidButtonLabel(s.trim())) {
+                        return s.trim();
+                    }
+                } catch (Throwable ignored) {}
+            }
+        }
+        return null;
+    }
+
+    private static boolean isValidButtonLabel(String s) {
+        if (s == null) return false;
+        String trimmed = s.trim();
+        if (trimmed.isEmpty() || trimmed.length() > 30) return false;
+        if (trimmed.contains("0123456789") || trimmed.contains("abcdefghijklmnopqrstuvwxyz") || 
+            trimmed.startsWith("http") || trimmed.endsWith(".png") || trimmed.endsWith(".av") || 
+            trimmed.endsWith(".on") || trimmed.endsWith(".mid") || trimmed.contains("/")) {
+            return false;
+        }
+        return true;
     }
 
     private static String extractDialogText(Object obj) {
@@ -683,6 +764,31 @@ public class AvatarModAdapter {
                 // 3. Nếu chưa có, lấy từ Task đang chạy trong AutoController
                 AutoTaskInfo activeTask = getActiveAutoTask();
                 boolean isDiamondActive = (activeTask != null && "diamond".equalsIgnoreCase(activeTask.autoType));
+                boolean isCurrentlyInFarmFromAuto = false;
+
+                // Nếu bot đang về chăm farm từ Auto Kim Cương (activeTask.autoType là farm, và parent task là kim cương)
+                if (activeTask != null && "farm".equalsIgnoreCase(activeTask.autoType) && activeTask.taskInstance != null) {
+                    try {
+                        Class<?> taskBaseCls = activeTask.taskInstance.getClass();
+                        while (taskBaseCls != null && !taskBaseCls.equals(Object.class)) {
+                            for (Field f : taskBaseCls.getDeclaredFields()) {
+                                if (!java.lang.reflect.Modifier.isStatic(f.getModifiers()) && (f.getName().equals("do") || f.getType().getName().equals(diamCls.getName()))) {
+                                    f.setAccessible(true);
+                                    Object parent = f.get(activeTask.taskInstance);
+                                    if (parent != null && diamCls.isInstance(parent)) {
+                                        isDiamondActive = true;
+                                        isCurrentlyInFarmFromAuto = true;
+                                        if (diamInst == null) diamInst = parent;
+                                        break;
+                                    }
+                                }
+                            }
+                            if (isCurrentlyInFarmFromAuto) break;
+                            taskBaseCls = taskBaseCls.getSuperclass();
+                        }
+                    } catch (Throwable ignored) {}
+                }
+
                 if (diamInst == null && activeTask != null && activeTask.taskInstance != null && diamCls.isInstance(activeTask.taskInstance)) {
                     diamInst = activeTask.taskInstance;
                 }
@@ -720,16 +826,11 @@ public class AvatarModAdapter {
                     }
                 }
 
-                if (targetMs > now) {
+                if (isCurrentlyInFarmFromAuto) {
+                    stats.farmingCountdown = "Đang trong farm...";
+                } else if (targetMs > now) {
                     int diffSec = (int) ((targetMs - now) / 1000L);
-                    int s = diffSec % 60;
-                    int m = (diffSec / 60) % 60;
-                    int h = (diffSec / 3600) % 24;
-                    if (h > 0) {
-                        stats.farmingCountdown = String.format("%02d:%02d:%02d", h, m, s);
-                    } else {
-                        stats.farmingCountdown = String.format("%02d:%02d", m, s);
-                    }
+                    stats.farmingCountdown = formatCountdownWithMod(cl, diffSec);
                 } else if (targetMs > 0) {
                     stats.farmingCountdown = "Đang về farm...";
                 } else if (isDiamondActive && autoFarmEnabled) {
@@ -741,6 +842,34 @@ public class AvatarModAdapter {
                 }
             } catch (Throwable ignored) {}
         } catch (Throwable ignored) {}
+    }
+
+    private static String formatCountdownWithMod(ClassLoader cl, int diffSec) {
+        if (diffSec <= 0) return "00:00";
+        if (cl != null) {
+            String[] fmtClasses = new String[] { "gO", "fK" };
+            for (String fc : fmtClasses) {
+                try {
+                    Class<?> c = cl.loadClass(fc);
+                    Method m = c.getMethod("do", int.class);
+                    if (java.lang.reflect.Modifier.isStatic(m.getModifiers()) && m.getReturnType().equals(String.class)) {
+                        Object res = m.invoke(null, diffSec);
+                        if (res != null) {
+                            String s = res.toString().trim();
+                            if (!s.isEmpty()) return s;
+                        }
+                    }
+                } catch (Throwable ignored) {}
+            }
+        }
+        int s = diffSec % 60;
+        int m = (diffSec / 60) % 60;
+        int h = (diffSec / 3600) % 24;
+        if (h > 0) {
+            return String.format("%02d:%02d:%02d", h, m, s);
+        } else {
+            return String.format("%02d:%02d", m, s);
+        }
     }
 
     private static void extractFishStats(ClassLoader cl, ModSchema schema, PlayerStats stats) {
@@ -777,6 +906,29 @@ public class AvatarModAdapter {
             // 2. Đọc đếm ngược thời gian về Farm (Farming: MM:SS)
             AutoTaskInfo activeTask = getActiveAutoTask();
             boolean isFishActive = (activeTask != null && "fish".equalsIgnoreCase(activeTask.autoType));
+            boolean isCurrentlyInFarmFromFish = false;
+
+            // Kiểm tra nếu bot đang về chăm farm từ Auto Câu Cá
+            if (activeTask != null && "farm".equalsIgnoreCase(activeTask.autoType) && activeTask.taskInstance != null) {
+                try {
+                    Class<?> taskBaseCls = activeTask.taskInstance.getClass();
+                    while (taskBaseCls != null && !taskBaseCls.equals(Object.class)) {
+                        for (Field f : taskBaseCls.getDeclaredFields()) {
+                            if (!java.lang.reflect.Modifier.isStatic(f.getModifiers()) && (f.getName().equals("do") || f.getType().getName().equals(fishCls.getName()))) {
+                                f.setAccessible(true);
+                                Object parent = f.get(activeTask.taskInstance);
+                                if (parent != null && fishCls.isInstance(parent)) {
+                                    isFishActive = true;
+                                    isCurrentlyInFarmFromFish = true;
+                                    break;
+                                }
+                            }
+                        }
+                        if (isCurrentlyInFarmFromFish) break;
+                        taskBaseCls = taskBaseCls.getSuperclass();
+                    }
+                } catch (Throwable ignored) {}
+            }
 
             // Tìm instance AutoCauCa (bS)
             Object fishInst = null;
@@ -836,16 +988,11 @@ public class AvatarModAdapter {
                 }
             }
 
-            if (targetMs > now) {
+            if (isCurrentlyInFarmFromFish) {
+                stats.farmingCountdown = "Đang trong farm...";
+            } else if (targetMs > now) {
                 int diffSec = (int) ((targetMs - now) / 1000L);
-                int s = diffSec % 60;
-                int m = (diffSec / 60) % 60;
-                int h = (diffSec / 3600) % 24;
-                if (h > 0) {
-                    stats.farmingCountdown = String.format("%02d:%02d:%02d", h, m, s);
-                } else {
-                    stats.farmingCountdown = String.format("%02d:%02d", m, s);
-                }
+                stats.farmingCountdown = formatCountdownWithMod(cl, diffSec);
             } else if (targetMs > 0) {
                 stats.farmingCountdown = "Đang về farm...";
             } else if (isFishActive && backToFarmEnabled) {

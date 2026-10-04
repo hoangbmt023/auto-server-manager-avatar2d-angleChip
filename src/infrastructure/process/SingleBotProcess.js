@@ -370,17 +370,27 @@ class SingleBotProcess extends EventEmitter {
           // Synchronize autoState directly from live in-game active auto task
           if (parsed.isAutoRunning !== undefined) {
             if (parsed.isAutoRunning && parsed.autoType) {
+              let primaryType = parsed.autoType;
+              // Nếu đang chạy auto kim cương / câu cá mà tạm về farm, giữ nguyên primary autoType
+              if (parsed.autoType === 'farm' && this.autoState && (this.autoState.autoType === 'diamond' || this.autoState.autoType === 'fish' || this.autoState.autoType === 'kc')) {
+                primaryType = this.autoState.autoType;
+              }
+
               let friendly = 'Auto';
-              if (parsed.autoType === 'fish') friendly = 'Auto Câu Cá';
-              else if (parsed.autoType === 'diamond' || parsed.autoType === 'kc') friendly = 'Auto Kim Cương';
-              else if (parsed.autoType === 'farm') friendly = 'Auto Farm';
-              else if (parsed.autoType === 'sell_ore' || parsed.autoType === 'banda') friendly = 'Auto Bán Đá';
+              if (primaryType === 'fish') friendly = 'Auto Câu Cá';
+              else if (primaryType === 'diamond' || primaryType === 'kc') friendly = 'Auto Kim Cương';
+              else if (primaryType === 'farm') friendly = 'Auto Farm';
+              else if (primaryType === 'sell_ore' || primaryType === 'banda') friendly = 'Auto Bán Đá';
+
+              const statusMsg = (parsed.autoType === 'farm' && primaryType !== 'farm')
+                ? `Đang về chăm farm (từ ${friendly})...`
+                : `Đang chạy ${friendly}...`;
 
               this.autoState = {
                 isRunning: true,
-                autoType: parsed.autoType,
+                autoType: primaryType,
                 status: 'running',
-                message: `Đang chạy ${friendly}...`
+                message: statusMsg
               };
               this.emit('auto-status', { accountId: this.account.id, autoState: this.autoState });
             } else if (!parsed.isAutoRunning && this.autoState && this.autoState.isRunning) {

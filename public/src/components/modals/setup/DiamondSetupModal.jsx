@@ -207,6 +207,7 @@ window.DiamondSetupModal = function DiamondSetupModal({
                   min="1"
                   max="720"
                   value={diamondState.farmIntervalMinutes}
+                  onFocus={(e) => { if (e.target.value === '0') e.target.select(); }}
                   onChange={(e) => setDiamondState({ ...diamondState, farmIntervalMinutes: e.target.value })}
                   placeholder="60"
                 />
