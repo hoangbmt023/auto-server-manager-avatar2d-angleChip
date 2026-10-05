@@ -28,7 +28,7 @@ window.TerminalConsole = function TerminalConsole({
     if (text.includes('🌾') || text.includes('FARM') || text.includes('nông trại') || text.includes('chăm farm') || text.includes('thu hoạch') || text.includes('Về Farm') || text.includes('Nông sản') || text.includes('Cây trồng')) return 'farm';
     if (text.includes('💎') || text.includes('KIM CƯƠNG') || text.includes('Đào Khoáng') || text.includes('KCX') || text.includes('NHB') || text.includes('🪨') || text.includes('BÁN ĐÁ')) return 'diamond';
     if (text.includes('🎣') || text.includes('CÂU CÁ') || text.includes('cần câu') || text.includes('vé câu') || text.includes('cá cắn')) return 'fish';
-    if (type === 'info' || text.includes('🚀') || text.includes('[QUY TRÌNH]') || text.includes('Đang kết nối') || text.includes('PROXY SETUP')) return 'info';
+    if (type === 'info' || text.includes('🚀') || text.includes('[QUY TRÌNH]') || text.includes('Đang kết nối') || text.includes('PROXY SETUP') || text.includes('🔍') || text.includes('DIAGNOSTIC')) return 'info';
     if (type === 'system' || text.includes('[System]')) return 'system';
     return type || 'out';
   };

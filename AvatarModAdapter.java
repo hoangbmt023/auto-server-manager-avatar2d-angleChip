@@ -83,6 +83,7 @@ public class AvatarModAdapter {
 
     private static long lastLoggedCropRemainingSec = -1L;
     private static long lastSmartFarmLogTs = 0L;
+    private static long lastDiagnosticLogTs = 0L;
     private static boolean wasInFarmDiamond = false;
     private static boolean wasInFarmFish = false;
 
@@ -1023,6 +1024,25 @@ public class AvatarModAdapter {
                 } else if (stats.farmingCountdown == null || stats.farmingCountdown.isEmpty()) {
                     stats.farmingCountdown = "--:--";
                 }
+
+                long nowTs = System.currentTimeMillis();
+                if (isDiamondActive || activeTask != null || targetMs > 0) {
+                    if (nowTs - lastDiagnosticLogTs >= 5000L) {
+                        lastDiagnosticLogTs = nowTs;
+                        System.out.println(String.format(
+                            "🔍 [DIAGNOSTIC_KC]: Mod=[%s] | ActiveTask=[%s] | isDiamActive=%b | autoFarm=%b | diamInst=%s | targetMs=%d | now=%d | diffSec=%d | ResultCountdown=[%s]",
+                            schema.name,
+                            (activeTask != null ? activeTask.className : "NULL"),
+                            isDiamondActive,
+                            autoFarmEnabled,
+                            (diamInst != null ? "OK" : "NULL"),
+                            targetMs,
+                            now,
+                            (targetMs > now ? (int)((targetMs - now) / 1000L) : -1),
+                            stats.farmingCountdown
+                        ));
+                    }
+                }
             } catch (Throwable ignored) {}
         } catch (Throwable ignored) {}
     }
@@ -1734,6 +1754,8 @@ public class AvatarModAdapter {
                         Method doMethod = taskCtrlCls.getMethod(schema.taskStartMethod, taskArgCls);
                         doMethod.invoke(null, taskObj);
                     }
+
+                    System.out.println("🔍 [DIAGNOSTIC_START_KC]: triggeredViaCmd=" + triggeredViaCmd + " | taskObj=" + taskObj.getClass().getName() + " | intervalMs=" + intervalMs + " | autoFarm=" + autoFarmOn + " | harvestOnTime=" + harvestOnTimeOn + " | targetMs=" + getFieldValue(taskObj, schema.diamondAbsTargetMsField));
                 }
 
                 // Đảm bảo thread worker của taskController đang chạy
@@ -1836,6 +1858,9 @@ public class AvatarModAdapter {
 
         ModSchema schema = getCurrentSchema();
 
+        AutoTaskInfo beforeTask = getActiveAutoTask();
+        System.out.println("🔍 [DIAGNOSTIC_STOP]: stopAuto() invoked | activeTaskBefore=" + (beforeTask != null ? beforeTask.className : "null"));
+
         try {
             Class<?> taskCtrlCls = cl.loadClass(schema.taskControllerClassName);
             Method stopMethod = taskCtrlCls.getMethod(schema.taskStopMethod);
@@ -1928,6 +1953,23 @@ public class AvatarModAdapter {
                 }
             }
         } catch (Throwable ignored) {}
+    }
+
+    public static Object getFieldValue(Object obj, String fieldName) {
+        if (obj == null || fieldName == null) return null;
+        try {
+            Class<?> c = obj.getClass();
+            while (c != null) {
+                for (Field f : c.getDeclaredFields()) {
+                    if (f.getName().equals(fieldName)) {
+                        f.setAccessible(true);
+                        return f.get(obj);
+                    }
+                }
+                c = c.getSuperclass();
+            }
+        } catch (Throwable ignored) {}
+        return null;
     }
 
     public static Object getStaticField(Class<?> cls, String name, Class<?> type) {
