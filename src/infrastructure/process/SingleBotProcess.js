@@ -47,6 +47,8 @@ class SingleBotProcess extends EventEmitter {
       message: ''
     };
     this.workspaceRoot = path.resolve(__dirname, '../../../');
+    this._stdoutBuffer = '';
+    this._stderrBuffer = '';
   }
 
   resolveJar(jarFilename) {
@@ -227,16 +229,24 @@ class SingleBotProcess extends EventEmitter {
       this.emitLog('info', `✅ [${this.account.username}] Bot đang chạy (PID: ${pid})`);
       this.emit('started', { accountId: this.account.id, pid });
 
-      // Handle STDOUT
+      // Handle STDOUT with stream line buffering
       this.child.stdout.on('data', (chunk) => {
-        const text = chunk.toString('utf8');
-        this.processLogOutput(text, 'stdout');
+        this._stdoutBuffer += chunk.toString('utf8');
+        const lines = this._stdoutBuffer.split('\n');
+        this._stdoutBuffer = lines.pop() || '';
+        for (const line of lines) {
+          this.processLogOutput(line, 'stdout');
+        }
       });
 
-      // Handle STDERR
+      // Handle STDERR with stream line buffering
       this.child.stderr.on('data', (chunk) => {
-        const text = chunk.toString('utf8');
-        this.processLogOutput(text, 'stderr');
+        this._stderrBuffer += chunk.toString('utf8');
+        const lines = this._stderrBuffer.split('\n');
+        this._stderrBuffer = lines.pop() || '';
+        for (const line of lines) {
+          this.processLogOutput(line, 'stderr');
+        }
       });
 
       // Handle Exit
@@ -394,13 +404,16 @@ class SingleBotProcess extends EventEmitter {
               };
               this.emit('auto-status', { accountId: this.account.id, autoState: this.autoState });
             } else if (!parsed.isAutoRunning && this.autoState && this.autoState.isRunning) {
-              this.autoState = {
-                isRunning: false,
-                autoType: null,
-                status: 'idle',
-                message: ''
-              };
-              this.emit('auto-status', { accountId: this.account.id, autoState: this.autoState });
+              const hasActiveCountdown = this.playerStats.farmingCountdown && this.playerStats.farmingCountdown !== '--:--';
+              if (!hasActiveCountdown) {
+                this.autoState = {
+                  isRunning: false,
+                  autoType: null,
+                  status: 'idle',
+                  message: ''
+                };
+                this.emit('auto-status', { accountId: this.account.id, autoState: this.autoState });
+              }
             }
           }
 
