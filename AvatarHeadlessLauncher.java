@@ -268,6 +268,7 @@ public class AvatarHeadlessLauncher {
 
                     System.out.println("[QUY TRÌNH] 2. Bắt đầu kết nối & đăng nhập tài khoản...");
                     lastLoginAttemptTime = System.currentTimeMillis();
+                    long lastOnlinePlayerSeenTime = System.currentTimeMillis();
                     AvatarModAdapter.login(customUser, customPass, finalServerId, finalServerName);
 
                     boolean initialSetupApplied = false;
@@ -386,10 +387,17 @@ public class AvatarHeadlessLauncher {
                         boolean connected = AvatarModAdapter.isNetworkConnected();
                         long now = System.currentTimeMillis();
 
-                        // 2.2.0. Phát hiện nhân vật bị ĐĂNG XUẤT hoặc ĐÓNG SOCKET MẤT KẾT NỐI
-                        if (isCurrentlyOnline && (ef == null || !connected)) {
+                        if (ef != null) {
+                            lastOnlinePlayerSeenTime = now;
+                        }
+
+                        // 2.2.0. Phát hiện nhân vật bị ĐÓNG SOCKET MẤT KẾT NỐI
+                        boolean socketTrulyDead = isCurrentlyOnline && !connected;
+                        boolean playerLostLongTime = isCurrentlyOnline && connected && (ef == null) && (now - lastOnlinePlayerSeenTime > 25000L);
+
+                        if (socketTrulyDead || playerLostLongTime) {
                             isCurrentlyOnline = false;
-                            System.out.println("⚠️ [ĐÓNG SOCKET / MẤT KẾT NỐI]: Socket đã đóng hoặc mất kết nối máy chủ!");
+                            System.out.println("⚠️ [ĐÓNG SOCKET / MẤT KẾT NỐI]: " + (socketTrulyDead ? "Socket đã đóng máy chủ!" : "Mất dữ liệu nhân vật quá 25s!"));
                             System.out.println("[ACCOUNT_STATUS]: {\"state\":\"disconnected\",\"message\":\"Mất kết nối / Đóng socket, đang đăng nhập lại sau 20s...\"}");
                             AvatarModAdapter.dismissCurrentDialog();
                             Thread.sleep(20000);
