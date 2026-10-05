@@ -895,6 +895,40 @@ public class AvatarModAdapter {
                     } catch (Throwable ignored) {}
                 }
 
+                // Nếu bot đang bán đá từ Auto Kim Cương (activeTask.autoType là sell_ore/banda)
+                // Thường là sub-task của KC - cần kiểm tra parent instance hoặc dùng cachedDiamondInstance
+                if (!isDiamondActive && activeTask != null &&
+                        ("sell_ore".equalsIgnoreCase(activeTask.autoType) || "banda".equalsIgnoreCase(activeTask.autoType) || "stone".equalsIgnoreCase(activeTask.autoType))) {
+                    // Kiểm tra parent diamond instance trong sell_ore task
+                    if (activeTask.taskInstance != null) {
+                        try {
+                            Class<?> taskBaseCls = activeTask.taskInstance.getClass();
+                            while (taskBaseCls != null && !taskBaseCls.equals(Object.class)) {
+                                for (Field f : taskBaseCls.getDeclaredFields()) {
+                                    if (!java.lang.reflect.Modifier.isStatic(f.getModifiers()) && f.getType().getName().equals(diamCls.getName())) {
+                                        f.setAccessible(true);
+                                        Object parent = f.get(activeTask.taskInstance);
+                                        if (parent != null && diamCls.isInstance(parent)) {
+                                            isDiamondActive = true;
+                                            isCurrentlyInFarmFromAuto = true;
+                                            if (diamInst == null) diamInst = parent;
+                                            break;
+                                        }
+                                    }
+                                }
+                                if (isDiamondActive) break;
+                                taskBaseCls = taskBaseCls.getSuperclass();
+                            }
+                        } catch (Throwable ignored) {}
+                    }
+                    // Nếu không tìm thấy parent, dùng cachedDiamondInstance (đã từng tìm thấy trước đó)
+                    if (!isDiamondActive && cachedDiamondInstance != null && diamCls.isInstance(cachedDiamondInstance)) {
+                        isDiamondActive = true;
+                        isCurrentlyInFarmFromAuto = true;
+                        if (diamInst == null) diamInst = cachedDiamondInstance;
+                    }
+                }
+
                 if (diamInst == null && activeTask != null && activeTask.taskInstance != null && diamCls.isInstance(activeTask.taskInstance)) {
                     diamInst = activeTask.taskInstance;
                 }

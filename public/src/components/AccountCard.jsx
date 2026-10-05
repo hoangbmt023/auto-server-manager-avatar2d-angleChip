@@ -130,7 +130,9 @@ window.AccountCard = function AccountCard({
   const isFarmRunning = isAutoRunning && activeAutoType === 'farm';
   const isFishRunning = (isAutoRunning && (activeAutoType === 'fish' || activeAutoType === 'cau_ca')) || (stats.isFishMod && stats.fishCaught > 0);
   const isSellOreRunning = isAutoRunning && (activeAutoType === 'sell_ore' || activeAutoType === 'banda' || activeAutoType === 'stone');
-  const isDiamondRunning = (isAutoRunning && (activeAutoType === 'diamond' || activeAutoType === 'kc')) || (!isFishRunning && !isSellOreRunning && !isFarmRunning && hasDiamondStats);
+  // isDiamondRunning: show KC stats panel when explicitly running KC, OR when sell_ore/farm sub-task with hasDiamondStats (KC countdown still active)
+  const isDiamondRunning = (isAutoRunning && (activeAutoType === 'diamond' || activeAutoType === 'kc')) ||
+    (!isFishRunning && !isFarmRunning && hasDiamondStats);
 
   return (
     <div className={`account-card-item ${cardStyleClass} ${(menuOpen || autoMenuOpen) ? 'menu-open-active' : ''}`}>

@@ -384,8 +384,9 @@ class SingleBotProcess extends EventEmitter {
           if (parsed.isAutoRunning !== undefined) {
             if (parsed.isAutoRunning && parsed.autoType) {
               let primaryType = parsed.autoType;
-              // Nếu đang chạy auto kim cương / câu cá mà tạm về farm, giữ nguyên primary autoType
-              if (parsed.autoType === 'farm' && this.autoState && (this.autoState.autoType === 'diamond' || this.autoState.autoType === 'fish' || this.autoState.autoType === 'kc')) {
+              // Nếu đang chạy auto kim cương / câu cá mà tạm về farm hoặc bán đá, giữ nguyên primary autoType
+              const isSubTask = (parsed.autoType === 'farm' || parsed.autoType === 'sell_ore' || parsed.autoType === 'banda' || parsed.autoType === 'stone');
+              if (isSubTask && this.autoState && (this.autoState.autoType === 'diamond' || this.autoState.autoType === 'fish' || this.autoState.autoType === 'kc')) {
                 primaryType = this.autoState.autoType;
               }
 
