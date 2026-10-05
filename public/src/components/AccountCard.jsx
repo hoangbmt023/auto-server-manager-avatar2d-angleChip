@@ -121,18 +121,10 @@ window.AccountCard = function AccountCard({
   const isAutoRunning = Boolean(autoState.isRunning || (stats.isAutoRunning && stats.autoType));
   const activeAutoType = autoState.autoType || stats.autoType || null;
 
-  const hasDiamondStats = Boolean(
-    (stats.farmingCountdown && stats.farmingCountdown !== '--:--') ||
-    (stats.kcx && stats.kcx !== '+0') ||
-    (stats.nhb && stats.nhb !== '+0')
-  );
-
   const isFarmRunning = isAutoRunning && activeAutoType === 'farm';
-  const isFishRunning = (isAutoRunning && (activeAutoType === 'fish' || activeAutoType === 'cau_ca')) || (stats.isFishMod && stats.fishCaught > 0);
+  const isDiamondRunning = isAutoRunning && (activeAutoType === 'diamond' || activeAutoType === 'kc');
+  const isFishRunning = isAutoRunning && (activeAutoType === 'fish' || activeAutoType === 'cau_ca');
   const isSellOreRunning = isAutoRunning && (activeAutoType === 'sell_ore' || activeAutoType === 'banda' || activeAutoType === 'stone');
-  // isDiamondRunning: show KC stats panel when explicitly running KC, OR when sell_ore/farm sub-task with hasDiamondStats (KC countdown still active)
-  const isDiamondRunning = (isAutoRunning && (activeAutoType === 'diamond' || activeAutoType === 'kc')) ||
-    (!isFishRunning && !isFarmRunning && hasDiamondStats);
 
   return (
     <div className={`account-card-item ${cardStyleClass} ${(menuOpen || autoMenuOpen) ? 'menu-open-active' : ''}`}>

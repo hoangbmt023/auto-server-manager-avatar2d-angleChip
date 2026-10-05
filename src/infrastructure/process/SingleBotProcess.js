@@ -47,8 +47,6 @@ class SingleBotProcess extends EventEmitter {
       message: ''
     };
     this.workspaceRoot = path.resolve(__dirname, '../../../');
-    this._stdoutBuffer = '';
-    this._stderrBuffer = '';
   }
 
   resolveJar(jarFilename) {
@@ -229,24 +227,16 @@ class SingleBotProcess extends EventEmitter {
       this.emitLog('info', `✅ [${this.account.username}] Bot đang chạy (PID: ${pid})`);
       this.emit('started', { accountId: this.account.id, pid });
 
-      // Handle STDOUT with stream line buffering
+      // Handle STDOUT
       this.child.stdout.on('data', (chunk) => {
-        this._stdoutBuffer += chunk.toString('utf8');
-        const lines = this._stdoutBuffer.split('\n');
-        this._stdoutBuffer = lines.pop() || '';
-        for (const line of lines) {
-          this.processLogOutput(line, 'stdout');
-        }
+        const text = chunk.toString('utf8');
+        this.processLogOutput(text, 'stdout');
       });
 
-      // Handle STDERR with stream line buffering
+      // Handle STDERR
       this.child.stderr.on('data', (chunk) => {
-        this._stderrBuffer += chunk.toString('utf8');
-        const lines = this._stderrBuffer.split('\n');
-        this._stderrBuffer = lines.pop() || '';
-        for (const line of lines) {
-          this.processLogOutput(line, 'stderr');
-        }
+        const text = chunk.toString('utf8');
+        this.processLogOutput(text, 'stderr');
       });
 
       // Handle Exit
@@ -337,28 +327,25 @@ class SingleBotProcess extends EventEmitter {
       }
 
       if (line.includes('Đã chăm sóc xong') || line.includes('Đã xong việc') || line.includes('chăm sóc xong') || line.includes('Nông trại bạn đã được chăm sóc') || line.includes('AUTO HOÀN THÀNH')) {
-        // Chỉ kết thúc nếu đang chạy thuần Auto Farm, không can thiệp nếu đang là Auto Kim Cương hoặc Auto Câu Cá
-        if (this.autoState && (this.autoState.autoType === 'farm' || !this.autoState.autoType)) {
+        this.autoState = {
+          isRunning: false,
+          autoType: 'farm',
+          status: 'finished',
+          finished: true,
+          message: 'Đã farm xong!'
+        };
+        this.emit('auto-status', { accountId: this.account.id, autoState: this.autoState });
+
+        if (this.autoResetTimer) clearTimeout(this.autoResetTimer);
+        this.autoResetTimer = setTimeout(() => {
           this.autoState = {
             isRunning: false,
-            autoType: 'farm',
-            status: 'finished',
-            finished: true,
-            message: 'Đã farm xong!'
+            autoType: null,
+            status: 'idle',
+            message: ''
           };
           this.emit('auto-status', { accountId: this.account.id, autoState: this.autoState });
-
-          if (this.autoResetTimer) clearTimeout(this.autoResetTimer);
-          this.autoResetTimer = setTimeout(() => {
-            this.autoState = {
-              isRunning: false,
-              autoType: null,
-              status: 'idle',
-              message: ''
-            };
-            this.emit('auto-status', { accountId: this.account.id, autoState: this.autoState });
-          }, 5000);
-        }
+        }, 5000);
       }
 
       if (line.includes('[PLAYER_STATS]:')) {
@@ -384,9 +371,8 @@ class SingleBotProcess extends EventEmitter {
           if (parsed.isAutoRunning !== undefined) {
             if (parsed.isAutoRunning && parsed.autoType) {
               let primaryType = parsed.autoType;
-              // Nếu đang chạy auto kim cương / câu cá mà tạm về farm hoặc bán đá, giữ nguyên primary autoType
-              const isSubTask = (parsed.autoType === 'farm' || parsed.autoType === 'sell_ore' || parsed.autoType === 'banda' || parsed.autoType === 'stone');
-              if (isSubTask && this.autoState && (this.autoState.autoType === 'diamond' || this.autoState.autoType === 'fish' || this.autoState.autoType === 'kc')) {
+              // Nếu đang chạy auto kim cương / câu cá mà tạm về farm, giữ nguyên primary autoType
+              if (parsed.autoType === 'farm' && this.autoState && (this.autoState.autoType === 'diamond' || this.autoState.autoType === 'fish' || this.autoState.autoType === 'kc')) {
                 primaryType = this.autoState.autoType;
               }
 
@@ -408,17 +394,13 @@ class SingleBotProcess extends EventEmitter {
               };
               this.emit('auto-status', { accountId: this.account.id, autoState: this.autoState });
             } else if (!parsed.isAutoRunning && this.autoState && this.autoState.isRunning) {
-              const hasActiveCountdown = this.playerStats.farmingCountdown && this.playerStats.farmingCountdown !== '--:--';
-              const isLongRunningAuto = (this.autoState.autoType === 'diamond' || this.autoState.autoType === 'fish' || this.autoState.autoType === 'kc');
-              if (!hasActiveCountdown && !isLongRunningAuto) {
-                this.autoState = {
-                  isRunning: false,
-                  autoType: null,
-                  status: 'idle',
-                  message: ''
-                };
-                this.emit('auto-status', { accountId: this.account.id, autoState: this.autoState });
-              }
+              this.autoState = {
+                isRunning: false,
+                autoType: null,
+                status: 'idle',
+                message: ''
+              };
+              this.emit('auto-status', { accountId: this.account.id, autoState: this.autoState });
             }
           }
 
