@@ -23,12 +23,12 @@ window.TerminalConsole = function TerminalConsole({
     if (type === 'error' || type === 'err' || text.includes('❌') || text.includes('Error:') || text.includes('LỖI') || text.includes('MẬT KHẨU')) return 'error';
     if (type === 'warn' || text.includes('⚠️') || text.includes('CẢNH BÁO') || text.includes('BẢO TRÌ') || text.includes('MẤT KẾT NỐI') || text.includes('ĐÓNG SOCKET')) return 'warn';
     if (text.includes('💬') || text.includes('[POPUP GAME]')) return 'popup';
-    if (text.includes('🔄') || text.includes('[TỰ ĐỘNG ĐĂNG NHẬP') || text.includes('khởi động lại')) return 'retry';
+    if (text.includes('🔄') || text.includes('[TỰ ĐỘNG ĐĂNG NHẬP') || text.includes('khởi động lại') || text.includes('RESET DỮ LIỆU')) return 'retry';
     if (type === 'success' || text.includes('✅') || text.includes('🎉') || text.includes('THÀNH CÔNG') || text.includes('HOÀN THÀNH') || text.includes('MỤC TIÊU')) return 'success';
-    if (text.includes('🌾') || text.includes('FARM') || text.includes('nông trại') || text.includes('chăm farm') || text.includes('thu hoạch') || text.includes('Về Farm')) return 'farm';
-    if (text.includes('💎') || text.includes('KIM CƯƠNG') || text.includes('Đào Khoáng') || text.includes('KCX') || text.includes('NHB')) return 'diamond';
+    if (text.includes('🌾') || text.includes('FARM') || text.includes('nông trại') || text.includes('chăm farm') || text.includes('thu hoạch') || text.includes('Về Farm') || text.includes('Nông sản') || text.includes('Cây trồng')) return 'farm';
+    if (text.includes('💎') || text.includes('KIM CƯƠNG') || text.includes('Đào Khoáng') || text.includes('KCX') || text.includes('NHB') || text.includes('🪨') || text.includes('BÁN ĐÁ')) return 'diamond';
     if (text.includes('🎣') || text.includes('CÂU CÁ') || text.includes('cần câu') || text.includes('vé câu') || text.includes('cá cắn')) return 'fish';
-    if (type === 'info' || text.includes('🚀') || text.includes('[QUY TRÌNH]') || text.includes('Đang kết nối')) return 'info';
+    if (type === 'info' || text.includes('🚀') || text.includes('[QUY TRÌNH]') || text.includes('Đang kết nối') || text.includes('PROXY SETUP')) return 'info';
     if (type === 'system' || text.includes('[System]')) return 'system';
     return type || 'out';
   };

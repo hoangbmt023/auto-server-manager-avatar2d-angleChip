@@ -681,11 +681,8 @@ public class AvatarModAdapter {
         } catch (Throwable ignored) {}
 
         // 3.3. Thông số Kim Cương, Câu Cá, Bán Đá & Đếm ngược Farming
-        if (stats.isFishMod) {
-            extractFishStats(cl, schema, stats);
-        } else {
-            extractDiamondStats(cl, schema, stats);
-        }
+        extractDiamondStats(cl, schema, stats);
+        extractFishStats(cl, schema, stats);
         extractSellOreStats(cl, schema, stats);
 
         // 3.4. Trạng thái Auto đang chạy
@@ -1012,18 +1009,18 @@ public class AvatarModAdapter {
                     }
                 }
 
-                if (!autoFarmEnabled) {
-                    stats.farmingCountdown = "Không hẹn giờ";
-                } else if (isCurrentlyInFarmFromAuto) {
-                    stats.farmingCountdown = "Đang trong farm...";
-                } else if (targetMs > now) {
+                if (targetMs > now) {
                     int diffSec = (int) ((targetMs - now) / 1000L);
                     stats.farmingCountdown = formatCountdownWithMod(cl, diffSec);
-                } else if (targetMs > 0) {
+                } else if (isCurrentlyInFarmFromAuto) {
+                    stats.farmingCountdown = "Đang trong farm...";
+                } else if (targetMs > 0 && isDiamondActive) {
                     stats.farmingCountdown = "Đang về farm...";
-                } else if (isDiamondActive) {
+                } else if (isDiamondActive && autoFarmEnabled) {
                     stats.farmingCountdown = "Xin chờ...";
-                } else {
+                } else if (isDiamondActive && !autoFarmEnabled) {
+                    stats.farmingCountdown = "Không hẹn giờ";
+                } else if (stats.farmingCountdown == null || stats.farmingCountdown.isEmpty()) {
                     stats.farmingCountdown = "--:--";
                 }
             } catch (Throwable ignored) {}
@@ -1032,22 +1029,6 @@ public class AvatarModAdapter {
 
     private static String formatCountdownWithMod(ClassLoader cl, int diffSec) {
         if (diffSec <= 0) return "00:00";
-        if (cl != null) {
-            String[] fmtClasses = new String[] { "gO", "fK" };
-            for (String fc : fmtClasses) {
-                try {
-                    Class<?> c = cl.loadClass(fc);
-                    Method m = c.getMethod("do", int.class);
-                    if (java.lang.reflect.Modifier.isStatic(m.getModifiers()) && m.getReturnType().equals(String.class)) {
-                        Object res = m.invoke(null, diffSec);
-                        if (res != null) {
-                            String s = res.toString().trim();
-                            if (!s.isEmpty()) return s;
-                        }
-                    }
-                } catch (Throwable ignored) {}
-            }
-        }
         int s = diffSec % 60;
         int m = (diffSec / 60) % 60;
         int h = (diffSec / 3600) % 24;
@@ -1245,18 +1226,18 @@ public class AvatarModAdapter {
                 }
             }
 
-            if (!backToFarmEnabled) {
-                stats.farmingCountdown = "Không hẹn giờ";
-            } else if (isCurrentlyInFarmFromFish) {
-                stats.farmingCountdown = "Đang trong farm...";
-            } else if (targetMs > now) {
+            if (targetMs > now) {
                 int diffSec = (int) ((targetMs - now) / 1000L);
                 stats.farmingCountdown = formatCountdownWithMod(cl, diffSec);
-            } else if (targetMs > 0) {
+            } else if (isCurrentlyInFarmFromFish) {
+                stats.farmingCountdown = "Đang trong farm...";
+            } else if (targetMs > 0 && isFishActive) {
                 stats.farmingCountdown = "Đang về farm...";
-            } else if (isFishActive) {
+            } else if (isFishActive && backToFarmEnabled) {
                 stats.farmingCountdown = "Xin chờ...";
-            } else {
+            } else if (isFishActive && !backToFarmEnabled) {
+                stats.farmingCountdown = "Không hẹn giờ";
+            } else if (stats.farmingCountdown == null || stats.farmingCountdown.isEmpty()) {
                 stats.farmingCountdown = "--:--";
             }
         } catch (Throwable ignored) {}
