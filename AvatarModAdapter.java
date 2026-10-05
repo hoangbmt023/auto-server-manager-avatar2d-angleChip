@@ -86,6 +86,8 @@ public class AvatarModAdapter {
     private static long lastDiagnosticLogTs = 0L;
     private static boolean wasInFarmDiamond = false;
     private static boolean wasInFarmFish = false;
+    private static Object cachedDiamondInstance = null;
+    private static Object cachedFishInstance = null;
 
     private static ClassLoader getClassLoader() {
         MIDlet midlet = MIDletBridge.getCurrentMIDlet();
@@ -691,6 +693,11 @@ public class AvatarModAdapter {
         if (activeAuto != null) {
             stats.isAutoRunning = true;
             stats.autoType = activeAuto.autoType;
+        } else if (stats.farmingCountdown != null && !stats.farmingCountdown.equals("--:--") && !stats.farmingCountdown.equals("Không hẹn giờ")) {
+            stats.isAutoRunning = true;
+            if (stats.autoType == null || stats.autoType.isEmpty()) {
+                stats.autoType = stats.isFishMod ? "fish" : "diamond";
+            }
         }
 
         return stats;
@@ -892,6 +899,12 @@ public class AvatarModAdapter {
                     diamInst = activeTask.taskInstance;
                 }
 
+                if (diamInst != null) {
+                    cachedDiamondInstance = diamInst;
+                } else if (cachedDiamondInstance != null && diamCls.isInstance(cachedDiamondInstance)) {
+                    diamInst = cachedDiamondInstance;
+                }
+
                 long now = System.currentTimeMillis();
                 long targetMs = 0;
 
@@ -1011,6 +1024,7 @@ public class AvatarModAdapter {
                 }
 
                 if (targetMs > now) {
+                    if (autoFarmEnabled) isDiamondActive = true;
                     int diffSec = (int) ((targetMs - now) / 1000L);
                     stats.farmingCountdown = formatCountdownWithMod(cl, diffSec);
                 } else if (isCurrentlyInFarmFromAuto) {
@@ -1860,6 +1874,9 @@ public class AvatarModAdapter {
 
         AutoTaskInfo beforeTask = getActiveAutoTask();
         System.out.println("🔍 [DIAGNOSTIC_STOP]: stopAuto() invoked | activeTaskBefore=" + (beforeTask != null ? beforeTask.className : "null"));
+
+        cachedDiamondInstance = null;
+        cachedFishInstance = null;
 
         try {
             Class<?> taskCtrlCls = cl.loadClass(schema.taskControllerClassName);

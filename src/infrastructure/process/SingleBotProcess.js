@@ -337,25 +337,28 @@ class SingleBotProcess extends EventEmitter {
       }
 
       if (line.includes('Đã chăm sóc xong') || line.includes('Đã xong việc') || line.includes('chăm sóc xong') || line.includes('Nông trại bạn đã được chăm sóc') || line.includes('AUTO HOÀN THÀNH')) {
-        this.autoState = {
-          isRunning: false,
-          autoType: 'farm',
-          status: 'finished',
-          finished: true,
-          message: 'Đã farm xong!'
-        };
-        this.emit('auto-status', { accountId: this.account.id, autoState: this.autoState });
-
-        if (this.autoResetTimer) clearTimeout(this.autoResetTimer);
-        this.autoResetTimer = setTimeout(() => {
+        // Chỉ kết thúc nếu đang chạy thuần Auto Farm, không can thiệp nếu đang là Auto Kim Cương hoặc Auto Câu Cá
+        if (this.autoState && (this.autoState.autoType === 'farm' || !this.autoState.autoType)) {
           this.autoState = {
             isRunning: false,
-            autoType: null,
-            status: 'idle',
-            message: ''
+            autoType: 'farm',
+            status: 'finished',
+            finished: true,
+            message: 'Đã farm xong!'
           };
           this.emit('auto-status', { accountId: this.account.id, autoState: this.autoState });
-        }, 5000);
+
+          if (this.autoResetTimer) clearTimeout(this.autoResetTimer);
+          this.autoResetTimer = setTimeout(() => {
+            this.autoState = {
+              isRunning: false,
+              autoType: null,
+              status: 'idle',
+              message: ''
+            };
+            this.emit('auto-status', { accountId: this.account.id, autoState: this.autoState });
+          }, 5000);
+        }
       }
 
       if (line.includes('[PLAYER_STATS]:')) {
@@ -405,7 +408,8 @@ class SingleBotProcess extends EventEmitter {
               this.emit('auto-status', { accountId: this.account.id, autoState: this.autoState });
             } else if (!parsed.isAutoRunning && this.autoState && this.autoState.isRunning) {
               const hasActiveCountdown = this.playerStats.farmingCountdown && this.playerStats.farmingCountdown !== '--:--';
-              if (!hasActiveCountdown) {
+              const isLongRunningAuto = (this.autoState.autoType === 'diamond' || this.autoState.autoType === 'fish' || this.autoState.autoType === 'kc');
+              if (!hasActiveCountdown && !isLongRunningAuto) {
                 this.autoState = {
                   isRunning: false,
                   autoType: null,
