@@ -89,11 +89,15 @@ class ProxyService {
     const config = this.configRepo.get();
     if (!config.proxies) return false;
 
-    // Check if any running bots are using this proxy
+    // Check if any running bots are using this proxy -> gracefully stop them
     const runningAccounts = this.multiBotManager ? this.multiBotManager.getRunningAccounts() : [];
     const runningOnProxy = runningAccounts.filter(a => a.proxyId === id);
     if (runningOnProxy.length > 0) {
-      throw new Error(`❌ Không thể xóa proxy này vì đang có ${runningOnProxy.length} nick đang online qua proxy! Vui lòng dừng các nick trước.`);
+      for (const acc of runningOnProxy) {
+        try {
+          this.multiBotManager.stopAccount(acc.id);
+        } catch (e) {}
+      }
     }
 
     // Unlink proxy from accounts

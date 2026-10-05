@@ -86,6 +86,8 @@ public class AvatarModAdapter {
     private static long lastDiagnosticLogTs = 0L;
     private static boolean wasInFarmDiamond = false;
     private static boolean wasInFarmFish = false;
+    private static long lastKnownDiamondTargetMs = 0L;
+    private static long lastKnownFishTargetMs = 0L;
 
     private static ClassLoader getClassLoader() {
         MIDlet midlet = MIDletBridge.getCurrentMIDlet();
@@ -987,40 +989,21 @@ public class AvatarModAdapter {
                     }
                 }
 
-                // Nếu Auto Kim Cương đang chạy và BẬT về farm mà Mod chưa kịp nạp targetMs (> 0), tự động gán mốc đếm lùi
-                if (targetMs <= now && isDiamondActive && autoFarmEnabled) {
-                    long intervalMs = 60 * 60000L;
-                    for (Field f : diamCls.getDeclaredFields()) {
-                        if (java.lang.reflect.Modifier.isStatic(f.getModifiers()) && f.getType().equals(int.class)) {
-                            if (f.getName().equals(schema.diamondIntervalField)) {
-                                try {
-                                    f.setAccessible(true);
-                                    int mins = f.getInt(null);
-                                    if (mins > 0) intervalMs = (long) mins * 60000L;
-                                } catch (Throwable ignored) {}
-                            }
-                        }
-                    }
-                    targetMs = now + intervalMs;
-                    if (diamInst != null) {
-                        setField(diamInst, schema.diamondAbsTargetMsField, targetMs, long.class);
-                    }
-                    if (activeTask != null && activeTask.taskInstance != null) {
-                        setField(activeTask.taskInstance, schema.diamondAbsTargetMsField, targetMs, long.class);
-                    }
-                }
-
                 if (targetMs > now) {
                     int diffSec = (int) ((targetMs - now) / 1000L);
                     stats.farmingCountdown = formatCountdownWithMod(cl, diffSec);
+                    lastKnownDiamondTargetMs = targetMs;
                 } else if (isCurrentlyInFarmFromAuto) {
                     stats.farmingCountdown = "Đang trong farm...";
-                } else if (targetMs > 0 && isDiamondActive) {
-                    stats.farmingCountdown = "Đang về farm...";
                 } else if (isDiamondActive && autoFarmEnabled) {
+                    // Trùng khớp hoàn toàn cơ chế HUD aQ.class của Chip: khi targetMs hết hạn thì hiển thị "xin chờ..."
                     stats.farmingCountdown = "Xin chờ...";
                 } else if (isDiamondActive && !autoFarmEnabled) {
                     stats.farmingCountdown = "Không hẹn giờ";
+                } else if (lastKnownDiamondTargetMs > now && (isDiamondActive || activeTask == null)) {
+                    // Giữ lại countdown khi bot đang đổi map hoặc reconnect trong chốc lát
+                    int diffSec = (int) ((lastKnownDiamondTargetMs - now) / 1000L);
+                    stats.farmingCountdown = formatCountdownWithMod(cl, diffSec);
                 } else if (stats.farmingCountdown == null || stats.farmingCountdown.isEmpty()) {
                     stats.farmingCountdown = "--:--";
                 }
@@ -1223,40 +1206,19 @@ public class AvatarModAdapter {
                 }
             }
 
-            // Nếu Auto Câu Cá đang chạy và BẬT về farm mà Mod chưa nạp targetMs (> 0), tự động gán mốc đếm lùi
-            if (targetMs <= now && isFishActive && backToFarmEnabled) {
-                long intervalMs = 30 * 60000L;
-                for (Field f : fishCls.getDeclaredFields()) {
-                    if (java.lang.reflect.Modifier.isStatic(f.getModifiers()) && f.getType().equals(int.class)) {
-                        if (f.getName().equals(schema.fishFarmIntervalField)) {
-                            try {
-                                f.setAccessible(true);
-                                int mins = f.getInt(null);
-                                if (mins > 0) intervalMs = (long) mins * 60000L;
-                            } catch (Throwable ignored) {}
-                        }
-                    }
-                }
-                targetMs = now + intervalMs;
-                if (fishInst != null) {
-                    setField(fishInst, schema.fishTargetMsField, targetMs, long.class);
-                }
-                if (activeTask != null && activeTask.taskInstance != null) {
-                    setField(activeTask.taskInstance, schema.fishTargetMsField, targetMs, long.class);
-                }
-            }
-
             if (targetMs > now) {
                 int diffSec = (int) ((targetMs - now) / 1000L);
                 stats.farmingCountdown = formatCountdownWithMod(cl, diffSec);
+                lastKnownFishTargetMs = targetMs;
             } else if (isCurrentlyInFarmFromFish) {
                 stats.farmingCountdown = "Đang trong farm...";
-            } else if (targetMs > 0 && isFishActive) {
-                stats.farmingCountdown = "Đang về farm...";
             } else if (isFishActive && backToFarmEnabled) {
                 stats.farmingCountdown = "Xin chờ...";
             } else if (isFishActive && !backToFarmEnabled) {
                 stats.farmingCountdown = "Không hẹn giờ";
+            } else if (lastKnownFishTargetMs > now && (isFishActive || activeTask == null)) {
+                int diffSec = (int) ((lastKnownFishTargetMs - now) / 1000L);
+                stats.farmingCountdown = formatCountdownWithMod(cl, diffSec);
             } else if (stats.farmingCountdown == null || stats.farmingCountdown.isEmpty()) {
                 stats.farmingCountdown = "--:--";
             }
@@ -1866,6 +1828,11 @@ public class AvatarModAdapter {
             Method stopMethod = taskCtrlCls.getMethod(schema.taskStopMethod);
             stopMethod.invoke(null);
         } catch (Throwable ignored) {}
+
+        lastKnownDiamondTargetMs = 0L;
+        lastKnownFishTargetMs = 0L;
+        wasInFarmDiamond = false;
+        wasInFarmFish = false;
 
         System.out.println("⏹️ [DỪNG AUTO]: Đã dừng tiến trình Auto.");
         System.out.println("[AUTO_STATUS]: {\"isRunning\":false,\"status\":\"stopped\",\"message\":\"Đã dừng Auto\"}");

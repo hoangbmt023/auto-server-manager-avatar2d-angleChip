@@ -45,17 +45,19 @@ window.DialogModal = function DialogModal({
   };
 
   const handleConfirm = () => {
-    if (typeof dialog.onConfirm === 'function') {
-      try { dialog.onConfirm(); } catch (e) {}
-    }
+    const fn = dialog.onConfirm;
     onClose();
+    if (typeof fn === 'function') {
+      try { fn(); } catch (e) {}
+    }
   };
 
   const handleCancel = () => {
-    if (typeof dialog.onCancel === 'function') {
-      try { dialog.onCancel(); } catch (e) {}
-    }
+    const fn = dialog.onCancel;
     onClose();
+    if (typeof fn === 'function') {
+      try { fn(); } catch (e) {}
+    }
   };
 
   return (

@@ -483,19 +483,21 @@ function App() {
   };
 
   const handleDeleteProxy = async (id, name) => {
-    showConfirm(`Bạn có chắc muốn xóa proxy [${name || id}]?`, async () => {
-      try {
-        const data = await window.ApiClient.deleteProxy(id);
-        if (data.success) {
-          fetchProxies();
-          fetchAccounts();
-        } else {
-          showAlert(data.message || 'Lỗi xóa proxy', 'Lỗi Xóa Proxy', 'error');
-        }
-      } catch (err) {
-        showAlert('Lỗi: ' + err.message, 'Lỗi Hệ Thống', 'error');
+    try {
+      const data = await window.ApiClient.deleteProxy(id);
+      if (data && data.success) {
+        fetchProxies();
+        fetchAccounts();
+        showAlert(data.message || 'Đã xóa Proxy thành công!', 'Thành Công', 'success');
+        return data;
+      } else {
+        showAlert(data?.message || 'Lỗi xóa proxy', 'Lỗi Xóa Proxy', 'error');
+        return data;
       }
-    });
+    } catch (err) {
+      showAlert('Lỗi: ' + err.message, 'Lỗi Hệ Thống', 'error');
+      return { success: false, message: err.message };
+    }
   };
 
   const handleClearLogs = async () => {

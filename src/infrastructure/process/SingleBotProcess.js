@@ -47,6 +47,8 @@ class SingleBotProcess extends EventEmitter {
       message: ''
     };
     this.workspaceRoot = path.resolve(__dirname, '../../../');
+    this._stdoutBuffer = '';
+    this._stderrBuffer = '';
   }
 
   resolveJar(jarFilename) {
@@ -227,20 +229,40 @@ class SingleBotProcess extends EventEmitter {
       this.emitLog('info', `✅ [${this.account.username}] Bot đang chạy (PID: ${pid})`);
       this.emit('started', { accountId: this.account.id, pid });
 
-      // Handle STDOUT
+      // Reset stream buffers
+      this._stdoutBuffer = '';
+      this._stderrBuffer = '';
+
+      // Handle STDOUT with stream line buffering
       this.child.stdout.on('data', (chunk) => {
-        const text = chunk.toString('utf8');
-        this.processLogOutput(text, 'stdout');
+        this._stdoutBuffer += chunk.toString('utf8');
+        const lines = this._stdoutBuffer.split('\n');
+        this._stdoutBuffer = lines.pop(); // Keep incomplete trailing fragment
+        for (const line of lines) {
+          this.processLogOutput(line, 'stdout');
+        }
       });
 
-      // Handle STDERR
+      // Handle STDERR with stream line buffering
       this.child.stderr.on('data', (chunk) => {
-        const text = chunk.toString('utf8');
-        this.processLogOutput(text, 'stderr');
+        this._stderrBuffer += chunk.toString('utf8');
+        const lines = this._stderrBuffer.split('\n');
+        this._stderrBuffer = lines.pop();
+        for (const line of lines) {
+          this.processLogOutput(line, 'stderr');
+        }
       });
 
       // Handle Exit
       this.child.on('close', (code, signal) => {
+        if (this._stdoutBuffer && this._stdoutBuffer.trim()) {
+          this.processLogOutput(this._stdoutBuffer, 'stdout');
+          this._stdoutBuffer = '';
+        }
+        if (this._stderrBuffer && this._stderrBuffer.trim()) {
+          this.processLogOutput(this._stderrBuffer, 'stderr');
+          this._stderrBuffer = '';
+        }
         this.emitLog('warn', `⚠️ [${this.account.username}] Tiến trình bot dừng với mã thoát: ${code || signal || '0'}`);
         const wasManual = this.isManualStop;
         this.child = null;
@@ -361,6 +383,14 @@ class SingleBotProcess extends EventEmitter {
             delete parsed.coins;
             delete parsed.gold;
             delete parsed.lockedGold;
+          }
+          // Giữ countdown hiện tại nếu Java tạm thời trả về '--:--' do đang load map/reconnect trong chốc lát
+          if ((!parsed.farmingCountdown || parsed.farmingCountdown === '--:--') &&
+              (this.playerStats.farmingCountdown && this.playerStats.farmingCountdown !== '--:--') &&
+              this.autoState && this.autoState.isRunning &&
+              (this.autoState.autoType === 'diamond' || this.autoState.autoType === 'kc' || this.autoState.autoType === 'fish')) {
+            delete parsed.farmingCountdown;
+            delete parsed.farmingTime;
           }
           this.playerStats = {
             ...this.playerStats,
