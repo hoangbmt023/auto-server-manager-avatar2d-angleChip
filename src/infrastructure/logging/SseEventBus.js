@@ -1,20 +1,32 @@
 const EventEmitter = require('events');
+const CrossProcessBus = require('../ipc/CrossProcessBus');
 
 /**
  * SseEventBus (Infrastructure Layer)
  * Manages Server-Sent Events (SSE) clients and broadcasts logs and status events.
+ * Fully synchronized with CrossProcessBus for multi-worker (cPanel / LiteSpeed) environments.
  */
 class SseEventBus extends EventEmitter {
-  constructor() {
+  constructor(crossProcessBus = null) {
     super();
     this.clients = new Set();
-    this.maxGlobalLogs = 1000;
-    this.logs = [];
+    this.ipcBus = crossProcessBus || new CrossProcessBus();
+
+    // Listen to remote events published by other worker processes
+    this.ipcBus.on('remote-event', (eventRecord) => {
+      if (eventRecord && eventRecord.eventType && eventRecord.data !== undefined) {
+        this.broadcastLocal(eventRecord.eventType, eventRecord.data);
+      }
+    });
 
     // Periodic heartbeat to keep connections alive
     setInterval(() => {
-      this.broadcast('ping', { time: Date.now() });
+      this.broadcastLocal('ping', { time: Date.now() });
     }, 25000);
+  }
+
+  getIpcBus() {
+    return this.ipcBus;
   }
 
   addClient(res) {
@@ -26,7 +38,7 @@ class SseEventBus extends EventEmitter {
       'Access-Control-Allow-Origin': '*'
     });
 
-    res.write(`data: ${JSON.stringify({ type: 'connected', message: 'SSE Live Stream Connected' })}\n\n`);
+    res.write(`data: ${JSON.stringify({ type: 'connected', message: 'SSE Live Stream Connected', workerPid: process.pid })}\n\n`);
     this.clients.add(res);
 
     res.on('close', () => {
@@ -35,29 +47,23 @@ class SseEventBus extends EventEmitter {
   }
 
   addLog(entry) {
-    const formatted = {
-      timestamp: entry.timestamp || new Date().toLocaleTimeString('vi-VN', { hour12: false }),
-      type: entry.type || 'stdout',
-      accountId: entry.accountId || null,
-      username: entry.username || null,
-      text: (entry.text || '').trimEnd()
-    };
+    // CrossProcessBus handles formatting, disk storage, and cross-worker broadcast
+    this.ipcBus.publishLog(entry);
+    this.emit('log', entry);
+  }
 
-    this.logs.push(formatted);
-    if (this.logs.length > this.maxGlobalLogs) {
-      this.logs.shift();
-    }
-
-    this.broadcast('log', formatted);
-    this.emit('log', formatted);
+  getLogs() {
+    return this.ipcBus.getLogs();
   }
 
   clearLogs() {
-    this.logs = [];
-    this.broadcast('clear-logs', { success: true });
+    this.ipcBus.clearLogs();
   }
 
-  broadcast(eventType, data) {
+  /**
+   * Broadcast only to clients connected directly to this worker process
+   */
+  broadcastLocal(eventType, data) {
     const payload = `event: ${eventType}\ndata: ${JSON.stringify(data)}\n\n`;
     for (const client of this.clients) {
       try {
@@ -66,6 +72,14 @@ class SseEventBus extends EventEmitter {
         this.clients.delete(client);
       }
     }
+  }
+
+  /**
+   * Broadcast locally AND publish to all other workers
+   */
+  broadcast(eventType, data) {
+    this.broadcastLocal(eventType, data);
+    this.ipcBus.publishEvent(eventType, data);
   }
 
   getClientCount() {

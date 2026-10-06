@@ -162,7 +162,8 @@ class BotController {
   }
 
   async restartAll(req, res, sendJson) {
-    const runningIds = Array.from(this.multiBotManager.runningBots.keys());
+    const runningAccs = this.multiBotManager.getRunningAccounts();
+    const runningIds = runningAccs.map(a => a.id);
     this.multiBotManager.stopAll();
 
     setTimeout(async () => {
@@ -180,9 +181,10 @@ class BotController {
   }
 
   async getLogs(req, res, sendJson) {
+    const logs = this.sseEventBus.getLogs ? this.sseEventBus.getLogs() : (this.sseEventBus.logs || []);
     return sendJson(res, 200, {
       success: true,
-      logs: this.sseEventBus.logs
+      logs
     });
   }
 

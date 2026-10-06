@@ -72,7 +72,7 @@ class AccountService {
     this.configRepo.save(config);
 
     // If account was already running online, automatically restart with new configuration
-    const wasRunning = this.multiBotManager.runningBots.has(account.id);
+    const wasRunning = this.multiBotManager.isAccountRunning(account.id);
     if (wasRunning) {
       this.multiBotManager.stopAccount(account.id);
       setTimeout(async () => {
@@ -124,7 +124,7 @@ class AccountService {
     this.configRepo.save(config);
 
     // If running, restart the bot with the new server
-    const wasRunning = this.multiBotManager.runningBots.has(accountId);
+    const wasRunning = this.multiBotManager.isAccountRunning(accountId);
     if (wasRunning) {
       this.multiBotManager.stopAccount(accountId);
       setTimeout(async () => {
@@ -230,7 +230,7 @@ class AccountService {
     RmsWriter.resetUpThueRms(targetAcc, targetAcc.fileId || config.activeFileId);
 
     // If bot process is currently running, send live reset command
-    const isRunning = this.multiBotManager.runningBots.has(accountId);
+    const isRunning = this.multiBotManager.isAccountRunning(accountId);
     if (isRunning) {
       this.multiBotManager.resetBotData(accountId);
     } else {
