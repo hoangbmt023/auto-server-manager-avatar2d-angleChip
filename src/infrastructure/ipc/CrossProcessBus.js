@@ -35,6 +35,15 @@ class CrossProcessBus extends EventEmitter {
       if (!fs.existsSync(this.runtimeDir)) {
         fs.mkdirSync(this.runtimeDir, { recursive: true });
       }
+      if (!fs.existsSync(this.eventsFile)) {
+        fs.writeFileSync(this.eventsFile, '', 'utf8');
+      }
+      if (!fs.existsSync(this.commandsFile)) {
+        fs.writeFileSync(this.commandsFile, '', 'utf8');
+      }
+      if (!fs.existsSync(this.logsFile)) {
+        fs.writeFileSync(this.logsFile, '', 'utf8');
+      }
     } catch (e) {}
   }
 
@@ -48,28 +57,38 @@ class CrossProcessBus extends EventEmitter {
       }
       // Preload recent logs from logsFile if exists
       if (fs.existsSync(this.logsFile)) {
-        const lines = fs.readFileSync(this.logsFile, 'utf8').trim().split('\n');
-        for (const line of lines.slice(-this.maxMemoryLogs)) {
-          if (!line) continue;
-          try {
-            this.localLogCache.push(JSON.parse(line));
-          } catch (e) {}
+        const raw = fs.readFileSync(this.logsFile, 'utf8').trim();
+        if (raw) {
+          const lines = raw.split('\n');
+          this.localLogCache = [];
+          for (const line of lines.slice(-this.maxMemoryLogs)) {
+            if (!line.trim()) continue;
+            try {
+              this.localLogCache.push(JSON.parse(line));
+            } catch (e) {}
+          }
         }
       }
     } catch (e) {}
   }
 
   startWatcher() {
-    // High-frequency polling (100ms) guarantees near-instant (<0.15s) UI sync across devices/workers
+    // Fast polling (80ms) ensures near-instant UI log and event sync
     this.pollInterval = setInterval(() => {
       this.pollNewEvents();
       this.pollNewCommands();
-    }, 120);
+    }, 80);
 
-    // Also watch via fs.watch for instant triggers when OS supports it
+    // Also watch files directly for zero-latency notification
     try {
       if (fs.existsSync(this.eventsFile)) {
         fs.watch(this.eventsFile, () => this.pollNewEvents());
+      }
+    } catch (e) {}
+
+    try {
+      if (fs.existsSync(this.commandsFile)) {
+        fs.watch(this.commandsFile, () => this.pollNewCommands());
       }
     } catch (e) {}
   }
@@ -133,9 +152,13 @@ class CrossProcessBus extends EventEmitter {
     } catch (e) {}
 
     this.publishEvent('log', formatted);
+    return formatted;
   }
 
   getLogs() {
+    if (this.localLogCache.length === 0 && fs.existsSync(this.logsFile)) {
+      this.initOffsets();
+    }
     return [...this.localLogCache];
   }
 

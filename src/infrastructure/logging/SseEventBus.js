@@ -47,9 +47,11 @@ class SseEventBus extends EventEmitter {
   }
 
   addLog(entry) {
-    // CrossProcessBus handles formatting, disk storage, and cross-worker broadcast
-    this.ipcBus.publishLog(entry);
-    this.emit('log', entry);
+    // 1. Publish to shared disk and broadcast to remote workers
+    const formatted = this.ipcBus.publishLog(entry);
+    // 2. Broadcast immediately to local worker's connected SSE clients (e.g. PC)
+    this.broadcastLocal('log', formatted);
+    this.emit('log', formatted);
   }
 
   getLogs() {
@@ -58,6 +60,7 @@ class SseEventBus extends EventEmitter {
 
   clearLogs() {
     this.ipcBus.clearLogs();
+    this.broadcastLocal('clear-logs', { success: true });
   }
 
   /**
