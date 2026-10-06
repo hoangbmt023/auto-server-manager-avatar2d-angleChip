@@ -864,7 +864,8 @@ public class AvatarModAdapter {
 
                 // 3. Nếu chưa có, lấy từ Task đang chạy trong AutoController
                 AutoTaskInfo activeTask = getActiveAutoTask();
-                boolean isDiamondActive = (activeTask != null && "diamond".equalsIgnoreCase(activeTask.autoType));
+                boolean isDiamondActive = (activeTask != null && ("diamond".equalsIgnoreCase(activeTask.autoType) || "sell_ore".equalsIgnoreCase(activeTask.autoType))) ||
+                                          (diamInst != null && autoFarmEnabled);
                 boolean isCurrentlyInFarmFromAuto = false;
 
                 // Nếu bot đang về chăm farm từ Auto Kim Cương (activeTask.autoType là farm, và parent task là kim cương)
@@ -912,11 +913,6 @@ public class AvatarModAdapter {
                 }
 
                 // Xử lý khi bot về chăm farm từ Auto Kim Cương:
-                // Trong code Mod gốc (X.class), biến đếm lùi thời gian về farm (this.do) được gán mốc tương lai ngay trước khi rời sang Farm.
-                // Do thời gian làm nông trại có thể kéo dài 1-2 phút, khi vừa quay lại Kim Cương thì targetMs đã bị quá hạn hoặc sắp hết.
-                // Vì vậy, khi hoàn thành chu kỳ chăm farm và quay lại Kim Cương (wasInFarmDiamond -> false):
-                // - Nếu BẬT "Thu hoạch đúng giờ": kích hoạt hàm tính giờ cây chín (aC.goto() trên Up Xu hoặc bq.byte() trên Fish)
-                // - Nếu TẮT: gia hạn targetMs = now + intervalMs (ví dụ 2 phút tính từ lúc xong farm).
                 if (isCurrentlyInFarmFromAuto) {
                     wasInFarmDiamond = true;
                 } else if (wasInFarmDiamond) {
@@ -995,15 +991,13 @@ public class AvatarModAdapter {
                     lastKnownDiamondTargetMs = targetMs;
                 } else if (isCurrentlyInFarmFromAuto) {
                     stats.farmingCountdown = "Đang trong farm...";
+                } else if (lastKnownDiamondTargetMs > now) {
+                    int diffSec = (int) ((lastKnownDiamondTargetMs - now) / 1000L);
+                    stats.farmingCountdown = formatCountdownWithMod(cl, diffSec);
                 } else if (isDiamondActive && autoFarmEnabled) {
-                    // Trùng khớp hoàn toàn cơ chế HUD aQ.class của Chip: khi targetMs hết hạn thì hiển thị "xin chờ..."
                     stats.farmingCountdown = "Xin chờ...";
                 } else if (isDiamondActive && !autoFarmEnabled) {
                     stats.farmingCountdown = "Không hẹn giờ";
-                } else if (lastKnownDiamondTargetMs > now && (isDiamondActive || activeTask == null)) {
-                    // Giữ lại countdown khi bot đang đổi map hoặc reconnect trong chốc lát
-                    int diffSec = (int) ((lastKnownDiamondTargetMs - now) / 1000L);
-                    stats.farmingCountdown = formatCountdownWithMod(cl, diffSec);
                 } else if (stats.farmingCountdown == null || stats.farmingCountdown.isEmpty()) {
                     stats.farmingCountdown = "--:--";
                 }

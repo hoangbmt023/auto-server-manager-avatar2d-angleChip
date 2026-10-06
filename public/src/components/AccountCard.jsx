@@ -232,7 +232,7 @@ window.AccountCard = function AccountCard({
           <span className="acc-stat-val">{expiresAt}</span>
         </div>
 
-        {/* THÔNG SỐ LIVE TỪ GAME (CHỈ HIỆN KHI BẬT AUTO CÂU CÁ HOẶC AUTO KIM CƯƠNG / BÁN ĐÁ) */}
+        {/* THÔNG SỐ LIVE TỪ GAME (TỰ ĐỘNG HIỂN THỊ THEO AUTO ĐANG CHẠY) */}
         {isFishRunning ? (
           <>
             <div className="acc-stat-box" style={{ borderColor: 'rgba(34, 197, 94, 0.45)', background: 'rgba(34, 197, 94, 0.12)' }}>
@@ -274,6 +274,14 @@ window.AccountCard = function AccountCard({
                 {stats.currentZone !== undefined && stats.currentZone !== null ? stats.currentZone : 0}
               </span>
             </div>
+            {(stats.farmingCountdown && stats.farmingCountdown !== '--:--') && (
+              <div className="acc-stat-box" style={{ borderColor: 'rgba(34, 197, 94, 0.45)', background: 'rgba(34, 197, 94, 0.12)' }}>
+                <span className="acc-stat-lbl" style={{ color: '#4ade80' }}>⏳ Farming (Về Farm):</span>
+                <span className="acc-stat-val" style={{ color: '#86efac', fontWeight: 700, fontSize: '0.95rem', fontFamily: 'monospace' }}>
+                  {stats.farmingCountdown}
+                </span>
+              </div>
+            )}
           </>
         ) : isDiamondRunning ? (
           <>
@@ -293,6 +301,24 @@ window.AccountCard = function AccountCard({
               <span className="acc-stat-lbl" style={{ color: '#4ade80' }}>⏳ Farming (Về Farm):</span>
               <span className="acc-stat-val" style={{ color: '#86efac', fontWeight: 700, fontSize: '0.95rem', fontFamily: 'monospace' }}>
                 {(stats.farmingCountdown && stats.farmingCountdown !== '--:--') ? stats.farmingCountdown : (stats.farmingTime || '--:--')}
+              </span>
+            </div>
+          </>
+        ) : isFarmRunning ? (
+          <>
+            <div className="acc-stat-box" style={{ borderColor: 'rgba(34, 197, 94, 0.45)', background: 'rgba(34, 197, 94, 0.12)' }}>
+              <span className="acc-stat-lbl" style={{ color: '#4ade80' }}>🌾 Thời Gian Chăm Farm:</span>
+              <span className="acc-stat-val" style={{ color: '#86efac', fontWeight: 700, fontSize: '0.95rem', fontFamily: 'monospace' }}>
+                {(stats.farmingCountdown && stats.farmingCountdown !== '--:--') ? stats.farmingCountdown : (stats.farmingTime || 'Đang chăm...')}
+              </span>
+            </div>
+          </>
+        ) : (stats.farmingCountdown && stats.farmingCountdown !== '--:--') ? (
+          <>
+            <div className="acc-stat-box" style={{ borderColor: 'rgba(34, 197, 94, 0.45)', background: 'rgba(34, 197, 94, 0.12)' }}>
+              <span className="acc-stat-lbl" style={{ color: '#4ade80' }}>⏳ Farming (Về Farm):</span>
+              <span className="acc-stat-val" style={{ color: '#86efac', fontWeight: 700, fontSize: '0.95rem', fontFamily: 'monospace' }}>
+                {stats.farmingCountdown}
               </span>
             </div>
           </>

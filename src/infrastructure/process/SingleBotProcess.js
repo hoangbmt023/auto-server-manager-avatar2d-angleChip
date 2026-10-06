@@ -387,8 +387,7 @@ class SingleBotProcess extends EventEmitter {
           // Giữ countdown hiện tại nếu Java tạm thời trả về '--:--' do đang load map/reconnect trong chốc lát
           if ((!parsed.farmingCountdown || parsed.farmingCountdown === '--:--') &&
               (this.playerStats.farmingCountdown && this.playerStats.farmingCountdown !== '--:--') &&
-              this.autoState && this.autoState.isRunning &&
-              (this.autoState.autoType === 'diamond' || this.autoState.autoType === 'kc' || this.autoState.autoType === 'fish')) {
+              this.autoState && this.autoState.isRunning) {
             delete parsed.farmingCountdown;
             delete parsed.farmingTime;
           }
