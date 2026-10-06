@@ -47,15 +47,16 @@ window.FishSetupModal = function FishSetupModal({
     if (e) e.preventDefault();
     try {
       setIsSubmitting(true);
+      const isBackToFarm = Boolean(fishState.backToFarm);
       const payload = {
         fishSettings: {
           mapType: parseInt(fishState.mapType, 10) || 0,
           rodType: parseInt(fishState.rodType, 10) || 0,
           sellFishType: parseInt(fishState.sellFishType, 10) || 0,
           autoBuyTicket: Boolean(fishState.autoBuyTicket),
-          backToFarm: Boolean(fishState.backToFarm),
+          backToFarm: isBackToFarm,
           farmIntervalMinutes: Math.max(1, parseInt(fishState.farmIntervalMinutes, 10) || 30),
-          harvestOnTime: Boolean(fishState.harvestOnTime),
+          harvestOnTime: isBackToFarm ? Boolean(fishState.harvestOnTime) : false,
           sellKcx: Boolean(fishState.sellKcx),
           sellKcxThreshold: Math.max(1, parseInt(fishState.sellKcxThreshold, 10) || 5),
           excludeFish: String(fishState.excludeFish || '').trim()
@@ -287,7 +288,14 @@ window.FishSetupModal = function FishSetupModal({
                   <input
                     type="checkbox"
                     checked={fishState.backToFarm}
-                    onChange={(e) => setFishState({ ...fishState, backToFarm: e.target.checked })}
+                    onChange={(e) => {
+                      const isChecked = e.target.checked;
+                      setFishState({
+                        ...fishState,
+                        backToFarm: isChecked,
+                        harvestOnTime: isChecked ? fishState.harvestOnTime : false
+                      });
+                    }}
                   />
                   <span>🌾 <strong>Tự về chăm farm</strong></span>
                 </label>
@@ -317,6 +325,7 @@ window.FishSetupModal = function FishSetupModal({
                         max="720"
                         className="form-control"
                         value={fishState.farmIntervalMinutes}
+                        onFocus={(e) => { if (e.target.value === '0') e.target.select(); }}
                         onChange={(e) => setFishState({ ...fishState, farmIntervalMinutes: e.target.value })}
                         style={{ width: '90px', height: '32px', background: '#0f172a', color: '#38bdf8', textAlign: 'center', border: '1px solid #0284c7', borderRadius: '6px', fontWeight: 'bold' }}
                       />
@@ -324,14 +333,19 @@ window.FishSetupModal = function FishSetupModal({
                     </div>
                   </div>
 
-                  <label className="farm-checkbox-item" style={{ marginTop: '2px' }}>
-                    <input
-                      type="checkbox"
-                      checked={fishState.harvestOnTime}
-                      onChange={(e) => setFishState({ ...fishState, harvestOnTime: e.target.checked })}
-                    />
-                    <span>⏰ <strong>Farm thông minh:</strong> Tự động thu hoạch đúng giờ nông sản chín</span>
-                  </label>
+                  <div>
+                    <label className="farm-checkbox-item" style={{ marginTop: '2px' }}>
+                      <input
+                        type="checkbox"
+                        checked={fishState.harvestOnTime}
+                        onChange={(e) => setFishState({ ...fishState, harvestOnTime: e.target.checked })}
+                      />
+                      <span>⏰ <strong>Farm thông minh:</strong> Tự động thu hoạch đúng giờ nông sản chín</span>
+                    </label>
+                    <small style={{ color: '#94a3b8', fontSize: '0.75rem', marginTop: '4px', display: 'block' }}>
+                      Chỉ tính cây trồng trên đất chín (không tính vật nuôi). Nếu cây chưa chín vẫn về farm định kỳ theo số phút đã đặt để chăm sóc.
+                    </small>
+                  </div>
                 </div>
               )}
 
@@ -352,6 +366,7 @@ window.FishSetupModal = function FishSetupModal({
                     max="1000"
                     className="form-control"
                     value={fishState.sellKcxThreshold}
+                    onFocus={(e) => { if (e.target.value === '0') e.target.select(); }}
                     onChange={(e) => setFishState({ ...fishState, sellKcxThreshold: e.target.value })}
                     style={{ width: '90px', height: '32px', background: '#0f172a', color: '#a78bfa', textAlign: 'center', border: '1px solid #7c3aed', borderRadius: '6px', fontWeight: 'bold' }}
                   />

@@ -13,8 +13,8 @@ window.RentalSetupModal = function RentalSetupModal({
   if (!account) return null;
 
   const [subTab, setSubTab] = React.useState('targetCoins'); // 'targetCoins' | 'upDays' | 'reset'
-  const [targetCoinsInput, setTargetCoinsInput] = React.useState(account.targetCoins !== undefined ? account.targetCoins : 0);
-  const [upDaysInput, setUpDaysInput] = React.useState(account.upDays !== undefined ? account.upDays : 0);
+  const [targetCoinsInput, setTargetCoinsInput] = React.useState(account.targetCoins ? account.targetCoins : '');
+  const [upDaysInput, setUpDaysInput] = React.useState(account.upDays ? account.upDays : '');
   const [isSubmitting, setIsSubmitting] = React.useState(false);
   const [feedback, setFeedback] = React.useState(null);
 
@@ -142,6 +142,7 @@ window.RentalSetupModal = function RentalSetupModal({
                   className="form-control"
                   placeholder="Nhập số xu (VD: 5000000)"
                   value={targetCoinsInput}
+                  onFocus={(e) => { if (e.target.value === '0') e.target.select(); }}
                   onChange={(e) => setTargetCoinsInput(e.target.value)}
                   min="0"
                   step="100"
@@ -174,6 +175,7 @@ window.RentalSetupModal = function RentalSetupModal({
                   className="form-control"
                   placeholder="Nhập số ngày (VD: 30)"
                   value={upDaysInput}
+                  onFocus={(e) => { if (e.target.value === '0') e.target.select(); }}
                   onChange={(e) => setUpDaysInput(e.target.value)}
                   min="0"
                   autoFocus

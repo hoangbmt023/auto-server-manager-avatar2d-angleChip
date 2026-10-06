@@ -85,7 +85,7 @@ class BotController {
       config.activeAccountId = accountId;
       this.configRepo.save(config);
 
-      const result = this.multiBotManager.startAccount(accountId);
+      const result = await this.multiBotManager.startAccount(accountId);
       return sendJson(res, result.success ? 200 : 400, result);
     } catch (err) {
       return sendJson(res, 400, { success: false, message: err.message });
@@ -140,7 +140,7 @@ class BotController {
 
       for (const acc of fileAccounts) {
         try {
-          const res = this.multiBotManager.startAccount(acc.id);
+          const res = await this.multiBotManager.startAccount(acc.id);
           if (res.success) startedCount++;
         } catch (err) {
           errors.push(`[${acc.username}]: ${err.message}`);
@@ -162,13 +162,14 @@ class BotController {
   }
 
   async restartAll(req, res, sendJson) {
-    const runningIds = Array.from(this.multiBotManager.runningBots.keys());
+    const runningAccs = this.multiBotManager.getRunningAccounts();
+    const runningIds = runningAccs.map(a => a.id);
     this.multiBotManager.stopAll();
 
-    setTimeout(() => {
+    setTimeout(async () => {
       for (const id of runningIds) {
         try {
-          this.multiBotManager.startAccount(id);
+          await this.multiBotManager.startAccount(id);
         } catch (e) {}
       }
     }, 1500);
@@ -180,9 +181,10 @@ class BotController {
   }
 
   async getLogs(req, res, sendJson) {
+    const logs = this.sseEventBus.getLogs ? this.sseEventBus.getLogs() : (this.sseEventBus.logs || []);
     return sendJson(res, 200, {
       success: true,
-      logs: this.sseEventBus.logs
+      logs
     });
   }
 

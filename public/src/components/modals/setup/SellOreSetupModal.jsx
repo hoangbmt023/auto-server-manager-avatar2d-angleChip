@@ -159,6 +159,7 @@ window.SellOreSetupModal = function SellOreSetupModal({
                     max="720"
                     className="form-control"
                     value={sellOreState.sellIntervalMinutes}
+                    onFocus={(e) => { if (e.target.value === '0') e.target.select(); }}
                     onChange={(e) => setSellOreState({ ...sellOreState, sellIntervalMinutes: e.target.value })}
                     style={{ height: '36px', background: '#0f172a', color: '#38bdf8', border: '1px solid #334155' }}
                   />
@@ -178,6 +179,7 @@ window.SellOreSetupModal = function SellOreSetupModal({
                     step="10"
                     className="form-control"
                     value={sellOreState.delayMs}
+                    onFocus={(e) => { if (e.target.value === '0') e.target.select(); }}
                     onChange={(e) => setSellOreState({ ...sellOreState, delayMs: e.target.value })}
                     style={{ height: '36px', background: '#0f172a', color: '#facc15', border: '1px solid #334155' }}
                   />
@@ -204,6 +206,7 @@ window.SellOreSetupModal = function SellOreSetupModal({
                     max="200"
                     className="form-control"
                     value={sellOreState.zoneFrom}
+                    onFocus={(e) => { if (e.target.value === '0') e.target.select(); }}
                     onChange={(e) => setSellOreState({ ...sellOreState, zoneFrom: e.target.value })}
                     style={{ height: '36px', background: '#0f172a', color: '#f8fafc', border: '1px solid #334155' }}
                   />
@@ -222,6 +225,7 @@ window.SellOreSetupModal = function SellOreSetupModal({
                     max="200"
                     className="form-control"
                     value={sellOreState.zoneTo}
+                    onFocus={(e) => { if (e.target.value === '0') e.target.select(); }}
                     onChange={(e) => setSellOreState({ ...sellOreState, zoneTo: e.target.value })}
                     style={{ height: '36px', background: '#0f172a', color: '#f8fafc', border: '1px solid #334155' }}
                   />

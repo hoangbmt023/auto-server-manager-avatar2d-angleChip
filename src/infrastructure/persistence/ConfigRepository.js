@@ -117,6 +117,15 @@ class ConfigRepository {
   }
 
   get() {
+    try {
+      if (fs.existsSync(this.configPath)) {
+        const stat = fs.statSync(this.configPath);
+        if (!this._cachedConfig || this._lastMtime !== stat.mtimeMs) {
+          this._lastMtime = stat.mtimeMs;
+          return this.load();
+        }
+      }
+    } catch (e) {}
     if (!this._cachedConfig) {
       return this.load();
     }
@@ -145,11 +154,14 @@ class ConfigRepository {
         }
       }
 
-      const data = JSON.stringify(diskConfig, null, 2);
-      fs.writeFileSync(this.configPath, data, 'utf8');
+      fs.writeFileSync(this.configPath, JSON.stringify(diskConfig, null, 2), 'utf8');
+      try {
+        const stat = fs.statSync(this.configPath);
+        this._lastMtime = stat.mtimeMs;
+      } catch (e) {}
       return true;
     } catch (err) {
-      console.error('❌ [ConfigRepository] Không thể lưu config.json:', err.message);
+      console.error('❌ [ConfigRepository] Lỗi ghi config.json:', err.message);
       return false;
     }
   }

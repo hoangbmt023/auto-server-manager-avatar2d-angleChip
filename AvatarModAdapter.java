@@ -81,6 +81,14 @@ public class AvatarModAdapter {
         }
     }
 
+    private static long lastLoggedCropRemainingSec = -1L;
+    private static long lastSmartFarmLogTs = 0L;
+    private static long lastDiagnosticLogTs = 0L;
+    private static boolean wasInFarmDiamond = false;
+    private static boolean wasInFarmFish = false;
+    private static long lastKnownDiamondTargetMs = 0L;
+    private static long lastKnownFishTargetMs = 0L;
+
     private static ClassLoader getClassLoader() {
         MIDlet midlet = MIDletBridge.getCurrentMIDlet();
         return midlet != null ? midlet.getClass().getClassLoader() : null;
@@ -205,8 +213,32 @@ public class AvatarModAdapter {
         ClassLoader cl = getClassLoader();
         if (cl == null) return false;
 
-        ModSchema schema = getCurrentSchema();
+        // 1. Nếu nhân vật đã hiện diện trong RAM (duLieuNguoiChoi / player instance != null), bot chắc chắn 100% đang online kết nối Server
+        Object player = getActivePlayerInstance(cl);
+        if (player != null) {
+            // Kiểm tra xem có popup thông báo đè lên báo mất kết nối không
+            String dialog = checkActiveGameDialog();
+            if (dialog != null && !dialog.trim().isEmpty()) {
+                String lower = dialog.toLowerCase();
+                if (lower.contains("mất kết nối") || lower.contains("kết nối thất bại") || lower.contains("mạng game bị ngắt")) {
+                    return false;
+                }
+            }
+            return true;
+        }
 
+        // 2. Nếu chưa vào map (đang ở màn hình đăng nhập hoặc đang bắt tay):
+        // Kiểm tra xem có popup thông báo lỗi mạng không
+        String dialog = checkActiveGameDialog();
+        if (dialog != null && !dialog.trim().isEmpty()) {
+            String lower = dialog.toLowerCase();
+            if (lower.contains("mất kết nối") || lower.contains("kết nối thất bại") || lower.contains("mạng game bị ngắt")) {
+                return false;
+            }
+        }
+
+        // 3. Fallback kiểm tra qua Network class
+        ModSchema schema = getCurrentSchema();
         try {
             Class<?> netCls = cl.loadClass(schema.networkClassName);
             for (Method m : netCls.getDeclaredMethods()) {
@@ -226,6 +258,7 @@ public class AvatarModAdapter {
             }
         } catch (Throwable ignored) {}
 
+        // Nếu không có player và không có kết nối socket xác thực -> Chưa kết nối
         return false;
     }
 
@@ -234,54 +267,37 @@ public class AvatarModAdapter {
         if (cl == null) return null;
 
         ModSchema schema = getCurrentSchema();
+        String pointerType = (schema.dialogPointerType != null && !schema.dialogPointerType.isEmpty()) ? schema.dialogPointerType : "bt";
 
         try {
             Class<?> containerCls = cl.loadClass(schema.dialogContainerClass);
-            Class<?> dialogCls = cl.loadClass(schema.dialogClass);
 
+            // 1. Kiểm tra đối tượng active dialog trong container
+            // Trong Up Xu (br.class): public static bt do là con trỏ dialog đang mở (h extends bt).
+            // Trong Fish (bx.class): public static dJ do là con trỏ dialog đang mở (s extends dJ).
+            // CHÚ Ý: Biến h do và s do là instance tái sử dụng (luôn != null và giữ nội dung cũ).
+            // CHỈ DUY NHẤT biến kiểu bt (hoặc dJ) là con trỏ dialog thực: khi đóng = null, khi mở != null!
             for (Field f : containerCls.getDeclaredFields()) {
-                if (f.getType().equals(dialogCls)) {
-                    f.setAccessible(true);
-                    Object dObj = f.get(null);
-                    if (dObj != null) {
-                        // Kiểm tra trạng thái hiển thị
-                        for (Field sf : dialogCls.getDeclaredFields()) {
-                            if (sf.getType().equals(boolean.class)) {
-                                sf.setAccessible(true);
-                                if (sf.getBoolean(dObj)) {
-                                    for (Field msgF : dialogCls.getDeclaredFields()) {
-                                        if (msgF.getType().equals(String.class)) {
-                                            msgF.setAccessible(true);
-                                            String msg = (String) msgF.get(dObj);
-                                            if (msg != null && !msg.trim().isEmpty() && msg.length() > 2) {
-                                                return msg.trim();
-                                            }
-                                        }
-                                    }
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-
-            // Kiểm tra Alert Dialog phụ nếu có (như fA trong Mod Fish)
-            if (schema.alertDialogClass != null) {
-                Class<?> alertCls = cl.loadClass(schema.alertDialogClass);
-                for (Field f : containerCls.getDeclaredFields()) {
-                    if (f.getType().equals(alertCls)) {
+                if (java.lang.reflect.Modifier.isStatic(f.getModifiers())) {
+                    String fTypeName = f.getType().getSimpleName();
+                    if (fTypeName.equals(pointerType) || fTypeName.equals("bt") || fTypeName.equals("dJ")) {
                         f.setAccessible(true);
-                        Object alertObj = f.get(null);
-                        if (alertObj != null) {
-                            for (Field af : alertCls.getDeclaredFields()) {
-                                if (af.getType().equals(String.class)) {
-                                    af.setAccessible(true);
-                                    String msg = (String) af.get(alertObj);
-                                    if (msg != null && !msg.trim().isEmpty() && msg.length() > 2) {
-                                        return msg.trim();
-                                    }
+                        Object dObj = f.get(null);
+                        // Khi dialog đóng (sau br.case() hoặc chưa mở), con trỏ này bằng null 100%!
+                        if (dObj == null) {
+                            return null;
+                        }
+                        // Khi có dialog mở, trích xuất chuỗi thông báo từ dialog đó
+                        String msg = extractDialogText(dObj);
+                        if (msg != null && !msg.trim().isEmpty() && msg.length() > 2) {
+                            String buttons = extractDialogButtons(dObj);
+                            if (buttons != null && !buttons.trim().isEmpty()) {
+                                String trimmedButtons = buttons.trim();
+                                if (!msg.contains("(" + trimmedButtons + ")") && !msg.equalsIgnoreCase(trimmedButtons)) {
+                                    return msg.trim() + " (" + trimmedButtons + ")";
                                 }
                             }
+                            return msg.trim();
                         }
                     }
                 }
@@ -291,8 +307,119 @@ public class AvatarModAdapter {
         return null;
     }
 
+    public static String extractDialogButtons(Object obj) {
+        if (obj == null) return null;
+        java.util.LinkedHashSet<String> buttons = new java.util.LinkedHashSet<String>();
+        Class<?> cls = obj.getClass();
+        while (cls != null && !cls.equals(Object.class)) {
+            for (Field f : cls.getDeclaredFields()) {
+                if (!java.lang.reflect.Modifier.isStatic(f.getModifiers())) {
+                    try {
+                        f.setAccessible(true);
+                        Object val = f.get(obj);
+                        if (val == null) continue;
+
+                        if (val instanceof java.util.Vector) {
+                            java.util.Vector<?> vec = (java.util.Vector<?>) val;
+                            for (int i = 0; i < vec.size(); i++) {
+                                Object item = vec.elementAt(i);
+                                String bText = extractButtonLabel(item);
+                                if (bText != null && !bText.isEmpty()) {
+                                    buttons.add(bText);
+                                }
+                            }
+                        } else {
+                            String bText = extractButtonLabel(val);
+                            if (bText != null && !bText.isEmpty()) {
+                                buttons.add(bText);
+                            }
+                        }
+                    } catch (Throwable ignored) {}
+                }
+            }
+            cls = cls.getSuperclass();
+        }
+        if (buttons.isEmpty()) return null;
+        StringBuilder sb = new StringBuilder();
+        for (String b : buttons) {
+            if (sb.length() > 0) sb.append(", ");
+            sb.append(b);
+        }
+        return sb.toString();
+    }
+
+    private static String extractButtonLabel(Object item) {
+        if (item == null) return null;
+        if (item instanceof String) return null; // Tuyệt đối không lấy String thông thường làm nút bấm
+
+        Class<?> cCls = item.getClass();
+        String sName = cCls.getSimpleName();
+        // Chỉ chấp nhận Command / Button object chính thức của Avatar Mod:
+        // "ei" trong Avatar Up Xu (build 34)
+        // "fL" trong Avatar Fish (build 40)
+        if (!sName.equals("ei") && !sName.equals("fL")) {
+            return null;
+        }
+
+        for (Field f : cCls.getDeclaredFields()) {
+            if (!java.lang.reflect.Modifier.isStatic(f.getModifiers()) && f.getType().equals(String.class)) {
+                try {
+                    f.setAccessible(true);
+                    String s = (String) f.get(item);
+                    if (s != null) {
+                        s = s.trim();
+                        if (isValidButtonLabel(s)) {
+                            return s;
+                        }
+                    }
+                } catch (Throwable ignored) {}
+            }
+        }
+        return null;
+    }
+
+    private static boolean isValidButtonLabel(String s) {
+        if (s == null) return false;
+        String trimmed = s.trim();
+        if (trimmed.isEmpty() || trimmed.length() > 30) return false;
+        if (trimmed.contains("0123456789") || trimmed.contains("abcdefghijklmnopqrstuvwxyz") || 
+            trimmed.startsWith("http") || trimmed.endsWith(".png") || trimmed.endsWith(".av") || 
+            trimmed.endsWith(".on") || trimmed.endsWith(".mid") || trimmed.contains("/")) {
+            return false;
+        }
+        return true;
+    }
+
+    private static String extractDialogText(Object obj) {
+        if (obj == null) return null;
+        Class<?> cls = obj.getClass();
+        while (cls != null && !cls.equals(Object.class)) {
+            for (Field f : cls.getDeclaredFields()) {
+                if (f.getType().equals(String.class)) {
+                    try {
+                        f.setAccessible(true);
+                        String s = (String) f.get(obj);
+                        if (s != null && !s.trim().isEmpty() && s.length() > 2) {
+                            // Loại trừ link, file extension và bảng mã ký tự font
+                            if (s.contains("0123456789") || s.contains("abcdefghijklmnopqrstuvwxyz") || 
+                                s.startsWith("http") || s.endsWith(".png") || s.endsWith(".av") || s.endsWith(".on")) {
+                                continue;
+                            }
+                            return s.trim();
+                        }
+                    } catch (Throwable ignored) {}
+                }
+            }
+            cls = cls.getSuperclass();
+        }
+        return null;
+    }
+
     public static void dismissStartupPopups() {
-        selectDialogOptionLeftAndConfirm();
+        String activeDlg = checkActiveGameDialog();
+        if (activeDlg != null && !activeDlg.trim().isEmpty()) {
+            dismissCurrentDialog();
+        }
     }
 
     public static void selectDialogOptionLeftAndConfirm() {
@@ -332,8 +459,8 @@ public class AvatarModAdapter {
 
                         try { Thread.sleep(80); } catch (Throwable ignored) {}
 
-                        // 2. Nhấn xác nhận (Center key -5, Left Softkey -6, Enter 10, Phím 5 53)
-                        int[] confirmKeys = new int[] { -5, -6, 10, 53 };
+                        // 2. Nhấn xác nhận (Center key -5, Left Softkey -6, Enter 10)
+                        int[] confirmKeys = new int[] { -5, -6, 10 };
                         for (int k : confirmKeys) {
                             try {
                                 kp.invoke(inst, k);
@@ -347,11 +474,26 @@ public class AvatarModAdapter {
     }
 
     public static void dismissCurrentDialog() {
+        ClassLoader cl = getClassLoader();
+        if (cl != null) {
+            ModSchema schema = getCurrentSchema();
+            if (schema.dialogContainerClass != null) {
+                try {
+                    Class<?> containerCls = cl.loadClass(schema.dialogContainerClass);
+                    Method caseM = containerCls.getMethod("case");
+                    caseM.invoke(null);
+                } catch (Throwable ignored) {}
+            }
+        }
         selectDialogOptionLeftAndConfirm();
     }
 
     // =========================================================================
     // 3. TRÍCH XUẤT THÔNG SỐ TÀI KHOẢN (PLAYER STATS)
+    private static long lastKnownCoins = 0;
+    private static int lastKnownGold = 0;
+    private static int lastKnownLockedGold = 0;
+
     // =========================================================================
 
     public static PlayerStats extractPlayerStats() {
@@ -398,14 +540,22 @@ public class AvatarModAdapter {
                                 int[] moneyArr = (int[]) f.get(playerObj);
                                 if (moneyArr != null && moneyArr.length > 0) {
                                     stats.coins = moneyArr[0];
-                                    if (moneyArr.length > 1 && moneyArr[1] > 0) stats.gold = moneyArr[1];
-                                    if (moneyArr.length > 2 && moneyArr[2] > 0) stats.gold = moneyArr[2];
+                                    if (stats.coins > 0) lastKnownCoins = stats.coins;
+                                    if (moneyArr.length > 1 && moneyArr[1] > 0) {
+                                        stats.gold = moneyArr[1];
+                                        lastKnownGold = stats.gold;
+                                    }
+                                    if (moneyArr.length > 2 && moneyArr[2] > 0) {
+                                        stats.gold = moneyArr[2];
+                                        lastKnownGold = stats.gold;
+                                    }
                                 }
                             }
 
                             // Lượng khóa (int)
                             if (!isStatic && f.getName().equals(schema.playerLockedGoldField) && f.getType().equals(int.class)) {
                                 stats.lockedGold = f.getInt(playerObj);
+                                if (stats.lockedGold > 0) lastKnownLockedGold = stats.lockedGold;
                             }
 
                             // Tên nhân vật (String)
@@ -428,6 +578,10 @@ public class AvatarModAdapter {
                 }
             }
         } catch (Throwable ignored) {}
+
+        if (stats.coins == 0 && lastKnownCoins > 0) stats.coins = lastKnownCoins;
+        if (stats.gold == 0 && lastKnownGold > 0) stats.gold = lastKnownGold;
+        if (stats.lockedGold == 0 && lastKnownLockedGold > 0) stats.lockedGold = lastKnownLockedGold;
 
         // 3.2. Thông số Up Thuê
         try {
@@ -577,6 +731,87 @@ public class AvatarModAdapter {
         } catch (Throwable ignored) {}
     }
 
+    /**
+     * Kích hoạt cơ chế tính giờ thu hoạch nông sản thông minh của Mod.
+     * Up Xu: aC.goto() -> tính l0 = aC.do() (thời gian cây chín). Nếu có cây (l0 > 0 && l0 < X.if) thì X.do().do = now + l0 + 60000L.
+     * Fish mod: bq.byte() cho Kim Cương (aj.do), bq.break() cho Câu Cá (bS.if).
+     */
+    public static boolean updateSmartCropTimer(ClassLoader cl, ModSchema schema, boolean isDiamond) {
+        return updateSmartCropTimer(cl, schema, isDiamond, false);
+    }
+
+    public static boolean updateSmartCropTimer(ClassLoader cl, ModSchema schema, boolean isDiamond, boolean forceLog) {
+        if (cl == null || schema == null) return false;
+        try {
+            if (schema.farmClassName != null && !schema.farmClassName.isEmpty()) {
+                Class<?> farmCls = cl.loadClass(schema.farmClassName);
+
+                // 0. Kiểm tra an toàn: nếu mảng ô đất nông sản trong RAM chưa nạp (chưa vào farm lần nào) -> bỏ qua
+                try {
+                    Class<?> bFCls = cl.loadClass("bF");
+                    Field intF = bFCls.getDeclaredField("int");
+                    intF.setAccessible(true);
+                    Object plots = intF.get(null);
+                    if (plots == null) {
+                        return false;
+                    }
+                } catch (Throwable ignored) {}
+
+                // 1. Kiểm tra thời gian còn lại của cây trồng trong RAM (hàm static long do() của aC / bq)
+                long remainingCropMs = -1L;
+                try {
+                    for (Method m : farmCls.getDeclaredMethods()) {
+                        if (java.lang.reflect.Modifier.isStatic(m.getModifiers()) && 
+                            m.getParameterCount() == 0 && 
+                            m.getReturnType().equals(long.class) && 
+                            m.getName().equals("do")) {
+                            m.setAccessible(true);
+                            remainingCropMs = (long) m.invoke(null);
+                            break;
+                        }
+                    }
+                } catch (Throwable ignored) {}
+
+                // 2. Kích hoạt hàm tính giờ của Mod:
+                String methodName;
+                if ("aC".equals(schema.farmClassName)) {
+                    methodName = "goto";
+                } else {
+                    methodName = isDiamond ? "byte" : "break";
+                }
+
+                Method farmTimerMethod = farmCls.getDeclaredMethod(methodName);
+                farmTimerMethod.setAccessible(true);
+                farmTimerMethod.invoke(null);
+
+                long remainingSec = remainingCropMs > 0 ? (remainingCropMs / 1000L) : 0L;
+                long nowTs = System.currentTimeMillis();
+
+                // Chống spam log: chỉ in khi forceLog = true hoặc qua chu kỳ mới (chênh lệch >= 300s & cách lần in trước >= 60s)
+                boolean shouldLog = forceLog || (lastLoggedCropRemainingSec == -1L) ||
+                                    (Math.abs(remainingSec - lastLoggedCropRemainingSec) >= 300L && (nowTs - lastSmartFarmLogTs >= 60000L));
+
+                // Nếu 2 luồng gọi gần như đồng thời (trong 3s) với cùng số giây còn lại thì bỏ qua log lặp lại
+                if (nowTs - lastSmartFarmLogTs < 3000L && Math.abs(remainingSec - lastLoggedCropRemainingSec) < 5L) {
+                    shouldLog = false;
+                }
+
+                if (shouldLog) {
+                    if (remainingCropMs > 0) {
+                        long mins = (remainingCropMs + 60000L) / 60000L;
+                        System.out.println("🌾 [FARM THÔNG MINH]: Cây trồng trong farm sẽ chín sau " + mins + " phút (" + remainingSec + "s). Đã tự động hẹn giờ về thu hoạch đúng giờ!");
+                    } else if (remainingCropMs == 0) {
+                        System.out.println("🌾 [FARM THÔNG MINH]: Nông sản đã chín! Đang hẹn giờ về thu hoạch ngay...");
+                    }
+                    lastLoggedCropRemainingSec = remainingSec;
+                    lastSmartFarmLogTs = nowTs;
+                }
+                return true;
+            }
+        } catch (Throwable ignored) {}
+        return false;
+    }
+
     private static void extractDiamondStats(ClassLoader cl, ModSchema schema, PlayerStats stats) {
         try {
             Class<?> diamCls = cl.loadClass(schema.diamondClassName);
@@ -630,12 +865,99 @@ public class AvatarModAdapter {
                 // 3. Nếu chưa có, lấy từ Task đang chạy trong AutoController
                 AutoTaskInfo activeTask = getActiveAutoTask();
                 boolean isDiamondActive = (activeTask != null && "diamond".equalsIgnoreCase(activeTask.autoType));
+                boolean isCurrentlyInFarmFromAuto = false;
+
+                // Nếu bot đang về chăm farm từ Auto Kim Cương (activeTask.autoType là farm, và parent task là kim cương)
+                if (activeTask != null && "farm".equalsIgnoreCase(activeTask.autoType) && activeTask.taskInstance != null) {
+                    try {
+                        Class<?> taskBaseCls = activeTask.taskInstance.getClass();
+                        while (taskBaseCls != null && !taskBaseCls.equals(Object.class)) {
+                            for (Field f : taskBaseCls.getDeclaredFields()) {
+                                if (!java.lang.reflect.Modifier.isStatic(f.getModifiers()) && (f.getName().equals("do") || f.getType().getName().equals(diamCls.getName()))) {
+                                    f.setAccessible(true);
+                                    Object parent = f.get(activeTask.taskInstance);
+                                    if (parent != null && diamCls.isInstance(parent)) {
+                                        isDiamondActive = true;
+                                        isCurrentlyInFarmFromAuto = true;
+                                        if (diamInst == null) diamInst = parent;
+                                        break;
+                                    }
+                                }
+                            }
+                            if (isCurrentlyInFarmFromAuto) break;
+                            taskBaseCls = taskBaseCls.getSuperclass();
+                        }
+                    } catch (Throwable ignored) {}
+                }
+
                 if (diamInst == null && activeTask != null && activeTask.taskInstance != null && diamCls.isInstance(activeTask.taskInstance)) {
                     diamInst = activeTask.taskInstance;
                 }
 
                 long now = System.currentTimeMillis();
                 long targetMs = 0;
+
+                // Đọc trạng thái BẬT/TẮT "Thu hoạch đúng giờ" (harvestOnTime) từ Mod
+                boolean harvestOnTimeEnabled = false;
+                for (Field f : diamCls.getDeclaredFields()) {
+                    if (java.lang.reflect.Modifier.isStatic(f.getModifiers()) && f.getType().equals(boolean.class)) {
+                        if (f.getName().equals(schema.diamondHarvestOnTimeField)) {
+                            try {
+                                f.setAccessible(true);
+                                harvestOnTimeEnabled = f.getBoolean(null);
+                            } catch (Throwable ignored) {}
+                            break;
+                        }
+                    }
+                }
+
+                // Xử lý khi bot về chăm farm từ Auto Kim Cương:
+                // Trong code Mod gốc (X.class), biến đếm lùi thời gian về farm (this.do) được gán mốc tương lai ngay trước khi rời sang Farm.
+                // Do thời gian làm nông trại có thể kéo dài 1-2 phút, khi vừa quay lại Kim Cương thì targetMs đã bị quá hạn hoặc sắp hết.
+                // Vì vậy, khi hoàn thành chu kỳ chăm farm và quay lại Kim Cương (wasInFarmDiamond -> false):
+                // - Nếu BẬT "Thu hoạch đúng giờ": kích hoạt hàm tính giờ cây chín (aC.goto() trên Up Xu hoặc bq.byte() trên Fish)
+                // - Nếu TẮT: gia hạn targetMs = now + intervalMs (ví dụ 2 phút tính từ lúc xong farm).
+                if (isCurrentlyInFarmFromAuto) {
+                    wasInFarmDiamond = true;
+                } else if (wasInFarmDiamond) {
+                    wasInFarmDiamond = false;
+                    try {
+                        if (diamInst != null && autoFarmEnabled) {
+                            if (harvestOnTimeEnabled) {
+                                updateSmartCropTimer(cl, schema, true, true);
+                            } else {
+                                long intervalMs = 0;
+                                Field targetField = null;
+                                for (Field f : diamCls.getDeclaredFields()) {
+                                    if (!java.lang.reflect.Modifier.isStatic(f.getModifiers()) && f.getType().equals(long.class)) {
+                                        f.setAccessible(true);
+                                        if (f.getName().equals(schema.diamondAbsTargetMsField)) {
+                                            targetField = f;
+                                        } else if (f.getName().equals(schema.diamondIntervalField) || f.getName().equals(schema.diamondTargetMsField)) {
+                                            long val = f.getLong(diamInst);
+                                            if (val > 0) intervalMs = val;
+                                        }
+                                    }
+                                }
+                                if (intervalMs <= 0) {
+                                    for (Field f : diamCls.getDeclaredFields()) {
+                                        if (java.lang.reflect.Modifier.isStatic(f.getModifiers()) && f.getType().equals(int.class)) {
+                                            if (f.getName().equals(schema.diamondIntervalField)) {
+                                                f.setAccessible(true);
+                                                int mins = f.getInt(null);
+                                                if (mins > 0) intervalMs = (long) mins * 60000L;
+                                            }
+                                        }
+                                    }
+                                }
+                                if (targetField != null && intervalMs > 0) {
+                                    targetField.setLong(diamInst, now + intervalMs);
+                                    targetMs = now + intervalMs;
+                                }
+                            }
+                        }
+                    } catch (Throwable ignored) {}
+                }
 
                 if (diamInst != null) {
                     // Duyệt tất cả các instance field kiểu long để đọc chính xác trường soXu (do: long)
@@ -669,25 +991,55 @@ public class AvatarModAdapter {
 
                 if (targetMs > now) {
                     int diffSec = (int) ((targetMs - now) / 1000L);
-                    int s = diffSec % 60;
-                    int m = (diffSec / 60) % 60;
-                    int h = (diffSec / 3600) % 24;
-                    if (h > 0) {
-                        stats.farmingCountdown = String.format("%02d:%02d:%02d", h, m, s);
-                    } else {
-                        stats.farmingCountdown = String.format("%02d:%02d", m, s);
-                    }
-                } else if (targetMs > 0) {
-                    stats.farmingCountdown = "Đang về farm...";
+                    stats.farmingCountdown = formatCountdownWithMod(cl, diffSec);
+                    lastKnownDiamondTargetMs = targetMs;
+                } else if (isCurrentlyInFarmFromAuto) {
+                    stats.farmingCountdown = "Đang trong farm...";
                 } else if (isDiamondActive && autoFarmEnabled) {
+                    // Trùng khớp hoàn toàn cơ chế HUD aQ.class của Chip: khi targetMs hết hạn thì hiển thị "xin chờ..."
                     stats.farmingCountdown = "Xin chờ...";
-                } else if (isDiamondActive) {
+                } else if (isDiamondActive && !autoFarmEnabled) {
                     stats.farmingCountdown = "Không hẹn giờ";
-                } else {
+                } else if (lastKnownDiamondTargetMs > now && (isDiamondActive || activeTask == null)) {
+                    // Giữ lại countdown khi bot đang đổi map hoặc reconnect trong chốc lát
+                    int diffSec = (int) ((lastKnownDiamondTargetMs - now) / 1000L);
+                    stats.farmingCountdown = formatCountdownWithMod(cl, diffSec);
+                } else if (stats.farmingCountdown == null || stats.farmingCountdown.isEmpty()) {
                     stats.farmingCountdown = "--:--";
+                }
+
+                long nowTs = System.currentTimeMillis();
+                if (isDiamondActive || activeTask != null || targetMs > 0) {
+                    if (nowTs - lastDiagnosticLogTs >= 5000L) {
+                        lastDiagnosticLogTs = nowTs;
+                        System.out.println(String.format(
+                            "🔍 [DIAGNOSTIC_KC]: Mod=[%s] | ActiveTask=[%s] | isDiamActive=%b | autoFarm=%b | diamInst=%s | targetMs=%d | now=%d | diffSec=%d | ResultCountdown=[%s]",
+                            schema.name,
+                            (activeTask != null ? activeTask.className : "NULL"),
+                            isDiamondActive,
+                            autoFarmEnabled,
+                            (diamInst != null ? "OK" : "NULL"),
+                            targetMs,
+                            now,
+                            (targetMs > now ? (int)((targetMs - now) / 1000L) : -1),
+                            stats.farmingCountdown
+                        ));
+                    }
                 }
             } catch (Throwable ignored) {}
         } catch (Throwable ignored) {}
+    }
+
+    private static String formatCountdownWithMod(ClassLoader cl, int diffSec) {
+        if (diffSec <= 0) return "00:00";
+        int s = diffSec % 60;
+        int m = (diffSec / 60) % 60;
+        int h = (diffSec / 3600) % 24;
+        if (h > 0) {
+            return String.format("%02d:%02d:%02d", h, m, s);
+        } else {
+            return String.format("%02d:%02d", m, s);
+        }
     }
 
     private static void extractFishStats(ClassLoader cl, ModSchema schema, PlayerStats stats) {
@@ -724,6 +1076,29 @@ public class AvatarModAdapter {
             // 2. Đọc đếm ngược thời gian về Farm (Farming: MM:SS)
             AutoTaskInfo activeTask = getActiveAutoTask();
             boolean isFishActive = (activeTask != null && "fish".equalsIgnoreCase(activeTask.autoType));
+            boolean isCurrentlyInFarmFromFish = false;
+
+            // Kiểm tra nếu bot đang về chăm farm từ Auto Câu Cá
+            if (activeTask != null && "farm".equalsIgnoreCase(activeTask.autoType) && activeTask.taskInstance != null) {
+                try {
+                    Class<?> taskBaseCls = activeTask.taskInstance.getClass();
+                    while (taskBaseCls != null && !taskBaseCls.equals(Object.class)) {
+                        for (Field f : taskBaseCls.getDeclaredFields()) {
+                            if (!java.lang.reflect.Modifier.isStatic(f.getModifiers()) && (f.getName().equals("do") || f.getType().getName().equals(fishCls.getName()))) {
+                                f.setAccessible(true);
+                                Object parent = f.get(activeTask.taskInstance);
+                                if (parent != null && fishCls.isInstance(parent)) {
+                                    isFishActive = true;
+                                    isCurrentlyInFarmFromFish = true;
+                                    break;
+                                }
+                            }
+                        }
+                        if (isCurrentlyInFarmFromFish) break;
+                        taskBaseCls = taskBaseCls.getSuperclass();
+                    }
+                } catch (Throwable ignored) {}
+            }
 
             // Tìm instance AutoCauCa (bS)
             Object fishInst = null;
@@ -755,6 +1130,54 @@ public class AvatarModAdapter {
             long targetMs = 0;
             long now = System.currentTimeMillis();
 
+            // Đọc cài đặt "Thu hoạch đúng giờ" (fishHarvestOnTimeField) từ Mod
+            boolean fishHarvestOnTime = false;
+            for (Field f : fishCls.getDeclaredFields()) {
+                if (java.lang.reflect.Modifier.isStatic(f.getModifiers()) && f.getType().equals(boolean.class)) {
+                    if (f.getName().equals(schema.fishHarvestOnTimeField)) {
+                        try {
+                            f.setAccessible(true);
+                            fishHarvestOnTime = f.getBoolean(null);
+                        } catch (Throwable ignored) {}
+                        break;
+                    }
+                }
+            }
+
+            // Xử lý khi bot về chăm farm từ Auto Câu Cá:
+            if (isCurrentlyInFarmFromFish) {
+                wasInFarmFish = true;
+            } else if (wasInFarmFish) {
+                wasInFarmFish = false;
+                try {
+                    if (fishInst != null && backToFarmEnabled) {
+                        if (fishHarvestOnTime) {
+                            updateSmartCropTimer(cl, schema, false, true);
+                        } else {
+                            long intervalMs = 0;
+                            Field targetField = null;
+                            for (Field f : fishCls.getDeclaredFields()) {
+                                if (!java.lang.reflect.Modifier.isStatic(f.getModifiers()) && f.getType().equals(long.class)) {
+                                    f.setAccessible(true);
+                                    if (f.getName().equals(schema.fishTargetMsField)) {
+                                        targetField = f;
+                                    }
+                                } else if (java.lang.reflect.Modifier.isStatic(f.getModifiers()) && f.getType().equals(int.class)) {
+                                    if (f.getName().equals(schema.fishFarmIntervalField)) {
+                                        f.setAccessible(true);
+                                        int mins = f.getInt(null);
+                                        if (mins > 0) intervalMs = (long) mins * 60000L;
+                                    }
+                                }
+                            }
+                            if (targetField != null && intervalMs > 0) {
+                                targetField.setLong(fishInst, now + intervalMs);
+                            }
+                        }
+                    }
+                } catch (Throwable ignored) {}
+            }
+
             if (fishInst != null) {
                 for (Field f : fishCls.getDeclaredFields()) {
                     if (!java.lang.reflect.Modifier.isStatic(f.getModifiers()) && f.getType().equals(long.class)) {
@@ -785,20 +1208,19 @@ public class AvatarModAdapter {
 
             if (targetMs > now) {
                 int diffSec = (int) ((targetMs - now) / 1000L);
-                int s = diffSec % 60;
-                int m = (diffSec / 60) % 60;
-                int h = (diffSec / 3600) % 24;
-                if (h > 0) {
-                    stats.farmingCountdown = String.format("%02d:%02d:%02d", h, m, s);
-                } else {
-                    stats.farmingCountdown = String.format("%02d:%02d", m, s);
-                }
-            } else if (targetMs > 0) {
-                stats.farmingCountdown = "Đang về farm...";
+                stats.farmingCountdown = formatCountdownWithMod(cl, diffSec);
+                lastKnownFishTargetMs = targetMs;
+            } else if (isCurrentlyInFarmFromFish) {
+                stats.farmingCountdown = "Đang trong farm...";
             } else if (isFishActive && backToFarmEnabled) {
                 stats.farmingCountdown = "Xin chờ...";
-            } else if (isFishActive) {
+            } else if (isFishActive && !backToFarmEnabled) {
                 stats.farmingCountdown = "Không hẹn giờ";
+            } else if (lastKnownFishTargetMs > now && (isFishActive || activeTask == null)) {
+                int diffSec = (int) ((lastKnownFishTargetMs - now) / 1000L);
+                stats.farmingCountdown = formatCountdownWithMod(cl, diffSec);
+            } else if (stats.farmingCountdown == null || stats.farmingCountdown.isEmpty()) {
+                stats.farmingCountdown = "--:--";
             }
         } catch (Throwable ignored) {}
     }
@@ -832,7 +1254,6 @@ public class AvatarModAdapter {
                 } else {
                     stats.sellOreTime = String.format("%02d:%02d", m, s);
                 }
-                stats.farmingCountdown = stats.sellOreTime;
             } else if (targetMs > 0) {
                 stats.sellOreTime = "00:00";
             }
@@ -948,6 +1369,9 @@ public class AvatarModAdapter {
         boolean autoDropNhb = extractJsonBool(jsonStr, "autoDropNhb", false);
         int farmIntervalMinutes = extractJsonInt(jsonStr, "farmIntervalMinutes", 60);
         boolean harvestOnTime = extractJsonBool(jsonStr, "harvestOnTime", true);
+        if (!autoFarm) {
+            harvestOnTime = false;
+        }
         int priorityOrder = extractJsonInt(jsonStr, "priorityOrder", 6);
 
         try {
@@ -971,9 +1395,20 @@ public class AvatarModAdapter {
             // Cập nhật ngay lập tức nếu Auto Kim Cương đang chạy
             AutoTaskInfo activeTask = getActiveAutoTask();
             if (activeTask != null && "diamond".equalsIgnoreCase(activeTask.autoType) && activeTask.taskInstance != null) {
-                long newIntervalMs = (long) farmIntervalMinutes * 60000L;
-                setField(activeTask.taskInstance, schema.diamondTargetMsField, newIntervalMs, long.class);
-                setField(activeTask.taskInstance, schema.diamondAbsTargetMsField, System.currentTimeMillis() + newIntervalMs, long.class);
+                if (autoFarm) {
+                    long newIntervalMs = (long) farmIntervalMinutes * 60000L;
+                    setField(activeTask.taskInstance, schema.diamondTargetMsField, newIntervalMs, long.class);
+                    if (harvestOnTime) {
+                        boolean updated = updateSmartCropTimer(cl, schema, true, true);
+                        if (!updated) {
+                            setField(activeTask.taskInstance, schema.diamondAbsTargetMsField, System.currentTimeMillis() + newIntervalMs, long.class);
+                        }
+                    } else {
+                        setField(activeTask.taskInstance, schema.diamondAbsTargetMsField, System.currentTimeMillis() + newIntervalMs, long.class);
+                    }
+                } else {
+                    setField(activeTask.taskInstance, schema.diamondAbsTargetMsField, 0L, long.class);
+                }
             }
 
             System.out.println("💎 [CÀI ĐẶT AUTO KIM CƯƠNG]: Đã nạp thành công (" + schema.name + ") | Bán đá đầy rương: " + sellOreOnFull + " | Tự về farm: " + autoFarm + " (" + farmIntervalMinutes + " phút) | Thu hoạch đúng giờ: " + harvestOnTime + " | Thứ tự ưu tiên: " + pName + " | Tự bỏ KCX: " + autoDropKcx + " | Tự bỏ NHB: " + autoDropNhb);
@@ -996,6 +1431,9 @@ public class AvatarModAdapter {
         boolean backToFarm = extractJsonBool(jsonStr, "backToFarm", true);
         int farmIntervalMinutes = extractJsonInt(jsonStr, "farmIntervalMinutes", 30);
         boolean harvestOnTime = extractJsonBool(jsonStr, "harvestOnTime", true);
+        if (!backToFarm) {
+            harvestOnTime = false;
+        }
         boolean sellKcx = extractJsonBool(jsonStr, "sellKcx", false);
         int sellKcxThreshold = extractJsonInt(jsonStr, "sellKcxThreshold", 5);
 
@@ -1029,9 +1467,20 @@ public class AvatarModAdapter {
             // Cập nhật ngay lập tức nếu Auto Câu Cá đang chạy
             AutoTaskInfo activeTask = getActiveAutoTask();
             if (activeTask != null && "fish".equalsIgnoreCase(activeTask.autoType) && activeTask.taskInstance != null) {
-                long newIntervalMs = (long) farmIntervalMinutes * 60000L;
-                setField(activeTask.taskInstance, "do", newIntervalMs, long.class);
-                setField(activeTask.taskInstance, schema.fishTargetMsField, System.currentTimeMillis() + newIntervalMs, long.class);
+                if (backToFarm) {
+                    long newIntervalMs = (long) farmIntervalMinutes * 60000L;
+                    setField(activeTask.taskInstance, "do", newIntervalMs, long.class);
+                    if (harvestOnTime) {
+                        boolean updated = updateSmartCropTimer(cl, schema, false, true);
+                        if (!updated) {
+                            setField(activeTask.taskInstance, schema.fishTargetMsField, System.currentTimeMillis() + newIntervalMs, long.class);
+                        }
+                    } else {
+                        setField(activeTask.taskInstance, schema.fishTargetMsField, System.currentTimeMillis() + newIntervalMs, long.class);
+                    }
+                } else {
+                    setField(activeTask.taskInstance, schema.fishTargetMsField, 0L, long.class);
+                }
             }
 
             System.out.println("🎣 [CÀI ĐẶT AUTO CÂU CÁ]: Đã nạp thành công (" + schema.name + ") | Map: " + mName + " | Cần câu: " + rName + " | Bán cá: " + sName + " | Tự mua vé: " + autoBuyTicket + " | Về farm: " + backToFarm + " (" + farmIntervalMinutes + "p) | Bán KCX: " + sellKcx + " (SL: " + sellKcxThreshold + ") | Ngoại trừ: " + excludeFish);
@@ -1184,6 +1633,14 @@ public class AvatarModAdapter {
                 System.out.println("[AUTO_STATUS]: {\"isRunning\":true,\"autoType\":\"farm\",\"status\":\"running\",\"message\":\"Đang chạy Auto Farm...\"}");
                 return true;
             } else if ("diamond".equalsIgnoreCase(autoType) || "kc".equalsIgnoreCase(autoType)) {
+                // 1. Thử gọi lệnh chat native của Mod "kc" (giống hệt người chơi gõ phím 'kc' trong game)
+                boolean triggeredViaCmd = false;
+                try {
+                    Method cmdMethod = taskCtrlCls.getMethod("do", String.class);
+                    Object res = cmdMethod.invoke(null, "kc");
+                    triggeredViaCmd = (res instanceof Boolean) ? ((Boolean) res).booleanValue() : true;
+                } catch (Throwable ignored) {}
+
                 Class<?> diamCls = cl.loadClass(schema.diamondClassName);
                 taskObj = null;
                 try {
@@ -1191,30 +1648,88 @@ public class AvatarModAdapter {
                     taskObj = getInst.invoke(null);
                 } catch (Throwable ignored) {}
                 if (taskObj == null) {
-                    taskObj = diamCls.newInstance();
+                    try { taskObj = diamCls.newInstance(); } catch (Throwable ignored) {}
                 }
 
-                // Khởi tạo phương thức reset/init của Mod (void_do() / do() trong X)
-                try {
-                    Method initM = diamCls.getMethod("do");
-                    initM.invoke(taskObj);
-                } catch (Throwable ignored) {}
+                if (taskObj != null) {
+                    // Khởi tạo phương thức void do() hoặc new() của task kim cương
+                    for (Method m : diamCls.getDeclaredMethods()) {
+                        if (m.getParameterCount() == 0 && m.getReturnType().equals(void.class) && 
+                            (m.getName().equals("do") || m.getName().equals("new"))) {
+                            try {
+                                m.setAccessible(true);
+                                m.invoke(taskObj);
+                                break;
+                            } catch (Throwable ignored) {}
+                        }
+                    }
 
-                // Đặt thời gian hẹn giờ về farm (soXu = now + intervalMs) để không bị lập tức nhảy về nông trại
-                long intervalMs = 60 * 60000L;
+                    // QUAN TRỌNG: Cập nhật biến watchdog int:J (tránh mod hiểu nhầm bị đứng 10 phút rồi gọi aQ.void() đăng xuất!)
+                    try {
+                        Field intF = taskObj.getClass().getField("int");
+                        intF.setAccessible(true);
+                        intF.setLong(taskObj, System.currentTimeMillis());
+                    } catch (Throwable t) {
+                        try {
+                            Field intF = taskObj.getClass().getSuperclass().getDeclaredField("int");
+                            intF.setAccessible(true);
+                            intF.setLong(taskObj, System.currentTimeMillis());
+                        } catch (Throwable ignored) {}
+                    }
+
+                    // Đặt thời gian hẹn giờ về farm (soXu = now + intervalMs) để không bị lập tức nhảy về nông trại
+                    long intervalMs = 60 * 60000L;
+                    try {
+                        Integer minsObj = (Integer) getStaticField(diamCls, schema.diamondIntervalField, int.class);
+                        if (minsObj != null && minsObj.intValue() > 0) {
+                            intervalMs = (long) minsObj.intValue() * 60000L;
+                        }
+                    } catch (Throwable ignored) {}
+
+                    boolean autoFarmOn = true;
+                    try {
+                        Boolean af = (Boolean) getStaticField(diamCls, schema.diamondAutoFarmField, boolean.class);
+                        if (af != null) autoFarmOn = af.booleanValue();
+                    } catch (Throwable ignored) {}
+
+                    boolean harvestOnTimeOn = false;
+                    try {
+                        Boolean ht = (Boolean) getStaticField(diamCls, schema.diamondHarvestOnTimeField, boolean.class);
+                        if (ht != null) harvestOnTimeOn = ht.booleanValue();
+                    } catch (Throwable ignored) {}
+
+                    setField(taskObj, schema.diamondTargetMsField, intervalMs, long.class);
+                    if (autoFarmOn) {
+                        if (harvestOnTimeOn) {
+                            boolean updated = updateSmartCropTimer(cl, schema, true, true);
+                            if (!updated) {
+                                setField(taskObj, schema.diamondAbsTargetMsField, System.currentTimeMillis() + intervalMs, long.class);
+                            }
+                        } else {
+                            setField(taskObj, schema.diamondAbsTargetMsField, System.currentTimeMillis() + intervalMs, long.class);
+                        }
+                    } else {
+                        setField(taskObj, schema.diamondAbsTargetMsField, 0L, long.class);
+                    }
+
+                    if (!triggeredViaCmd) {
+                        Method doMethod = taskCtrlCls.getMethod(schema.taskStartMethod, taskArgCls);
+                        doMethod.invoke(null, taskObj);
+                    }
+
+                    System.out.println("🔍 [DIAGNOSTIC_START_KC]: triggeredViaCmd=" + triggeredViaCmd + " | taskObj=" + taskObj.getClass().getName() + " | intervalMs=" + intervalMs + " | autoFarm=" + autoFarmOn + " | harvestOnTime=" + harvestOnTimeOn + " | targetMs=" + getFieldValue(taskObj, schema.diamondAbsTargetMsField));
+                }
+
+                // Đảm bảo thread worker của taskController đang chạy
                 try {
-                    Integer minsObj = (Integer) getStaticField(diamCls, schema.diamondIntervalField, int.class);
-                    if (minsObj != null && minsObj.intValue() > 0) {
-                        intervalMs = (long) minsObj.intValue() * 60000L;
+                    Object ctrlInst = getStaticField(taskCtrlCls, "do", taskCtrlCls);
+                    if (ctrlInst != null) {
+                        Method startRunner = taskCtrlCls.getMethod("do");
+                        startRunner.invoke(ctrlInst);
                     }
                 } catch (Throwable ignored) {}
 
-                setField(taskObj, schema.diamondTargetMsField, intervalMs, long.class);
-                setField(taskObj, schema.diamondAbsTargetMsField, System.currentTimeMillis() + intervalMs, long.class);
-
-                Method doMethod = taskCtrlCls.getMethod(schema.taskStartMethod, taskArgCls);
-                doMethod.invoke(null, taskObj);
-                System.out.println("💎 [BẬT AUTO KIM CƯƠNG]: Đã kích hoạt Auto Đào Kim Cương [" + schema.name + "] (Hẹn về farm: " + (intervalMs / 60000) + " phút)!");
+                System.out.println("💎 [BẬT AUTO KIM CƯƠNG]: Đã kích hoạt Auto Đào Kim Cương [" + schema.name + "]!");
                 System.out.println("[AUTO_STATUS]: {\"isRunning\":true,\"autoType\":\"diamond\",\"status\":\"running\",\"message\":\"Đang chạy Auto Đào Kim Cương...\"}");
                 return true;
             } else if ("fish".equalsIgnoreCase(autoType) || "cau_ca".equalsIgnoreCase(autoType) || "cc".equalsIgnoreCase(autoType)) {
@@ -1245,8 +1760,31 @@ public class AvatarModAdapter {
                             }
                         } catch (Throwable ignored) {}
 
+                        boolean backToFarmOn = true;
+                        try {
+                            Boolean bf = (Boolean) getStaticField(fishCls, schema.fishBackToFarmField, boolean.class);
+                            if (bf != null) backToFarmOn = bf.booleanValue();
+                        } catch (Throwable ignored) {}
+
+                        boolean harvestOnTimeOn = false;
+                        try {
+                            Boolean ht = (Boolean) getStaticField(fishCls, schema.fishHarvestOnTimeField, boolean.class);
+                            if (ht != null) harvestOnTimeOn = ht.booleanValue();
+                        } catch (Throwable ignored) {}
+
                         setField(taskObj, "do", intervalMs, long.class);
-                        setField(taskObj, schema.fishTargetMsField, System.currentTimeMillis() + intervalMs, long.class);
+                        if (backToFarmOn) {
+                            if (harvestOnTimeOn) {
+                                boolean updated = updateSmartCropTimer(cl, schema, false, true);
+                                if (!updated) {
+                                    setField(taskObj, schema.fishTargetMsField, System.currentTimeMillis() + intervalMs, long.class);
+                                }
+                            } else {
+                                setField(taskObj, schema.fishTargetMsField, System.currentTimeMillis() + intervalMs, long.class);
+                            }
+                        } else {
+                            setField(taskObj, schema.fishTargetMsField, 0L, long.class);
+                        }
 
                         Method doMethod = taskCtrlCls.getMethod(schema.taskStartMethod, taskArgCls);
                         doMethod.invoke(null, taskObj);
@@ -1282,11 +1820,19 @@ public class AvatarModAdapter {
 
         ModSchema schema = getCurrentSchema();
 
+        AutoTaskInfo beforeTask = getActiveAutoTask();
+        System.out.println("🔍 [DIAGNOSTIC_STOP]: stopAuto() invoked | activeTaskBefore=" + (beforeTask != null ? beforeTask.className : "null"));
+
         try {
             Class<?> taskCtrlCls = cl.loadClass(schema.taskControllerClassName);
             Method stopMethod = taskCtrlCls.getMethod(schema.taskStopMethod);
             stopMethod.invoke(null);
         } catch (Throwable ignored) {}
+
+        lastKnownDiamondTargetMs = 0L;
+        lastKnownFishTargetMs = 0L;
+        wasInFarmDiamond = false;
+        wasInFarmFish = false;
 
         System.out.println("⏹️ [DỪNG AUTO]: Đã dừng tiến trình Auto.");
         System.out.println("[AUTO_STATUS]: {\"isRunning\":false,\"status\":\"stopped\",\"message\":\"Đã dừng Auto\"}");
@@ -1374,6 +1920,23 @@ public class AvatarModAdapter {
                 }
             }
         } catch (Throwable ignored) {}
+    }
+
+    public static Object getFieldValue(Object obj, String fieldName) {
+        if (obj == null || fieldName == null) return null;
+        try {
+            Class<?> c = obj.getClass();
+            while (c != null) {
+                for (Field f : c.getDeclaredFields()) {
+                    if (f.getName().equals(fieldName)) {
+                        f.setAccessible(true);
+                        return f.get(obj);
+                    }
+                }
+                c = c.getSuperclass();
+            }
+        } catch (Throwable ignored) {}
+        return null;
     }
 
     public static Object getStaticField(Class<?> cls, String name, Class<?> type) {

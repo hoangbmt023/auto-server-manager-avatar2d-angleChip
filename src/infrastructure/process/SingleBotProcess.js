@@ -2,6 +2,7 @@ const { spawn, execSync } = require('child_process');
 const path = require('path');
 const fs = require('fs');
 const EventEmitter = require('events');
+const ProxyChecker = require('../network/ProxyChecker');
 
 /**
  * SingleBotProcess (Infrastructure Layer)
@@ -17,6 +18,8 @@ class SingleBotProcess extends EventEmitter {
     this.startTime = null;
     this.restartAttempts = 0;
     this.isManualStop = false;
+    this.loginWatchdogTimer = null;
+    this._isCheckingProxy = false;
     this.accountState = {
       state: 'idle',
       message: 'Chưa chạy',
@@ -44,6 +47,8 @@ class SingleBotProcess extends EventEmitter {
       message: ''
     };
     this.workspaceRoot = path.resolve(__dirname, '../../../');
+    this._stdoutBuffer = '';
+    this._stderrBuffer = '';
   }
 
   resolveJar(jarFilename) {
@@ -224,20 +229,40 @@ class SingleBotProcess extends EventEmitter {
       this.emitLog('info', `✅ [${this.account.username}] Bot đang chạy (PID: ${pid})`);
       this.emit('started', { accountId: this.account.id, pid });
 
-      // Handle STDOUT
+      // Reset stream buffers
+      this._stdoutBuffer = '';
+      this._stderrBuffer = '';
+
+      // Handle STDOUT with stream line buffering
       this.child.stdout.on('data', (chunk) => {
-        const text = chunk.toString('utf8');
-        this.processLogOutput(text, 'stdout');
+        this._stdoutBuffer += chunk.toString('utf8');
+        const lines = this._stdoutBuffer.split('\n');
+        this._stdoutBuffer = lines.pop(); // Keep incomplete trailing fragment
+        for (const line of lines) {
+          this.processLogOutput(line, 'stdout');
+        }
       });
 
-      // Handle STDERR
+      // Handle STDERR with stream line buffering
       this.child.stderr.on('data', (chunk) => {
-        const text = chunk.toString('utf8');
-        this.processLogOutput(text, 'stderr');
+        this._stderrBuffer += chunk.toString('utf8');
+        const lines = this._stderrBuffer.split('\n');
+        this._stderrBuffer = lines.pop();
+        for (const line of lines) {
+          this.processLogOutput(line, 'stderr');
+        }
       });
 
       // Handle Exit
       this.child.on('close', (code, signal) => {
+        if (this._stdoutBuffer && this._stdoutBuffer.trim()) {
+          this.processLogOutput(this._stdoutBuffer, 'stdout');
+          this._stdoutBuffer = '';
+        }
+        if (this._stderrBuffer && this._stderrBuffer.trim()) {
+          this.processLogOutput(this._stderrBuffer, 'stderr');
+          this._stderrBuffer = '';
+        }
         this.emitLog('warn', `⚠️ [${this.account.username}] Tiến trình bot dừng với mã thoát: ${code || signal || '0'}`);
         const wasManual = this.isManualStop;
         this.child = null;
@@ -354,6 +379,19 @@ class SingleBotProcess extends EventEmitter {
           } else if (parsed.farmingCountdown !== undefined && parsed.farmingTime === undefined) {
             parsed.farmingTime = parsed.farmingCountdown;
           }
+          if (parsed.coins === 0 && this.playerStats.coins > 0) {
+            delete parsed.coins;
+            delete parsed.gold;
+            delete parsed.lockedGold;
+          }
+          // Giữ countdown hiện tại nếu Java tạm thời trả về '--:--' do đang load map/reconnect trong chốc lát
+          if ((!parsed.farmingCountdown || parsed.farmingCountdown === '--:--') &&
+              (this.playerStats.farmingCountdown && this.playerStats.farmingCountdown !== '--:--') &&
+              this.autoState && this.autoState.isRunning &&
+              (this.autoState.autoType === 'diamond' || this.autoState.autoType === 'kc' || this.autoState.autoType === 'fish')) {
+            delete parsed.farmingCountdown;
+            delete parsed.farmingTime;
+          }
           this.playerStats = {
             ...this.playerStats,
             ...parsed
@@ -362,17 +400,27 @@ class SingleBotProcess extends EventEmitter {
           // Synchronize autoState directly from live in-game active auto task
           if (parsed.isAutoRunning !== undefined) {
             if (parsed.isAutoRunning && parsed.autoType) {
+              let primaryType = parsed.autoType;
+              // Nếu đang chạy auto kim cương / câu cá mà tạm về farm, giữ nguyên primary autoType
+              if (parsed.autoType === 'farm' && this.autoState && (this.autoState.autoType === 'diamond' || this.autoState.autoType === 'fish' || this.autoState.autoType === 'kc')) {
+                primaryType = this.autoState.autoType;
+              }
+
               let friendly = 'Auto';
-              if (parsed.autoType === 'fish') friendly = 'Auto Câu Cá';
-              else if (parsed.autoType === 'diamond' || parsed.autoType === 'kc') friendly = 'Auto Kim Cương';
-              else if (parsed.autoType === 'farm') friendly = 'Auto Farm';
-              else if (parsed.autoType === 'sell_ore' || parsed.autoType === 'banda') friendly = 'Auto Bán Đá';
+              if (primaryType === 'fish') friendly = 'Auto Câu Cá';
+              else if (primaryType === 'diamond' || primaryType === 'kc') friendly = 'Auto Kim Cương';
+              else if (primaryType === 'farm') friendly = 'Auto Farm';
+              else if (primaryType === 'sell_ore' || primaryType === 'banda') friendly = 'Auto Bán Đá';
+
+              const statusMsg = (parsed.autoType === 'farm' && primaryType !== 'farm')
+                ? `Đang về chăm farm (từ ${friendly})...`
+                : `Đang chạy ${friendly}...`;
 
               this.autoState = {
                 isRunning: true,
-                autoType: parsed.autoType,
+                autoType: primaryType,
                 status: 'running',
-                message: `Đang chạy ${friendly}...`
+                message: statusMsg
               };
               this.emit('auto-status', { accountId: this.account.id, autoState: this.autoState });
             } else if (!parsed.isAutoRunning && this.autoState && this.autoState.isRunning) {
@@ -414,6 +462,48 @@ class SingleBotProcess extends EventEmitter {
           };
         }
       }
+
+      // Check for proxy authentication failure, network disconnect, or expired proxy
+      if (this.account.proxyId) {
+        const lower = line.toLowerCase();
+        if (
+          lower.includes('socks: authentication failed') ||
+          lower.includes('407 proxy authentication') ||
+          lower.includes('proxy authentication required') ||
+          lower.includes('[proxy auth err]') ||
+          lower.includes('malformed reply from socks') ||
+          lower.includes('lỗi xác thực proxy')
+        ) {
+          type = 'error';
+          this.accountState = {
+            state: 'proxy_expired',
+            message: 'Proxy đã hết hạn hoặc sai xác thực!',
+            isError: true,
+            isMaintenance: false
+          };
+          this.emit('proxy-expired', {
+            proxyId: this.account.proxyId,
+            reason: 'Proxy từ chối xác thực (Hết hạn hoặc sai User/Pass)'
+          });
+          this.emit('account-status', { accountId: this.account.id, state: this.accountState });
+        } else if (line.includes('MẤT KẾT NỐI') || line.includes('[LOGIN ERR]') || line.includes('ConnectException') || line.includes('SocketTimeoutException')) {
+          this.triggerProxyHealthCheck('Mất kết nối mạng / Socket Timeout qua Proxy');
+        } else if (line.includes('2. Bắt đầu kết nối & đăng nhập') || line.includes('Đang kết nối tới Server')) {
+          if (this.loginWatchdogTimer) clearTimeout(this.loginWatchdogTimer);
+          this.loginWatchdogTimer = setTimeout(() => {
+            if (this.accountState.state !== 'online' && (!this.playerStats || this.playerStats.coins <= 0)) {
+              this.triggerProxyHealthCheck('Quá thời gian chờ kết nối game (Login Timeout qua Proxy)');
+            }
+          }, 18000);
+        }
+      }
+
+      if (this.playerStats.coins > 0 || line.includes('Đang Treo Online') || line.includes('BẮT ĐẦU CHẠY')) {
+        if (this.loginWatchdogTimer) {
+          clearTimeout(this.loginWatchdogTimer);
+          this.loginWatchdogTimer = null;
+        }
+      }
       else if (line.includes('⚠️') || line.includes('CẢNH BÁO') || line.includes('MẤT KẾT NỐI')) type = 'warn';
       else if (line.includes('🛠️') || line.includes('BẢO TRÌ')) {
         type = 'warn';
@@ -445,6 +535,11 @@ class SingleBotProcess extends EventEmitter {
   }
 
   scheduleRestart(javaBin) {
+    if (this.accountState && this.accountState.state === 'proxy_expired') {
+      this.emitLog('error', `🛑 [${this.account.username}] Dừng tự động kết nối lại vì Proxy đã HẾT HẠN! Vui lòng đổi Proxy trong Quản Lý Proxy.`);
+      return;
+    }
+
     this.restartAttempts++;
     const delay = Math.min(10000 + (this.restartAttempts * 2000), 30000);
     this.emitLog('warn', `🔄 [${this.account.username}] Tự động khởi động lại sau ${delay / 1000}s (Lần ${this.restartAttempts})...`);
@@ -456,11 +551,43 @@ class SingleBotProcess extends EventEmitter {
     }, delay);
   }
 
+  triggerProxyHealthCheck(reason = '') {
+    if (!this.account.proxyId || this._isCheckingProxy || this.isManualStop) return;
+    const proxy = (this.globalConfig.proxies || []).find(p => p.id === this.account.proxyId);
+    if (!proxy) return;
+
+    this._isCheckingProxy = true;
+    ProxyChecker.testProxy(proxy, 3500).then(result => {
+      this._isCheckingProxy = false;
+      if (result.isExpired) {
+        this.accountState = {
+          state: 'proxy_expired',
+          message: 'Proxy đã hết hạn hoặc mất kết nối!',
+          isError: true,
+          isMaintenance: false
+        };
+        this.emit('proxy-expired', {
+          proxyId: this.account.proxyId,
+          reason: result.message
+        });
+        this.emit('account-status', { accountId: this.account.id, state: this.accountState });
+        this.emitLog('error', `🛑 [${this.account.username}] PHÁT HIỆN PROXY ĐÃ HẾT HẠN / MẤT KẾT NỐI (${result.message})! Đã đánh cờ hết hạn và dừng bot.`);
+        this.stop();
+      }
+    }).catch(() => {
+      this._isCheckingProxy = false;
+    });
+  }
+
   stop() {
     this.isManualStop = true;
     if (this.restartTimer) {
       clearTimeout(this.restartTimer);
       this.restartTimer = null;
+    }
+    if (this.loginWatchdogTimer) {
+      clearTimeout(this.loginWatchdogTimer);
+      this.loginWatchdogTimer = null;
     }
 
     if (!this.child) {

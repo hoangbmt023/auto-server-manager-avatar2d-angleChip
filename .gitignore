@@ -27,12 +27,13 @@ openjdk/
 logs/
 
 # ==========================================
-# MicroEmulator Local RMS & Session Cache
+# MicroEmulator Local RMS & Session Cache & Runtime IPC
 # ==========================================
 .microemulator/
 rms/
 session/
 data/session/
+data/runtime/
 
 # ==========================================
 # OS and IDE temporary files

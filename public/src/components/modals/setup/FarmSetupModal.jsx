@@ -59,8 +59,15 @@ window.FarmSetupModal = function FarmSetupModal({
   const handleSaveFarm = async () => {
     try {
       setIsSubmitting(true);
+      const cleanedFarmState = {
+        ...farmState,
+        maxStarfruitLevel: farmState.maxStarfruitLevel === '' ? 10 : Number(farmState.maxStarfruitLevel),
+        sellThreshold: farmState.sellThreshold === '' ? 100 : Number(farmState.sellThreshold),
+        sellQuantity: farmState.sellQuantity === '' ? 50 : Number(farmState.sellQuantity),
+        replaceSeedThreshold: farmState.replaceSeedThreshold === '' ? 0 : Number(farmState.replaceSeedThreshold)
+      };
       const res = await window.ApiClient.updateAccountSetup(account.id, {
-        farmSettings: farmState
+        farmSettings: cleanedFarmState
       });
       if (res.success) {
         if (onAccountUpdated) onAccountUpdated();
@@ -300,7 +307,8 @@ window.FarmSetupModal = function FarmSetupModal({
                   type="number"
                   className="form-control"
                   value={farmState.maxStarfruitLevel}
-                  onChange={(e) => setFarmState({ ...farmState, maxStarfruitLevel: Number(e.target.value) })}
+                  onFocus={(e) => { if (e.target.value === '0') e.target.select(); }}
+                  onChange={(e) => setFarmState({ ...farmState, maxStarfruitLevel: e.target.value })}
                   min="1"
                   max="20"
                 />
@@ -339,7 +347,8 @@ window.FarmSetupModal = function FarmSetupModal({
                   type="number"
                   className="form-control"
                   value={farmState.sellThreshold}
-                  onChange={(e) => setFarmState({ ...farmState, sellThreshold: Number(e.target.value) })}
+                  onFocus={(e) => { if (e.target.value === '0') e.target.select(); }}
+                  onChange={(e) => setFarmState({ ...farmState, sellThreshold: e.target.value })}
                   min="1"
                 />
               </div>
@@ -349,7 +358,8 @@ window.FarmSetupModal = function FarmSetupModal({
                   type="number"
                   className="form-control"
                   value={farmState.sellQuantity}
-                  onChange={(e) => setFarmState({ ...farmState, sellQuantity: Number(e.target.value) })}
+                  onFocus={(e) => { if (e.target.value === '0') e.target.select(); }}
+                  onChange={(e) => setFarmState({ ...farmState, sellQuantity: e.target.value })}
                   min="1"
                 />
               </div>
@@ -386,7 +396,8 @@ window.FarmSetupModal = function FarmSetupModal({
                   className="form-control"
                   placeholder="0: Không đổi"
                   value={farmState.replaceSeedThreshold}
-                  onChange={(e) => setFarmState({ ...farmState, replaceSeedThreshold: Number(e.target.value) })}
+                  onFocus={(e) => { if (e.target.value === '0') e.target.select(); }}
+                  onChange={(e) => setFarmState({ ...farmState, replaceSeedThreshold: e.target.value })}
                   min="0"
                 />
               </div>

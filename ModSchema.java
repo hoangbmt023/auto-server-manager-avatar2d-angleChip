@@ -45,6 +45,7 @@ public class ModSchema {
     public String[] canvasClasses;
     public String dialogContainerClass;
     public String dialogClass;
+    public String dialogPointerType;
     public String alertDialogClass;
 
     // 3. NHÂN VẬT & TIỀN TỆ (PLAYER STATS)
@@ -185,6 +186,7 @@ public class ModSchema {
         UP_XU.canvasClasses = new String[] { "cA", "br" };
         UP_XU.dialogContainerClass = "br";
         UP_XU.dialogClass = "h";
+        UP_XU.dialogPointerType = "bt";
         UP_XU.alertDialogClass = null;
 
         UP_XU.playerContainerClasses = new String[] { "main.AngelChip", "go" };
@@ -292,6 +294,7 @@ public class ModSchema {
         FISH.canvasClasses = new String[] { "cA", "bx" };
         FISH.dialogContainerClass = "bx";
         FISH.dialogClass = "s";
+        FISH.dialogPointerType = "dJ";
         FISH.alertDialogClass = "fA";
 
         FISH.playerContainerClasses = new String[] { "main.AngelChip", "go" };

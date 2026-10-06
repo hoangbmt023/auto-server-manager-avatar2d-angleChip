@@ -265,7 +265,7 @@ window.AccountCard = function AccountCard({
             <div className="acc-stat-box" style={{ borderColor: 'rgba(245, 158, 11, 0.45)', background: 'rgba(245, 158, 11, 0.12)' }}>
               <span className="acc-stat-lbl" style={{ color: '#fbbf24' }}>⏳ Thời gian:</span>
               <span className="acc-stat-val" style={{ color: '#fde68a', fontWeight: 700, fontSize: '0.95rem', fontFamily: 'monospace' }}>
-                {stats.sellOreTime || stats.farmingCountdown || '--:--'}
+                {stats.sellOreTime || '--:--'}
               </span>
             </div>
             <div className="acc-stat-box" style={{ borderColor: 'rgba(16, 185, 129, 0.45)', background: 'rgba(16, 185, 129, 0.12)' }}>

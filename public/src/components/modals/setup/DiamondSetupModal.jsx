@@ -43,14 +43,15 @@ window.DiamondSetupModal = function DiamondSetupModal({
   const handleSaveDiamond = async () => {
     try {
       setIsSubmitting(true);
+      const isAutoFarm = Boolean(diamondState.autoFarm);
       const payload = {
         diamondSettings: {
           sellOreOnFull: Boolean(diamondState.sellOreOnFull),
-          autoFarm: Boolean(diamondState.autoFarm),
+          autoFarm: isAutoFarm,
           autoDropKcx: Boolean(diamondState.autoDropKcx),
           autoDropNhb: Boolean(diamondState.autoDropNhb),
           farmIntervalMinutes: Math.max(1, parseInt(diamondState.farmIntervalMinutes, 10) || 60),
-          harvestOnTime: Boolean(diamondState.harvestOnTime),
+          harvestOnTime: isAutoFarm ? Boolean(diamondState.harvestOnTime) : false,
           priorityOrder: parseInt(diamondState.priorityOrder, 10) >= 0 ? parseInt(diamondState.priorityOrder, 10) : 6
         }
       };
@@ -167,7 +168,14 @@ window.DiamondSetupModal = function DiamondSetupModal({
                 <input
                   type="checkbox"
                   checked={diamondState.autoFarm}
-                  onChange={(e) => setDiamondState({ ...diamondState, autoFarm: e.target.checked })}
+                  onChange={(e) => {
+                    const isChecked = e.target.checked;
+                    setDiamondState({
+                      ...diamondState,
+                      autoFarm: isChecked,
+                      harvestOnTime: isChecked ? diamondState.harvestOnTime : false
+                    });
+                  }}
                 />
                 <span>🌾 Tự về chăm farm</span>
               </label>
@@ -207,6 +215,7 @@ window.DiamondSetupModal = function DiamondSetupModal({
                   min="1"
                   max="720"
                   value={diamondState.farmIntervalMinutes}
+                  onFocus={(e) => { if (e.target.value === '0') e.target.select(); }}
                   onChange={(e) => setDiamondState({ ...diamondState, farmIntervalMinutes: e.target.value })}
                   placeholder="60"
                 />
@@ -215,17 +224,32 @@ window.DiamondSetupModal = function DiamondSetupModal({
                 </small>
               </div>
 
-              <div style={{ paddingLeft: '8px' }}>
-                <label className="farm-checkbox-item" style={{ marginTop: '10px' }}>
+              <div>
+                <label
+                  className="farm-checkbox-item"
+                  style={{
+                    marginTop: '10px',
+                    opacity: diamondState.autoFarm ? 1 : 0.45,
+                    cursor: diamondState.autoFarm ? 'pointer' : 'not-allowed',
+                    pointerEvents: diamondState.autoFarm ? 'auto' : 'none'
+                  }}
+                >
                   <input
                     type="checkbox"
-                    checked={diamondState.harvestOnTime}
-                    onChange={(e) => setDiamondState({ ...diamondState, harvestOnTime: e.target.checked })}
+                    disabled={!diamondState.autoFarm}
+                    checked={Boolean(diamondState.autoFarm && diamondState.harvestOnTime)}
+                    onChange={(e) => {
+                      if (diamondState.autoFarm) {
+                        setDiamondState({ ...diamondState, harvestOnTime: e.target.checked });
+                      }
+                    }}
                   />
                   <span>✨ <strong>Thu hoạch đúng giờ</strong> (Farm thông minh)</span>
                 </label>
-                <small style={{ color: '#94a3b8', fontSize: '0.75rem', marginLeft: '26px', display: 'block' }}>
-                  Tự động canh đúng lúc cây trồng chín để bay về thu hoạch.
+                <small style={{ color: diamondState.autoFarm ? '#94a3b8' : '#64748b', fontSize: '0.75rem', marginTop: '4px', display: 'block' }}>
+                  {diamondState.autoFarm
+                    ? 'Chỉ tính cây trồng trên đất chín (không tính vật nuôi). Nếu cây chưa chín vẫn về theo số phút đã đặt.'
+                    : '(Yêu cầu bật "Tự về chăm farm" để kích hoạt tính năng này)'}
                 </small>
               </div>
             </div>

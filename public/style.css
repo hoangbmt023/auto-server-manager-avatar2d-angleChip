@@ -239,6 +239,74 @@ body {
   gap: 12px;
 }
 
+.alert-banner-danger {
+  background: linear-gradient(135deg, rgba(239, 68, 68, 0.16) 0%, rgba(153, 27, 27, 0.28) 100%);
+  border: 1px solid rgba(239, 68, 68, 0.45);
+  box-shadow: 0 4px 20px rgba(239, 68, 68, 0.2);
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 16px 20px;
+  margin: 0;
+  border-radius: var(--radius-md);
+}
+
+.alert-banner-danger .banner-top-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  width: 100%;
+}
+
+.alert-banner-danger .banner-title-box {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  flex: 1;
+}
+
+.alert-banner-danger .banner-icon {
+  background: rgba(239, 68, 68, 0.25);
+  width: 44px;
+  height: 44px;
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 24px;
+  flex-shrink: 0;
+}
+
+.alert-banner-danger .banner-title-content h4 {
+  color: #fca5a5;
+  margin: 0;
+  font-size: 1.05rem;
+  font-weight: 700;
+  line-height: 1.35;
+}
+
+.alert-banner-danger .banner-actions {
+  display: flex;
+  align-items: center;
+  flex-shrink: 0;
+}
+
+.alert-banner-danger .banner-actions .btn {
+  white-space: nowrap;
+}
+
+.alert-banner-danger .banner-body {
+  padding-left: 58px;
+}
+
+.alert-banner-danger .banner-body p {
+  color: #fecaca;
+  margin-bottom: 0;
+  line-height: 1.5;
+  font-size: 0.88rem;
+}
+
 .progress-container {
   margin-top: 14px;
   width: 100%;
@@ -316,4 +384,32 @@ body {
   .dashboard-grid {
     gap: 14px;
   }
+
+  /* Expired Proxy Banner on Mobile - Move action button to top with icon */
+  .alert-banner-danger {
+    padding: 12px 14px;
+    gap: 10px;
+  }
+
+  .alert-banner-danger .banner-top-row {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 10px;
+  }
+
+  .alert-banner-danger .banner-actions {
+    order: 2;
+    width: 100%;
+  }
+
+  .alert-banner-danger .banner-actions .btn {
+    width: 100%;
+    justify-content: center;
+  }
+
+  .alert-banner-danger .banner-body {
+    order: 3;
+    padding-left: 0;
+  }
 }
+

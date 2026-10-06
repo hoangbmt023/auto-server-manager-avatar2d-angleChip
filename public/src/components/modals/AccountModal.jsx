@@ -2,7 +2,127 @@
  * AccountModal Component (Presentation Layer / Modals)
  * Add and Edit Account Modal form with File Profile, Server and Proxy assignment.
  */
-const { useState: useAccModalState } = React;
+const { useState: useAccModalState, useRef: useAccModalRef, useEffect: useAccModalEffect } = React;
+
+/**
+ * Reusable CustomSelect dropdown component (CSS-based, overflow-safe, dark theme)
+ */
+function CustomSelect({
+  value,
+  onChange,
+  options = [],
+  placeholder = 'Chọn một tùy chọn...'
+}) {
+  const [isOpen, setIsOpen] = useAccModalState(false);
+  const [dropUp, setDropUp] = useAccModalState(false);
+  const wrapperRef = useAccModalRef(null);
+
+  const handleToggle = () => {
+    if (!isOpen && wrapperRef.current) {
+      const rect = wrapperRef.current.getBoundingClientRect();
+      const modalBody = wrapperRef.current.closest('.modal-body') || wrapperRef.current.closest('.modal-card');
+      if (modalBody) {
+        const bodyRect = modalBody.getBoundingClientRect();
+        const spaceBelow = bodyRect.bottom - rect.bottom;
+        setDropUp(spaceBelow < 210);
+      } else {
+        const spaceBelow = window.innerHeight - rect.bottom;
+        setDropUp(spaceBelow < 210);
+      }
+    }
+    setIsOpen(!isOpen);
+  };
+
+  useAccModalEffect(() => {
+    function handleClickOutside(event) {
+      if (wrapperRef.current && !wrapperRef.current.contains(event.target)) {
+        setIsOpen(false);
+      }
+    }
+    if (isOpen) {
+      document.addEventListener('mousedown', handleClickOutside);
+      document.addEventListener('touchstart', handleClickOutside);
+    }
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+      document.removeEventListener('touchstart', handleClickOutside);
+    };
+  }, [isOpen]);
+
+  const selectedOption = options.find(opt => opt.value === value);
+
+  return (
+    <div className={`custom-select-wrapper ${isOpen ? 'is-open' : ''}`} ref={wrapperRef}>
+      <div
+        className={`custom-select-control ${isOpen ? 'open' : ''} ${selectedOption?.isExpired ? 'is-expired' : ''}`}
+        onClick={handleToggle}
+        tabIndex="0"
+        onKeyDown={(e) => {
+          if (e.key === 'Enter' || e.key === ' ') {
+            e.preventDefault();
+            handleToggle();
+          } else if (e.key === 'Escape') {
+            setIsOpen(false);
+          }
+        }}
+      >
+        <div
+          className="custom-select-value"
+          title={selectedOption ? `${selectedOption.label} ${selectedOption.sub ? `(${selectedOption.sub})` : ''}` : placeholder}
+        >
+          {selectedOption ? (
+            <React.Fragment>
+              {selectedOption.isExpired && (
+                <span className="select-badge-expired">⚠️ HẾT HẠN</span>
+              )}
+              <span className="select-value-text">{selectedOption.label}</span>
+              {selectedOption.sub && (
+                <span className="select-value-sub">({selectedOption.sub})</span>
+              )}
+            </React.Fragment>
+          ) : (
+            <span className="select-placeholder">{placeholder}</span>
+          )}
+        </div>
+        <div className="custom-select-arrow">▾</div>
+      </div>
+
+      {isOpen && (
+        <div className={`custom-select-menu ${dropUp ? 'drop-up' : 'drop-down'}`}>
+          {options.map(opt => (
+            <div
+              key={opt.value}
+              className={`custom-select-item ${opt.value === value ? 'selected' : ''} ${opt.disabled ? 'disabled' : ''}`}
+              onClick={(e) => {
+                e.stopPropagation();
+                if (opt.disabled) return;
+                onChange(opt.value);
+                setIsOpen(false);
+              }}
+            >
+              <div className="select-item-main">
+                <div className="select-item-title-box">
+                  {opt.isExpired && (
+                    <span className="select-badge-expired">⚠️ HẾT HẠN</span>
+                  )}
+                  <span className="select-item-title">{opt.label}</span>
+                </div>
+                {opt.badge && !opt.isExpired && (
+                  <span className="select-badge-online">{opt.badge}</span>
+                )}
+              </div>
+              {opt.sub && (
+                <div className="select-item-sub">
+                  {opt.sub} {opt.disabled ? '• (Không thể chọn)' : ''}
+                </div>
+              )}
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
 
 window.AccountModal = function AccountModal({
   account,
@@ -20,10 +140,45 @@ window.AccountModal = function AccountModal({
   const [serverId, setServerId] = useAccModalState(account?.serverId !== undefined ? String(account.serverId) : '0');
   const [note, setNote] = useAccModalState(account?.note || '');
 
+  const fileOptions = files.map(f => ({
+    value: f.id,
+    label: f.name,
+    badge: `${f.totalAccounts || 0}/6 nick`
+  }));
+
+  const serverOptions = [
+    { value: '0', label: 'Server 1: Hoàn Mỹ', sub: 'Tối đa 3 nick/server' },
+    { value: '1', label: 'Server 2: Diệu Kỳ', sub: 'Tối đa 3 nick/server' }
+  ];
+
+  const proxyOptions = [
+    {
+      value: '',
+      label: 'Không dùng Proxy (IP Server)',
+      sub: 'Sử dụng trực tiếp IP VPS/Hosting'
+    },
+    ...proxies.map(p => ({
+      value: p.id,
+      label: p.name,
+      sub: `${(p.type || 'SOCKS').toUpperCase()} • ${p.host}:${p.port}`,
+      badge: `Online: ${p.onlineCount || 0}/6`,
+      disabled: Boolean(p.isExpired),
+      isExpired: Boolean(p.isExpired)
+    }))
+  ];
+
   const handleSubmit = async (e) => {
     e.preventDefault();
+    const notifyAlert = window.showAlert || alert;
+
     if (!username.trim()) {
-      alert('Vui lòng nhập tên tài khoản!');
+      notifyAlert('Vui lòng nhập tên tài khoản!', 'Thiếu Thông Tin', 'warning');
+      return;
+    }
+
+    const chosenProxy = proxies.find(p => p.id === proxyId);
+    if (chosenProxy && chosenProxy.isExpired) {
+      notifyAlert(`Proxy [${chosenProxy.name}] đã bị đánh dấu hết hạn! Vui lòng chọn proxy khác còn hoạt động hoặc "Không dùng Proxy".`, 'Proxy Hết Hạn', 'error');
       return;
     }
 
@@ -44,29 +199,45 @@ window.AccountModal = function AccountModal({
       if (data.success) {
         onSaved(fileId);
       } else {
-        alert(data.message || 'Lỗi lưu tài khoản');
+        notifyAlert(data.message || 'Lỗi lưu tài khoản', 'Lỗi Lưu Tài Khoản', 'error');
       }
     } catch (err) {
-      alert('Lỗi: ' + err.message);
+      notifyAlert('Lỗi: ' + err.message, 'Lỗi Hệ Thống', 'error');
     }
   };
 
   return (
-    <div className="modal-overlay" style={{ display: 'flex' }}>
-      <div className="modal-card" style={{ maxWidth: '560px' }}>
+    <div className="modal-overlay">
+      <div className="modal-card modal-card-md">
         <div className="modal-header">
           <h3>{isEditing ? `✏️ Chỉnh Sửa Tài Khoản: ${account.username}` : '➕ Thêm Tài Khoản Avatar Mới'}</h3>
           <button className="btn-close" onClick={onClose}>&times;</button>
         </div>
         <form onSubmit={handleSubmit}>
           <div className="modal-body">
+            {/* Expired Proxy Warning at top below header / above File Profile */}
+            {(() => {
+              const currentSelectedProxy = proxies.find(p => p.id === proxyId);
+              if (!currentSelectedProxy || !currentSelectedProxy.isExpired) return null;
+              return (
+                <div className="proxy-expired-alert account-modal-alert">
+                  <span className="alert-icon">⚠️</span>
+                  <div className="alert-text">
+                    <strong>CẢNH BÁO: PROXY CỦA TÀI KHOẢN NÀY ĐÃ HẾT HẠN!</strong>
+                    Proxy <b>{currentSelectedProxy.name}</b> ({currentSelectedProxy.host}:{currentSelectedProxy.port}) đã bị đánh dấu hết hạn / lỗi xác thực. Vui lòng chuyển sang proxy khác hoặc chọn <em>"Không dùng Proxy"</em>.
+                  </div>
+                </div>
+              );
+            })()}
+
             <div className="form-group">
               <label>📁 Thuộc File / Profile (Mỗi file tối đa 6 nick):</label>
-              <select className="form-control" value={fileId} onChange={e => setFileId(e.target.value)}>
-                {files.map(f => (
-                  <option key={f.id} value={f.id}>{f.name} ({f.totalAccounts || 0}/6 nick)</option>
-                ))}
-              </select>
+              <CustomSelect
+                value={fileId}
+                onChange={setFileId}
+                options={fileOptions}
+                placeholder="Chọn File / Profile..."
+              />
             </div>
 
             <div className="form-row">
@@ -95,23 +266,23 @@ window.AccountModal = function AccountModal({
 
             <div className="form-row">
               <div className="form-group">
-                <label>🌐 Server Game (Tối đa 3 nick/server):</label>
-                <select className="form-control" value={serverId} onChange={e => setServerId(e.target.value)}>
-                  <option value="0">Server 1: Hoàn Mỹ</option>
-                  <option value="1">Server 2: Diệu Kỳ</option>
-                </select>
+                <label title="Server Game (Tối đa 3 nick/server)">🌐 Server Game (Tối đa 3 nick/server):</label>
+                <CustomSelect
+                  value={serverId}
+                  onChange={setServerId}
+                  options={serverOptions}
+                  placeholder="Chọn Server..."
+                />
               </div>
 
               <div className="form-group">
-                <label>🔒 Gán Proxy Kết Nối (Tối đa 6 online/proxy):</label>
-                <select className="form-control" value={proxyId} onChange={e => setProxyId(e.target.value)}>
-                  <option value="">Không dùng Proxy (IP Server)</option>
-                  {proxies.map(p => (
-                    <option key={p.id} value={p.id}>
-                      {p.name} ({p.type ? p.type.toUpperCase() : 'SOCKS'} - {p.host}:{p.port}) [Online: {p.onlineCount || 0}/6]
-                    </option>
-                  ))}
-                </select>
+                <label title="Gán Proxy Kết Nối (Tối đa 6 online/proxy)">🔒 Gán Proxy Kết Nối (Tối đa 6 online/proxy):</label>
+                <CustomSelect
+                  value={proxyId}
+                  onChange={setProxyId}
+                  options={proxyOptions}
+                  placeholder="Không dùng Proxy (IP Server)"
+                />
               </div>
             </div>
 

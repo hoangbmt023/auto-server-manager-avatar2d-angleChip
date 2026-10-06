@@ -5,8 +5,9 @@ const jreManager = require('../../../../utils/jreManager');
  * Handles global configuration, JRE downloads, and system maintenance.
  */
 class SystemController {
-  constructor(configRepo) {
+  constructor(configRepo, sseEventBus = null) {
     this.configRepo = configRepo;
+    this.sseEventBus = sseEventBus;
   }
 
   async getConfig(req, res, sendJson) {
@@ -49,11 +50,21 @@ class SystemController {
       return sendJson(res, 400, { success: false, message: 'Đang trong quá trình tải và cài đặt JRE...' });
     }
 
-    // Start background installation
-    jreManager.downloadAndInstallJRE().then(result => {
-      console.log('JRE Install result:', result);
+    // Start background installation with real-time SSE progress broadcast
+    jreManager.downloadAndInstallJRE((progress) => {
+      if (this.sseEventBus) {
+        this.sseEventBus.broadcast('jre_progress', progress);
+      }
+    }, this.configRepo).then(result => {
+      console.log('✅ JRE Install completed successfully:', result);
+      if (this.sseEventBus) {
+        this.sseEventBus.broadcast('jre_progress', { percent: 100, message: 'Đã hoàn tất cài đặt JRE!', ready: true });
+      }
     }).catch(err => {
-      console.error('JRE Install error:', err);
+      console.error('❌ JRE Install error:', err.message);
+      if (this.sseEventBus) {
+        this.sseEventBus.broadcast('jre_progress', { percent: 0, message: `Lỗi: ${err.message}`, ready: false });
+      }
     });
 
     return sendJson(res, 200, {
