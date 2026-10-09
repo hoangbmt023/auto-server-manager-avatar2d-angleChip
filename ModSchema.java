@@ -411,13 +411,13 @@ public class ModSchema {
         CHIP_MIX.mainIdentifierClass = "LichRunner";
         CHIP_MIX.superIdentifierClass = "java.lang.Object";
 
-        CHIP_MIX.loginClassName = "fK";
+        CHIP_MIX.loginClassName = "fO";
         CHIP_MIX.loginSingletonMethod = "do";
-        CHIP_MIX.loginServerIdField = "const";
-        CHIP_MIX.loginServerNameField = "try";
+        CHIP_MIX.loginServerIdField = "for";
+        CHIP_MIX.loginServerNameField = "if";
         CHIP_MIX.loginMethodName = "do";
-        CHIP_MIX.loginExtraGvClass = "gV";
-        CHIP_MIX.loginHasConstServerId = true;
+        CHIP_MIX.loginExtraGvClass = null;
+        CHIP_MIX.loginHasConstServerId = false;
         CHIP_MIX.networkClassName = "ae";
         CHIP_MIX.networkSingletonMethod = "do";
         CHIP_MIX.networkConnectedMethod = "do";

@@ -195,26 +195,54 @@ public class AvatarModAdapter {
 
         try {
             Class<?> loginCls = cl.loadClass(schema.loginClassName);
-            Method getInstMethod = loginCls.getMethod(schema.loginSingletonMethod);
-            Object loginInstance = getInstMethod.invoke(null);
+            Object loginInstance = null;
+            try {
+                Method getInstMethod = loginCls.getMethod(schema.loginSingletonMethod);
+                loginInstance = getInstMethod.invoke(null);
+            } catch (Throwable ignored) {
+            }
+
+            if (loginInstance == null) {
+                try {
+                    loginInstance = getStaticField(loginCls, schema.loginSingletonMethod, loginCls);
+                } catch (Throwable ignored) {
+                }
+            }
+            if (loginInstance == null) {
+                try {
+                    loginInstance = loginCls.newInstance();
+                } catch (Throwable ignored) {
+                }
+            }
+
+            // Gán thông tin Server lên static field và instance field nếu có
+            if (schema.loginServerIdField != null && !schema.loginServerIdField.isEmpty()) {
+                setStaticField(loginCls, schema.loginServerIdField, int.class, serverId);
+                if (loginInstance != null) {
+                    setField(loginInstance, schema.loginServerIdField, serverId, int.class);
+                }
+            }
+            if (schema.loginServerNameField != null && !schema.loginServerNameField.isEmpty()) {
+                setStaticField(loginCls, schema.loginServerNameField, String.class, serverName);
+                if (loginInstance != null) {
+                    setField(loginInstance, schema.loginServerNameField, serverName, String.class);
+                }
+            }
+
+            // Xử lý class phụ trợ gV nếu có
+            if (schema.loginExtraGvClass != null) {
+                try {
+                    Class<?> gvCls = cl.loadClass(schema.loginExtraGvClass);
+                    Method getGvMethod = gvCls.getMethod(schema.loginSingletonMethod);
+                    Object gvInst = getGvMethod.invoke(null);
+                    if (gvInst != null) {
+                        setField(gvInst, schema.loginServerIdField, serverId, int.class);
+                    }
+                } catch (Throwable ignored) {
+                }
+            }
 
             if (loginInstance != null) {
-                // Xử lý class phụ trợ gV nếu có
-                if (schema.loginExtraGvClass != null) {
-                    try {
-                        Class<?> gvCls = cl.loadClass(schema.loginExtraGvClass);
-                        Method getGvMethod = gvCls.getMethod(schema.loginSingletonMethod);
-                        Object gvInst = getGvMethod.invoke(null);
-                        if (gvInst != null) {
-                            setField(gvInst, schema.loginServerIdField, serverId, int.class);
-                        }
-                    } catch (Throwable ignored) {
-                    }
-                }
-
-                setField(loginInstance, schema.loginServerIdField, serverId, int.class);
-                setField(loginInstance, schema.loginServerNameField, serverName, String.class);
-
                 if (schema.loginHasConstServerId) {
                     setField(loginInstance, "case", true, boolean.class);
                     try {
@@ -237,6 +265,28 @@ public class AvatarModAdapter {
                             }
                         }
                     }
+                }
+            }
+
+            // Fallback trực tiếp qua Network Controller (fV / network class) nếu loginInstance không tìm thấy method
+            if (!finalUser.isEmpty() && !finalPass.isEmpty()) {
+                try {
+                    Class<?> fvCls = cl.loadClass("fV");
+                    Method fvInstM = fvCls.getMethod("do");
+                    Object fvInst = fvInstM.invoke(null);
+                    if (fvInst != null) {
+                        for (Method m : fvCls.getDeclaredMethods()) {
+                            if (m.getName().equals("do") && m.getParameterCount() == 2) {
+                                Class<?>[] pts = m.getParameterTypes();
+                                if (pts[0].equals(String.class) && pts[1].equals(String.class)) {
+                                    m.setAccessible(true);
+                                    m.invoke(fvInst, finalUser, finalPass);
+                                    return true;
+                                }
+                            }
+                        }
+                    }
+                } catch (Throwable ignored) {
                 }
             }
         } catch (Throwable t) {
@@ -596,7 +646,13 @@ public class AvatarModAdapter {
 
         ModSchema.ModType currentModType = detectModType();
         stats.isFishMod = (currentModType == ModSchema.ModType.FISH);
-        stats.modType = (currentModType == ModSchema.ModType.FISH) ? "fish" : "up_xu";
+        if (currentModType == ModSchema.ModType.CHIP_MIX) {
+            stats.modType = "chipmix";
+        } else if (currentModType == ModSchema.ModType.FISH) {
+            stats.modType = "fish";
+        } else {
+            stats.modType = "up_xu";
+        }
 
         ModSchema schema = getCurrentSchema();
 
