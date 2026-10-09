@@ -2628,6 +2628,30 @@ public class AvatarModAdapter {
                             "[AUTO_STATUS]: {\"isRunning\":true,\"autoType\":\"sell_ore\",\"status\":\"running\",\"message\":\"Đang chạy Auto Bán Đá...\"}");
                     return true;
                 }
+            } else if ("event".equalsIgnoreCase(autoType) || "sk".equalsIgnoreCase(autoType)) {
+                try {
+                    Class<?> skCls = cl.loadClass("SkRunner");
+                    Method bootM = skCls.getMethod("boot");
+                    bootM.invoke(null);
+                    System.out.println("🎉 [BẬT AUTO SỰ KIỆN]: Đã kích hoạt Auto Sự Kiện (SkRunner) [" + schema.name + "]!");
+                    System.out.println(
+                            "[AUTO_STATUS]: {\"isRunning\":true,\"autoType\":\"event\",\"status\":\"running\",\"message\":\"Đang chạy Auto Sự Kiện...\"}");
+                    return true;
+                } catch (Throwable t) {
+                    System.err.println("[SKRUNNER ERR]: " + t.getMessage());
+                }
+            } else if ("lich".equalsIgnoreCase(autoType)) {
+                try {
+                    Class<?> lichCls = cl.loadClass("LichRunner");
+                    Method bootM = lichCls.getMethod("boot");
+                    bootM.invoke(null);
+                    System.out.println("⏰ [BẬT AUTO LỊCH]: Đã kích hoạt Auto Hẹn Giờ Theo Lịch (LichRunner) [" + schema.name + "]!");
+                    System.out.println(
+                            "[AUTO_STATUS]: {\"isRunning\":true,\"autoType\":\"lich\",\"status\":\"running\",\"message\":\"Đang chạy Auto Theo Lịch...\"}");
+                    return true;
+                } catch (Throwable t) {
+                    System.err.println("[LICHRUNNER ERR]: " + t.getMessage());
+                }
             }
         } catch (Throwable t) {
             System.err.println("[START_AUTO ERR]: " + t.getMessage());
@@ -2647,6 +2671,22 @@ public class AvatarModAdapter {
             Class<?> taskCtrlCls = cl.loadClass(schema.taskControllerClassName);
             Method stopMethod = taskCtrlCls.getMethod(schema.taskStopMethod);
             stopMethod.invoke(null);
+        } catch (Throwable ignored) {
+        }
+
+        try {
+            Class<?> skCls = cl.loadClass("SkRunner");
+            Method stopM = skCls.getDeclaredMethod("stopAuto");
+            stopM.setAccessible(true);
+            stopM.invoke(null);
+        } catch (Throwable ignored) {
+        }
+
+        try {
+            Class<?> lichCls = cl.loadClass("LichRunner");
+            Method stopM = lichCls.getDeclaredMethod("onManualStop");
+            stopM.setAccessible(true);
+            stopM.invoke(null);
         } catch (Throwable ignored) {
         }
 
@@ -2709,9 +2749,18 @@ public class AvatarModAdapter {
                                 friendly = "Auto Chăm Em Bé";
                                 type = "baby";
                             } else if ("AutoTaiXiu".equals(clsName) || "av_0".equals(clsName)
-                                    || "cl_0".equals(clsName)) {
+                                    || "cl_0".equals(clsName) || "TxMenu".equals(clsName)) {
                                 friendly = "Auto Tài Xỉu";
                                 type = "tai_xiu";
+                            } else if ("SkRunner".equals(clsName) || "SkFarm".equals(clsName)) {
+                                friendly = "Auto Sự Kiện";
+                                type = "event";
+                            } else if ("LichRunner".equals(clsName)) {
+                                friendly = "Auto Theo Lịch";
+                                type = "lich";
+                            } else if ("NvMenu".equals(clsName)) {
+                                friendly = "Auto Nhiệm Vụ";
+                                type = "mission";
                             } else if ("ak".equals(clsName)) {
                                 friendly = "Auto Nâng Cấp";
                                 type = "upgrade";

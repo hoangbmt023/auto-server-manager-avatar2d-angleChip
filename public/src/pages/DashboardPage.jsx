@@ -224,7 +224,7 @@ window.DashboardPage = function DashboardPage({
                 <div>
                   <h3>{activeFile?.name || 'File Bot'}</h3>
                   <span className="sidebar-sub">
-                    {activeFile?.modType === 'fish' ? '🎣 Bản Auto Up Câu Cá' : '💎 Bản Auto Up Kim Cương & Bán Đá'} • {fileAccounts.length}/6 tài khoản
+                    {activeFile?.modType === 'chipmix' ? '⚡ Bản ChipMix Full Auto (Câu Cá, KC, Farm)' : activeFile?.modType === 'fish' ? '🎣 Bản Auto Up Câu Cá' : '💎 Bản Auto Up Kim Cương & Bán Đá'} • {fileAccounts.length}/6 tài khoản
                   </span>
                 </div>
               </div>
