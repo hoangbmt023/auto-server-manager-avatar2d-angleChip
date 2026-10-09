@@ -65,6 +65,7 @@ public class AvatarModAdapter {
                     : "";
 
             return "{\"coins\":" + coins + ",\"gold\":" + gold + ",\"lockedGold\":" + lockedGold +
+                    ",\"playerName\":\"" + (playerName != null ? playerName.replace("\"", "\\\"") : "") + "\"" +
                     ",\"targetCoins\":" + targetCoins + ",\"earnedCoins\":" + earnedCoins +
                     ",\"collectedHearts\":" + collectedHearts + ",\"kcx\":\"+" + kcx + "\",\"nhb\":\"+" + nhb +
                     "\",\"fishCaught\":" + fishCaught + ",\"sharkCaught\":" + sharkCaught + ",\"fishKcx\":\"+" + fishKcx

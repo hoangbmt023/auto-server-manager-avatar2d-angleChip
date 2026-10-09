@@ -418,7 +418,7 @@ public class ModSchema {
         CHIP_MIX.loginMethodName = "do";
         CHIP_MIX.loginExtraGvClass = null;
         CHIP_MIX.loginHasConstServerId = false;
-        CHIP_MIX.networkClassName = "ae";
+        CHIP_MIX.networkClassName = "ag";
         CHIP_MIX.networkSingletonMethod = "do";
         CHIP_MIX.networkConnectedMethod = "do";
 
