@@ -14,8 +14,9 @@ import java.util.Map;
 public class ModSchema {
 
     public enum ModType {
-        UP_XU,  // Bản mod up xu (avatar_upxu_build34.jar)
-        FISH,   // Bản mod câu cá (avatar_fish_build40.jar)
+        UP_XU,     // Bản mod up xu (avatar_upxu_build34.jar)
+        FISH,      // Bản mod câu cá (avatar_fish_build40.jar)
+        CHIP_MIX,  // Bản mod ChipMix Full (Avatar_ChipMix_Full_build13.jar)
         UNKNOWN
     }
 
@@ -165,6 +166,7 @@ public class ModSchema {
 
     public static final ModSchema UP_XU = new ModSchema();
     public static final ModSchema FISH = new ModSchema();
+    public static final ModSchema CHIP_MIX = new ModSchema();
 
     static {
         // --- 1. ÁNH XẠ BẢN MOD UP XU (avatar_upxu_build34.jar) ---
@@ -403,12 +405,139 @@ public class ModSchema {
         FISH.farmTaskClassName = "bq";
         FISH.diamondTaskClassName = "aj";
         FISH.farmTraderTaskClassName = "hn";
+
+        // --- 3. ÁNH XẠ BẢN MOD CHIPMIX FULL (Avatar_ChipMix_Full_build13.jar) ---
+        CHIP_MIX.name = "Bản ChipMix Full (build13)";
+        CHIP_MIX.mainIdentifierClass = "LichRunner";
+        CHIP_MIX.superIdentifierClass = "java.lang.Object";
+
+        CHIP_MIX.loginClassName = "fK";
+        CHIP_MIX.loginSingletonMethod = "do";
+        CHIP_MIX.loginServerIdField = "const";
+        CHIP_MIX.loginServerNameField = "try";
+        CHIP_MIX.loginMethodName = "do";
+        CHIP_MIX.loginExtraGvClass = "gV";
+        CHIP_MIX.loginHasConstServerId = true;
+        CHIP_MIX.networkClassName = "ae";
+        CHIP_MIX.networkSingletonMethod = "do";
+        CHIP_MIX.networkConnectedMethod = "do";
+
+        CHIP_MIX.canvasClasses = new String[] { "cA", "bx" };
+        CHIP_MIX.dialogContainerClass = "bx";
+        CHIP_MIX.dialogClass = "s";
+        CHIP_MIX.dialogPointerType = "dJ";
+        CHIP_MIX.alertDialogClass = "fA";
+
+        CHIP_MIX.playerContainerClasses = new String[] { "main.AngelChip", "go" };
+        CHIP_MIX.playerClassName = "ef";
+        CHIP_MIX.playerCoinsArrayField = "do";
+        CHIP_MIX.playerLockedGoldField = "do";
+        CHIP_MIX.playerNameFields = new String[] { "if", "do" };
+
+        CHIP_MIX.upThueClassName = "aQ";
+        CHIP_MIX.upThueSingletonMethod = "do";
+        CHIP_MIX.upThueFormatDateMethod = "try";
+        CHIP_MIX.targetCoinsField = "int";
+        CHIP_MIX.earnedCoinsField = "if";
+        CHIP_MIX.collectedHeartsField = "for";
+        CHIP_MIX.upDaysField = "for";
+        CHIP_MIX.startedTsField = "int";
+        CHIP_MIX.startedAtStringField = "for";
+        CHIP_MIX.expiresAtStringField = "if";
+        CHIP_MIX.upThueSaveRmsClass = "cp";
+        CHIP_MIX.upThueSaveRmsMethod = "if";
+        CHIP_MIX.upThueResetRmsMethod = "for";
+
+        CHIP_MIX.diamondClassName = "aj";
+        CHIP_MIX.diamondSingletonMethod = "do";
+        CHIP_MIX.kcxCountField = "do";
+        CHIP_MIX.nhbCountField = "for";
+        CHIP_MIX.diamondIntervalField = "if";
+        CHIP_MIX.diamondTargetMsField = "if";
+        CHIP_MIX.diamondAbsTargetMsField = "do";
+        CHIP_MIX.diamondSellOreOnFullField = "do";
+        CHIP_MIX.diamondAutoDropKcxField = "int";
+        CHIP_MIX.diamondAutoDropNhbField = "new";
+        CHIP_MIX.diamondAutoFarmField = "try";
+        CHIP_MIX.diamondHarvestOnTimeField = "for";
+        CHIP_MIX.diamondPriorityOrderField = "if";
+        CHIP_MIX.diamondSaveMethod = "int";
+
+        CHIP_MIX.farmClassName = "bq";
+        CHIP_MIX.farmSingletonMethod = "do";
+        CHIP_MIX.farmBabyClassName = "bP";
+        CHIP_MIX.farmModeField = "do";
+        CHIP_MIX.farmAnimalField = "for";
+        CHIP_MIX.farmFishField = "if";
+        CHIP_MIX.farmBackupDishesField = "for";
+        CHIP_MIX.farmBackupSeedsField = "do";
+        CHIP_MIX.farmReplaceSeedThresholdField = "char";
+        CHIP_MIX.farmSellProductsField = "if";
+        CHIP_MIX.farmSellThresholdField = "goto";
+        CHIP_MIX.farmSellQuantityField = "else";
+        CHIP_MIX.farmMaxStarfruitLevelField = "byte";
+        CHIP_MIX.farmDailyAttendanceField = "this";
+        CHIP_MIX.farmUpgradeStarfruitField = "char";
+        CHIP_MIX.farmHatchDragonField = "goto";
+        CHIP_MIX.farmTrainDragonField = "else";
+        CHIP_MIX.farmDeliverOrdersField = "void";
+        CHIP_MIX.farmNoBuyWithGoldField = "long";
+        CHIP_MIX.farmHarvestHeartsField = "try";
+        CHIP_MIX.farmFeedBabyField = "new";
+        CHIP_MIX.farmBuyMilkWithGoldField = "int";
+        CHIP_MIX.farmUpgradeBabyField = "if";
+        CHIP_MIX.farmSaveMethod = "goto";
+
+        CHIP_MIX.fishClassName = "bS";
+        CHIP_MIX.fishMapField = "if";
+        CHIP_MIX.fishRodField = "do";
+        CHIP_MIX.fishSellTypeField = "for";
+        CHIP_MIX.fishExcludeField = "do";
+        CHIP_MIX.fishAutoBuyTicketField = "do";
+        CHIP_MIX.fishBackToFarmField = "if";
+        CHIP_MIX.fishFarmIntervalField = "case";
+        CHIP_MIX.fishHarvestOnTimeField = "for";
+        CHIP_MIX.fishSellKcxField = "int";
+        CHIP_MIX.fishSellKcxThresholdField = "do";
+        CHIP_MIX.fishSaveMethod = "byte";
+        CHIP_MIX.fishTaskClassName = "bS";
+        CHIP_MIX.fishSingletonMethod = "do";
+        CHIP_MIX.fishTargetMsField = "if";
+        CHIP_MIX.fishCaughtField = "try";
+        CHIP_MIX.fishSharkCountField = "for";
+        CHIP_MIX.fishKcxCountField = "new";
+
+        CHIP_MIX.sellOreClassName = "c";
+        CHIP_MIX.sellOreIntervalField = "try";
+        CHIP_MIX.sellOreDelayMsField = "do";
+        CHIP_MIX.sellOreZoneFromField = "for";
+        CHIP_MIX.sellOreZoneToField = "int";
+        CHIP_MIX.sellOreResetNhbField = "do";
+        CHIP_MIX.sellOreResetKcxField = "for";
+        CHIP_MIX.sellOreDropNhbField = "int";
+        CHIP_MIX.sellOreDropKcxField = "if";
+        CHIP_MIX.sellOreSaveMethod = "do";
+        CHIP_MIX.sellOreTaskClassName = "c";
+        CHIP_MIX.sellOreTargetMsField = "if";
+        CHIP_MIX.sellOreStartMsField = "for";
+        CHIP_MIX.zoneClassName = "go";
+        CHIP_MIX.zoneField = "do";
+
+        CHIP_MIX.taskControllerClassName = "bX";
+        CHIP_MIX.taskArgClassName = "ha";
+        CHIP_MIX.taskStartMethod = "do";
+        CHIP_MIX.taskStopMethod = "new";
+        CHIP_MIX.activeTaskField = "do";
+        CHIP_MIX.farmTaskClassName = "bq";
+        CHIP_MIX.diamondTaskClassName = "aj";
+        CHIP_MIX.farmTraderTaskClassName = "hn";
     }
 
     /**
      * Lấy schema phù hợp với ModType
      */
     public static ModSchema getSchema(ModType type) {
+        if (type == ModType.CHIP_MIX) return CHIP_MIX;
         if (type == ModType.FISH) return FISH;
         return UP_XU; // Mặc định Up Xu
     }

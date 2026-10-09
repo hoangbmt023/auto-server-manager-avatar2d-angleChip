@@ -14,11 +14,17 @@ class BotFile {
     this.id = id || `file_${Date.now()}`;
     this.name = (name || '').trim();
     this.gameJar = gameJar || 'avatar_fish_build40.jar';
-    if (modType === 'fish' || modType === 'upxu') {
+    if (modType === 'chipmix' || modType === 'fish' || modType === 'upxu') {
       this.modType = modType;
     } else {
       const jLower = (this.gameJar || '').toLowerCase();
-      this.modType = (jLower.includes('fish') || jLower.includes('cauca') || jLower.includes('cau_ca')) ? 'fish' : 'upxu';
+      if (jLower.includes('chip') || jLower.includes('mix')) {
+        this.modType = 'chipmix';
+      } else if (jLower.includes('fish') || jLower.includes('cauca') || jLower.includes('cau_ca')) {
+        this.modType = 'fish';
+      } else {
+        this.modType = 'upxu';
+      }
     }
     this.appId = appId || `avatar_${this.id}`;
     this.proxy = {

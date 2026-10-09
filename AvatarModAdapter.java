@@ -129,15 +129,16 @@ public class AvatarModAdapter {
         if (cl == null)
             return ModSchema.ModType.UNKNOWN;
 
+        // 1. Nhận diện Bản ChipMix Full (build13)
         try {
-            Class<?> mainCls = cl.loadClass(ModSchema.UP_XU.mainIdentifierClass);
-            if (mainCls.getSuperclass() != null
-                    && mainCls.getSuperclass().getName().equals(ModSchema.UP_XU.superIdentifierClass)) {
-                return ModSchema.ModType.UP_XU;
+            Class<?> chipCls = cl.loadClass(ModSchema.CHIP_MIX.mainIdentifierClass);
+            if (chipCls != null) {
+                return ModSchema.ModType.CHIP_MIX;
             }
         } catch (Throwable ignored) {
         }
 
+        // 2. Nhận diện Bản Câu Cá (build40)
         try {
             Class<?> mainCls = cl.loadClass(ModSchema.FISH.mainIdentifierClass);
             if (mainCls.getSuperclass() != null
@@ -147,7 +148,17 @@ public class AvatarModAdapter {
         } catch (Throwable ignored) {
         }
 
-        return ModSchema.ModType.UP_XU; // Mặc định
+        // 3. Nhận diện Bản Up Xu (build34)
+        try {
+            Class<?> mainCls = cl.loadClass(ModSchema.UP_XU.mainIdentifierClass);
+            if (mainCls.getSuperclass() != null
+                    && mainCls.getSuperclass().getName().equals(ModSchema.UP_XU.superIdentifierClass)) {
+                return ModSchema.ModType.UP_XU;
+            }
+        } catch (Throwable ignored) {
+        }
+
+        return ModSchema.ModType.CHIP_MIX; // Mặc định ChipMix nếu không xác định
     }
 
     /**
@@ -1637,6 +1648,11 @@ public class AvatarModAdapter {
                         }
                     }
                 }
+            }
+
+            if (maxPixels < 120) {
+                // Chỉ có bóng nhân vật dưới chân (chưa nạp xong part áo/quần/tóc/cánh sau khi reconnect/GC), bỏ qua không ghi đè avatar
+                return null;
             }
 
             if (!frames.isEmpty()) {
