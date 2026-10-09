@@ -1,6 +1,6 @@
 /**
  * TerminalConsole Component (Presentation Layer)
- * Real-time SSE Live Terminal with smart unified Run/Stop control, account filter, and log utilities.
+ * Porsche & Apple Precision Terminal Window with Unified Theme & Vector Icons
  */
 window.TerminalConsole = function TerminalConsole({
   logs = [],
@@ -38,12 +38,37 @@ window.TerminalConsole = function TerminalConsole({
     if (match) {
       return (
         <>
-          <span className="log-user-badge">{match[1]}</span>
+          <span className="log-user-badge">{match[1].replace(/\[|\]/g, '')}</span>
           <span>{match[2]}</span>
         </>
       );
     }
     return text;
+  };
+
+  const [isScrolledUp, setIsScrolledUp] = React.useState(false);
+
+  const handleScroll = (e) => {
+    const el = e.target;
+    if (!el) return;
+    const isAtBottom = el.scrollHeight - el.scrollTop - el.clientHeight < 35;
+    setIsScrolledUp(!isAtBottom);
+  };
+
+  const handleToggleAutoScroll = () => {
+    const nextState = !autoScroll;
+    setAutoScroll(nextState);
+    if (nextState && terminalRef.current) {
+      terminalRef.current.scrollTop = terminalRef.current.scrollHeight;
+      setIsScrolledUp(false);
+    }
+  };
+
+  const handleScrollToBottom = () => {
+    if (terminalRef.current) {
+      terminalRef.current.scrollTop = terminalRef.current.scrollHeight;
+      setIsScrolledUp(false);
+    }
   };
 
   return (
@@ -55,79 +80,105 @@ window.TerminalConsole = function TerminalConsole({
             <span className="dot dot-yellow"></span>
             <span className="dot dot-green"></span>
           </span>
-          <h3>Nhật Ký Hoạt Động (Live Terminal)</h3>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+            <window.Icon name="terminal" size={15} color="var(--text-tertiary)" />
+            <h3>Terminal Console</h3>
+          </div>
         </div>
 
-        {/* Unified & Optimized Action Toolbar */}
+        {/* Action Toolbar Controls with Vector Icons */}
         <div className="action-toolbar">
           <select
             className="form-control terminal-filter-select"
             value={logFilter}
             onChange={(e) => setLogFilter(e.target.value)}
           >
-            <option value="all">🔍 Tất cả tài khoản</option>
+            <option value="all">Tất cả tài khoản</option>
             {accountUsernames.map(u => (
-              <option key={u} value={u}>👤 {u}</option>
+              <option key={u} value={u}>{u}</option>
             ))}
           </select>
 
-          {/* Single Unified Run / Stop File Button */}
-          {isAnyRunning ? (
+          {/* Auto Scroll Lock/Toggle Button */}
+          <button
+            type="button"
+            className={`btn btn-sm ${autoScroll ? 'btn-active' : 'btn-secondary'}`}
+            onClick={handleToggleAutoScroll}
+            title={autoScroll ? 'Tự động cuộn: Đang BẬT (Nhấn để tạm dừng)' : 'Tự động cuộn: Đang TẮT (Nhấn để bật lại)'}
+            style={{ gap: '5px', fontSize: '0.74rem' }}
+          >
+            <window.Icon
+              name={autoScroll ? 'arrow-down' : 'pause'}
+              size={12}
+              color={autoScroll ? 'var(--apple-blue)' : 'var(--text-tertiary)'}
+            />
+            <span>{autoScroll ? 'Tự Cuộn' : 'Dừng Cuộn'}</span>
+          </button>
+
+          {/* Grouped Batch Run Controls */}
+          <div className="segmented-control">
+            {isAnyRunning ? (
+              <button
+                type="button"
+                className="btn btn-sm btn-danger"
+                style={{ borderRadius: '999px', gap: '5px' }}
+                onClick={onStopAll}
+                title="Dừng toàn bộ bot trong File"
+              >
+                <window.Icon name="stop" size={13} /> Dừng File
+              </button>
+            ) : (
+              <button
+                type="button"
+                className="btn btn-sm btn-success"
+                style={{ borderRadius: '999px', gap: '5px' }}
+                onClick={onStartAllFile}
+                title="Khởi chạy toàn bộ bot trong File"
+              >
+                <window.Icon name="play" size={13} /> Chạy File
+              </button>
+            )}
+
             <button
               type="button"
-              className="btn btn-danger btn-sm btn-terminal-action"
-              onClick={onStopAll}
-              title="Dừng toàn bộ bot đang chạy trong File"
+              className="btn btn-sm"
+              disabled={!isAnyRunning}
+              onClick={onRestartAll}
+              title="Khởi động lại toàn bộ bot"
+              style={{ opacity: !isAnyRunning ? 0.4 : 1 }}
             >
-              ⏹️ Dừng Cả File
+              <window.Icon name="refresh" size={13} />
             </button>
-          ) : (
+          </div>
+
+          {/* Utility Tools */}
+          <div className="segmented-control">
             <button
               type="button"
-              className="btn btn-success btn-sm btn-terminal-action"
-              onClick={onStartAllFile}
-              title="Khởi chạy toàn bộ bot trong File này"
+              className="btn btn-sm"
+              onClick={onClearLogs}
+              title="Xóa log trên màn hình"
             >
-              ▶️ Chạy Cả File
+              <window.Icon name="trash" size={13} />
             </button>
-          )}
-
-          <button
-            type="button"
-            className="btn btn-warning btn-sm btn-terminal-action"
-            disabled={!isAnyRunning}
-            onClick={onRestartAll}
-            title="Khởi động lại toàn bộ bot"
-          >
-            🔄 Khởi Động Lại
-          </button>
-
-          <button
-            type="button"
-            className="btn btn-secondary btn-sm btn-terminal-action"
-            onClick={onClearLogs}
-            title="Xóa toàn bộ log trên màn hình"
-          >
-            🗑️ Xóa Log
-          </button>
-
-          <button
-            type="button"
-            className="btn btn-secondary btn-sm btn-terminal-action"
-            onClick={onDownloadLogs}
-            title="Tải log về máy dạng file text"
-          >
-            📥 Tải Log
-          </button>
+            <button
+              type="button"
+              className="btn btn-sm"
+              onClick={onDownloadLogs}
+              title="Tải file log về máy"
+            >
+              <window.Icon name="download" size={13} />
+            </button>
+          </div>
         </div>
       </div>
 
-      <div className="terminal-container" ref={terminalRef}>
+      <div className="terminal-container" ref={terminalRef} onScroll={handleScroll} style={{ position: 'relative' }}>
         <div className="log-list">
           {logs.length === 0 ? (
             <div className="log-item log-system">
               <span className="log-time">[System]</span>
-              <span className="log-msg">Chưa có nhật ký hoạt động nào. Hãy ấn Treo Nick để bắt đầu...</span>
+              <span className="log-msg">Chưa có nhật ký hoạt động. Hãy nhấn Treo Nick để bắt đầu...</span>
             </div>
           ) : (
             logs.map((l, idx) => {
@@ -142,21 +193,19 @@ window.TerminalConsole = function TerminalConsole({
             })
           )}
         </div>
-      </div>
 
-      <div className="console-footer">
-        <div className="auto-scroll-toggle">
-          <input
-            type="checkbox"
-            id="chkAutoScroll"
-            checked={autoScroll}
-            onChange={(e) => setAutoScroll(e.target.checked)}
-          />
-          <label htmlFor="chkAutoScroll">Tự động cuộn xuống dòng mới nhất</label>
-        </div>
-        <div className="log-counter">
-          Tổng số dòng: <strong>{logs.length}</strong>
-        </div>
+        {/* Floating Scroll to Bottom pill when user scrolled up */}
+        {isScrolledUp && (
+          <button
+            type="button"
+            className="terminal-scroll-bottom-pill"
+            onClick={handleScrollToBottom}
+            title="Cuộn xuống log mới nhất"
+          >
+            <window.Icon name="arrow-down" size={12} color="var(--apple-blue)" />
+            <span>Mới nhất</span>
+          </button>
+        )}
       </div>
     </section>
   );

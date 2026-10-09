@@ -1,6 +1,6 @@
 /**
  * FileTabsBar Component (Presentation Layer)
- * Manages switching between bot profile tabs.
+ * Porsche & Apple Precision Sidebar File Item Cards
  */
 window.FileTabsBar = function FileTabsBar({
   files = [],
@@ -8,15 +8,13 @@ window.FileTabsBar = function FileTabsBar({
   onSwitchFile
 }) {
   return (
-    <div className="file-selector-bar" style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: '10px' }}>
-      {/* File Tabs */}
-      <div className="file-tabs-container" style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', alignItems: 'center', width: '100%' }}>
+    <div className="file-selector-bar">
+      <div className="file-tabs-container">
         {files.map(f => {
           const isActive = f.id === activeFileId;
           const hmOnline = f.runningHmCount !== undefined ? f.runningHmCount : 0;
           const dkOnline = f.runningDkCount !== undefined ? f.runningDkCount : 0;
           const totalOnline = f.runningTotal !== undefined ? f.runningTotal : (f.runningCount || 0);
-
           const isFish = f.modType === 'fish' || (!f.modType && f.gameJar && f.gameJar.toLowerCase().includes('fish'));
 
           return (
@@ -24,33 +22,41 @@ window.FileTabsBar = function FileTabsBar({
               key={f.id}
               className={`file-tab-btn ${isActive ? 'active-file-tab' : ''}`}
               onClick={() => onSwitchFile(f.id)}
-              style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start', padding: '6px 14px' }}
             >
-              <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                <strong style={{ fontSize: '0.9rem' }}>📁 {f.name}</strong>
-                <span style={{
-                  padding: '1px 6px',
-                  borderRadius: '3px',
-                  fontSize: '0.68rem',
-                  fontWeight: 600,
-                  background: isFish ? 'rgba(56, 189, 248, 0.15)' : 'rgba(168, 85, 247, 0.15)',
-                  color: isFish ? '#38bdf8' : '#c084fc',
-                  border: '1px solid',
-                  borderColor: isFish ? 'rgba(56, 189, 248, 0.3)' : 'rgba(168, 85, 247, 0.3)'
-                }}>
-                  {isFish ? '🎣 Auto up câu cá' : '💎 Auto Up kim cương'}
-                </span>
-                <span style={{ fontSize: '0.75rem', opacity: 0.8 }}>({f.totalAccounts || 0}/6 nick)</span>
-                {totalOnline > 0 && (
-                  <span style={{ fontSize: '0.75rem', color: '#4ade80', fontWeight: 'bold' }}>
-                    🔥 {totalOnline} on
-                  </span>
-                )}
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <window.Icon name="folder" size={15} color={isActive ? 'var(--apple-blue)' : 'var(--text-secondary)'} />
+                  <strong style={{ fontSize: '0.86rem', fontWeight: 600 }}>{f.name}</strong>
+                </div>
+                <span style={{ fontSize: '0.72rem', color: 'var(--text-tertiary)' }}>({f.totalAccounts || 0}/6)</span>
               </div>
-              <div style={{ fontSize: '0.72rem', color: isActive ? '#93c5fa' : '#94a3b8', marginTop: '2px', display: 'flex', gap: '8px' }}>
-                <span>HM: <strong>{hmOnline}/3</strong></span>
-                <span>•</span>
-                <span>DK: <strong>{dkOnline}/3</strong></span>
+
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%', marginTop: '2px' }}>
+                <span style={{
+                  padding: '2px 7px',
+                  borderRadius: '999px',
+                  fontSize: '0.66rem',
+                  fontWeight: 600,
+                  background: isFish ? 'rgba(100, 210, 255, 0.12)' : 'rgba(191, 90, 242, 0.12)',
+                  color: isFish ? 'var(--apple-teal)' : 'var(--apple-purple)',
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '4px'
+                }}>
+                  <window.Icon name={isFish ? 'fish' : 'gem'} size={11} />
+                  {isFish ? 'Câu Cá' : 'Kim Cương'}
+                </span>
+
+                <div style={{ fontSize: '0.7rem', color: 'var(--text-tertiary)', display: 'flex', gap: '6px', alignItems: 'center' }}>
+                  <span>HM: {hmOnline}/3</span>
+                  <span>•</span>
+                  <span>DK: {dkOnline}/3</span>
+                  {totalOnline > 0 && (
+                    <span style={{ color: 'var(--apple-green)', fontWeight: 700, marginLeft: '2px' }}>
+                      🔥 {totalOnline}
+                    </span>
+                  )}
+                </div>
               </div>
             </button>
           );

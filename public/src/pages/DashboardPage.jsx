@@ -1,6 +1,6 @@
 /**
  * DashboardPage Component (Pages Layer)
- * Composes Navbar, StatsRow, TerminalConsole, FileTabs, LimitBanner, AccountsGrid, Checklist & Modals.
+ * Porsche & Apple Minimalist Split-Layout (Sidebar on Left, Accounts on Right)
  */
 window.DashboardPage = function DashboardPage({
   status,
@@ -18,6 +18,9 @@ window.DashboardPage = function DashboardPage({
   terminalRef,
   uptime,
   formatUptime,
+  theme,
+  setTheme,
+  toggleTheme,
   runningHm,
   runningDk,
   runningTotal,
@@ -67,6 +70,8 @@ window.DashboardPage = function DashboardPage({
         isAnyRunning={isAnyRunning}
         runningCount={status?.bot?.runningCount || 0}
         status={status}
+        theme={theme}
+        toggleTheme={toggleTheme}
         onOpenSettings={onOpenSettings}
       />
 
@@ -76,13 +81,13 @@ window.DashboardPage = function DashboardPage({
         {/* JRE Missing Alert Banner */}
         {status?.java && !status.java.available && (
           <section className="alert-banner">
-            <div className="banner-icon">⚠️</div>
+            <window.Icon name="alert" size={22} color="var(--apple-orange)" />
             <div className="banner-body">
               <h4>Chưa phát hiện Java Runtime trên máy chủ</h4>
               <p>Hệ thống hỗ trợ tự động tải và giải nén bản Portable OpenJDK 17 tương thích với hosting.</p>
               <div className="banner-actions">
                 <button className="btn btn-primary btn-sm" onClick={onInstallJre}>
-                  ⚡ Tự động cài Portable Java ngay
+                  <window.Icon name="zap" size={14} /> Tự động cài Portable Java ngay
                 </button>
               </div>
             </div>
@@ -99,7 +104,7 @@ window.DashboardPage = function DashboardPage({
           </div>
         )}
 
-        {/* Live Terminal Console */}
+        {/* Live Terminal Console (macOS Window) */}
         <window.TerminalConsole
           logs={logs}
           accounts={accounts}
@@ -116,7 +121,7 @@ window.DashboardPage = function DashboardPage({
           onDownloadLogs={onDownloadLogs}
         />
 
-        {/* Expired Proxies Alert Banner (Below Terminal, Above Accounts & File Manager) */}
+        {/* Expired Proxies Alert Banner */}
         {(() => {
           const expiredProxies = (proxies || []).filter(p => p.isExpired);
           if (expiredProxies.length === 0) return null;
@@ -124,7 +129,7 @@ window.DashboardPage = function DashboardPage({
             <section className="alert-banner alert-banner-danger">
               <div className="banner-top-row">
                 <div className="banner-title-box">
-                  <div className="banner-icon">⚠️</div>
+                  <window.Icon name="shield" size={22} color="var(--apple-red)" />
                   <div className="banner-title-content">
                     <h4>
                       CẢNH BÁO: Phát hiện {expiredProxies.length} Proxy đã HẾT HẠN hoặc LỖI XÁC THỰC!
@@ -136,7 +141,7 @@ window.DashboardPage = function DashboardPage({
                     className="btn btn-danger btn-sm"
                     onClick={() => setProxyModal({ open: true, initialFilter: 'expired' })}
                   >
-                    🌐 Quản Lý Proxy (Đã Lọc Hết Hạn)
+                    <window.Icon name="globe" size={14} /> Quản Lý Proxy Hết Hạn
                   </button>
                 </div>
               </div>
@@ -151,57 +156,95 @@ window.DashboardPage = function DashboardPage({
           );
         })()}
 
-        {/* Accounts & File Manager Panel */}
-        <section className="accounts-card">
-          <div className="card-header-flex">
-            <div className="card-title-group">
-              <span className="card-header-icon">👥</span>
-              <div>
-                <h3>Quản Lý File & Danh Sách Tài Khoản</h3>
-                <p className="card-subtitle">Mỗi File chứa tối đa 6 nick (3 Hoàn Mỹ + 3 Diệu Kỳ). Mỗi Proxy gắn tối đa 6 nick online cùng lúc.</p>
+        {/* 3. 2-COLUMN SPLIT LAYOUT: LEFT SIDEBAR (File & Control) + RIGHT PANE (Accounts Grid) */}
+        <section className="accounts-split-layout">
+          {/* Left Sidebar Pane: Controls, File Selector, Capacity */}
+          <aside className="accounts-sidebar-pane">
+            <div className="sidebar-header">
+              <div className="sidebar-title-group">
+                <div className="sidebar-icon-box">
+                  <window.Icon name="layers" size={18} />
+                </div>
+                <div>
+                  <h3>Hồ Sơ & Quản Lý</h3>
+                  <span className="sidebar-sub">Chọn File hồ sơ hoặc tạo mới</span>
+                </div>
               </div>
             </div>
-            <div className="header-btn-group">
-              <button className="btn btn-secondary btn-sm" onClick={() => setFileModal({ open: true, editing: null })}>
-                📁 Quản Lý File {files && files.length > 0 && `(${files.length})`}
+
+            {/* Quick Management Actions */}
+            <div className="sidebar-actions">
+              <button
+                className="btn btn-primary btn-sm btn-block"
+                onClick={() => setAccountModal({ open: true, editing: null })}
+              >
+                <window.Icon name="plus" size={14} /> Thêm Tài Khoản
               </button>
-              <button className="btn btn-outline btn-sm" onClick={() => setProxyModal({ open: true })}>
-                🌐 Quản Lý Proxy {proxies && proxies.length > 0 && `(${proxies.length})`}
-              </button>
-              <button className="btn btn-primary btn-sm" onClick={() => setAccountModal({ open: true, editing: null })}>
-                ➕ Thêm Tài Khoản
-              </button>
+              <div className="sidebar-btn-grid">
+                <button
+                  className="btn btn-secondary btn-sm"
+                  onClick={() => setFileModal({ open: true, editing: null })}
+                >
+                  <window.Icon name="folder" size={14} /> File {files?.length > 0 && `(${files.length})`}
+                </button>
+                <button
+                  className="btn btn-secondary btn-sm"
+                  onClick={() => setProxyModal({ open: true })}
+                >
+                  <window.Icon name="globe" size={14} /> Proxy {proxies?.length > 0 && `(${proxies.length})`}
+                </button>
+              </div>
             </div>
+
+            {/* File Profiles Vertical List */}
+            <div className="sidebar-file-list-wrap">
+              <span className="sidebar-section-lbl">DANH SÁCH FILE BOT</span>
+              <window.FileTabsBar
+                files={files}
+                activeFileId={activeFileId}
+                onSwitchFile={onSwitchFile}
+              />
+            </div>
+
+            {/* Real-time Server Limit Counters */}
+            <window.ServerLimitBanner
+              runningHm={runningHm}
+              runningDk={runningDk}
+              runningTotal={runningTotal}
+            />
+          </aside>
+
+          {/* Right Main Pane: Accounts Grid */}
+          <div className="accounts-main-pane">
+            <div className="main-pane-header">
+              <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                <div className="sidebar-icon-box">
+                  <window.Icon name="users" size={18} />
+                </div>
+                <div>
+                  <h3>{activeFile?.name || 'File Bot'}</h3>
+                  <span className="sidebar-sub">
+                    {activeFile?.modType === 'fish' ? '🎣 Bản Auto Up Câu Cá' : '💎 Bản Auto Up Kim Cương & Bán Đá'} • {fileAccounts.length}/6 tài khoản
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            {/* Accounts Grid */}
+            <window.AccountsGrid
+              accounts={fileAccounts}
+              proxies={proxies}
+              files={files}
+              activeFile={activeFile}
+              onStartAccount={onStartAccount}
+              onStopAccount={onStopAccount}
+              onSwitchServer={onSwitchServer}
+              onOpenEditAccount={(acc) => setAccountModal({ open: true, editing: acc })}
+              onDeleteAccount={onDeleteAccount}
+              onOpenSetup={onOpenSetup}
+              onTriggerAuto={onTriggerAuto}
+            />
           </div>
-
-          {/* File Profiles Tabs */}
-          <window.FileTabsBar
-            files={files}
-            activeFileId={activeFileId}
-            onSwitchFile={onSwitchFile}
-          />
-
-          {/* Real-time Server Limit Counters */}
-          <window.ServerLimitBanner
-            runningHm={runningHm}
-            runningDk={runningDk}
-            runningTotal={runningTotal}
-          />
-
-          {/* Accounts Grid */}
-          <window.AccountsGrid
-            accounts={fileAccounts}
-            proxies={proxies}
-            files={files}
-            activeFile={activeFile}
-            onStartAccount={onStartAccount}
-            onStopAccount={onStopAccount}
-            onSwitchServer={onSwitchServer}
-            onOpenEditAccount={(acc) => setAccountModal({ open: true, editing: acc })}
-            onDeleteAccount={onDeleteAccount}
-            onOpenSetup={onOpenSetup}
-            onTriggerAuto={onTriggerAuto}
-          />
         </section>
       </main>
 
@@ -245,6 +288,8 @@ window.DashboardPage = function DashboardPage({
       {settingsModal.open && (
         <window.SettingsModal
           config={settingsModal.config}
+          theme={theme}
+          setTheme={setTheme}
           onClose={() => setSettingsModal({ open: false, config: null })}
           onSaved={onSettingsSaved}
         />

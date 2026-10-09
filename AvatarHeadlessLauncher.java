@@ -486,16 +486,53 @@ public class AvatarHeadlessLauncher {
                             return;
                         }
 
-                        // 2.5. Giám sát trạng thái tiến trình Auto (Auto Farm, Auto Diamond, Auto Fish)
+                        // 2.5. Giám sát trạng thái tiến trình Auto (Auto Farm, Auto Diamond, Auto Fish, Auto Bán Đá, Auto Baby, Auto Tài Xỉu...)
                         try {
                             AvatarModAdapter.AutoTaskInfo curAutoTask = AvatarModAdapter.getActiveAutoTask();
 
                             if (lastAutoTask != null && curAutoTask == null) {
+                                // 1. TẤT CẢ AUTO KHI HOÀN THÀNH / DỪNG TOÀN BỘ
                                 System.out.println("✅ [AUTO HOÀN THÀNH]: " + lastAutoTask.friendlyName + " đã hoàn tất toàn bộ công việc!");
                                 System.out.println("[AUTO_STATUS]: {\"isRunning\":false,\"status\":\"finished\",\"finished\":true,\"autoType\":\"" + lastAutoTask.autoType + "\",\"message\":\"Đã hoàn tất " + lastAutoTask.friendlyName + "!\"}");
                             } else if (lastAutoTask == null && curAutoTask != null) {
+                                // 2. TẤT CẢ AUTO KHI BẮT ĐẦU CHẠY BAN ĐẦU
                                 System.out.println("🌾 [BẮT ĐẦU CHẠY]: " + curAutoTask.friendlyName);
-                                System.out.println("[AUTO_STATUS]: {\"isRunning\":true,\"status\":\"running\",\"autoType\":\"" + curAutoTask.autoType + "\",\"message\":\"Đang chạy " + curAutoTask.friendlyName + "...\"}");
+                                System.out.println("[AUTO_STATUS]: {\"isRunning\":true,\"status\":\"running\",\"autoType\":\"" + curAutoTask.autoType + "\",\"parentAutoType\":" + (curAutoTask.parentAutoType != null ? "\"" + curAutoTask.parentAutoType + "\"" : "null") + ",\"subTask\":" + curAutoTask.isSubTask + ",\"message\":\"Đang chạy " + curAutoTask.friendlyName + "...\"}");
+                            } else if (lastAutoTask != null && curAutoTask != null && (!lastAutoTask.className.equals(curAutoTask.className) || !lastAutoTask.autoType.equals(curAutoTask.autoType))) {
+                                // 3. CHUYỂN ĐỔI GIỮA CÁC AUTO / SUB-TASK TRONG QUÁ TRÌNH CHẠY
+                                if ("farm".equalsIgnoreCase(curAutoTask.autoType)) {
+                                    System.out.println("🌾 [TẠM VỀ FARM]: Đang tạm chuyển sang " + curAutoTask.friendlyName + " (từ " + lastAutoTask.friendlyName + ")...");
+                                    System.out.println("[AUTO_STATUS]: {\"isRunning\":true,\"status\":\"running\",\"autoType\":\"farm\",\"parentAutoType\":\"" + lastAutoTask.autoType + "\",\"subTask\":true,\"message\":\"Đang về chăm farm (từ " + lastAutoTask.friendlyName + ")...\"}");
+                                } else if ("sell_ore".equalsIgnoreCase(curAutoTask.autoType) || "banda".equalsIgnoreCase(curAutoTask.autoType)) {
+                                    System.out.println("🪨 [TẠM VỀ BÁN ĐÁ]: Rương đầy, đang tạm chuyển sang " + curAutoTask.friendlyName + " (từ " + lastAutoTask.friendlyName + ")...");
+                                    System.out.println("[AUTO_STATUS]: {\"isRunning\":true,\"status\":\"running\",\"autoType\":\"sell_ore\",\"parentAutoType\":\"" + lastAutoTask.autoType + "\",\"subTask\":true,\"message\":\"Đang bán đá (từ " + lastAutoTask.friendlyName + ")...\"}");
+                                } else if ("baby".equalsIgnoreCase(curAutoTask.autoType)) {
+                                    System.out.println("👶 [TẠM VỀ CHĂM EM BÉ]: Đang tạm chuyển sang " + curAutoTask.friendlyName + " (từ " + lastAutoTask.friendlyName + ")...");
+                                    System.out.println("[AUTO_STATUS]: {\"isRunning\":true,\"status\":\"running\",\"autoType\":\"baby\",\"parentAutoType\":\"" + lastAutoTask.autoType + "\",\"subTask\":true,\"message\":\"Đang chăm em bé (từ " + lastAutoTask.friendlyName + ")...\"}");
+                                } else if ("diamond".equalsIgnoreCase(curAutoTask.autoType)) {
+                                    if ("farm".equalsIgnoreCase(lastAutoTask.autoType)) {
+                                        System.out.println("💎 [HOÀN TẤT FARM]: Đã chăm sóc nông trại xong, tiếp tục " + curAutoTask.friendlyName + "!");
+                                    } else if ("sell_ore".equalsIgnoreCase(lastAutoTask.autoType) || "banda".equalsIgnoreCase(lastAutoTask.autoType)) {
+                                        System.out.println("💎 [HOÀN TẤT BÁN ĐÁ]: Đã bán đá xong, tiếp tục " + curAutoTask.friendlyName + "!");
+                                    } else if ("baby".equalsIgnoreCase(lastAutoTask.autoType)) {
+                                        System.out.println("💎 [HOÀN TẤT CHĂM EM BÉ]: Đã chăm em bé xong, tiếp tục " + curAutoTask.friendlyName + "!");
+                                    } else {
+                                        System.out.println("💎 [TIẾP TỤC]: Chuyển sang " + curAutoTask.friendlyName + "!");
+                                    }
+                                    System.out.println("[AUTO_STATUS]: {\"isRunning\":true,\"status\":\"running\",\"autoType\":\"diamond\",\"parentAutoType\":null,\"subTask\":false,\"message\":\"Đang chạy " + curAutoTask.friendlyName + "...\"}");
+                                } else if ("fish".equalsIgnoreCase(curAutoTask.autoType)) {
+                                    if ("farm".equalsIgnoreCase(lastAutoTask.autoType)) {
+                                        System.out.println("🎣 [HOÀN TẤT FARM]: Đã chăm sóc nông trại xong, tiếp tục " + curAutoTask.friendlyName + "!");
+                                    } else if ("sell_ore".equalsIgnoreCase(lastAutoTask.autoType) || "banda".equalsIgnoreCase(lastAutoTask.autoType)) {
+                                        System.out.println("🎣 [HOÀN TẤT BÁN ĐÁ]: Đã bán đá xong, tiếp tục " + curAutoTask.friendlyName + "!");
+                                    } else {
+                                        System.out.println("🎣 [TIẾP TỤC]: Chuyển sang " + curAutoTask.friendlyName + "!");
+                                    }
+                                    System.out.println("[AUTO_STATUS]: {\"isRunning\":true,\"status\":\"running\",\"autoType\":\"fish\",\"parentAutoType\":null,\"subTask\":false,\"message\":\"Đang chạy " + curAutoTask.friendlyName + "...\"}");
+                                } else {
+                                    System.out.println("⚡ [CHUYỂN AUTO]: " + lastAutoTask.friendlyName + " -> " + curAutoTask.friendlyName);
+                                    System.out.println("[AUTO_STATUS]: {\"isRunning\":true,\"status\":\"running\",\"autoType\":\"" + curAutoTask.autoType + "\",\"parentAutoType\":\"" + lastAutoTask.autoType + "\",\"subTask\":" + curAutoTask.isSubTask + ",\"message\":\"Đang chạy " + curAutoTask.friendlyName + "...\"}");
+                                }
                             }
                             lastAutoTask = curAutoTask;
                         } catch (Throwable ignored) {}

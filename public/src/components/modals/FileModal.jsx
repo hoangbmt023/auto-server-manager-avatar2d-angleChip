@@ -1,63 +1,27 @@
 /**
- * FileModal Component (Presentation Layer / Modals)
- * Box-style File Manager: List view with dedicated popup/box form for adding & editing files.
- * No default file restriction (all files can be deleted or edited).
+ * FileModal & FileFormModal Component (Presentation Layer / Modals)
+ * Porsche & Apple Minimalist Liquid Glass File & JAR Manager
+ * Main File List view with dedicated standalone popup box modal for Add / Edit.
  */
 const { useState: useFileModalState, useEffect: useFileModalEffect } = React;
 
-window.FileModal = function FileModal({
+/**
+ * Standalone popup box modal for Adding / Editing a File Profile
+ */
+function FileFormModal({
   file,
-  files = [],
-  activeFileId,
   availableJars = [],
   fetchJars,
-  onSwitchFile,
-  onDeleteFile,
   onClose,
   onSaved
 }) {
-  const [viewMode, setViewMode] = useFileModalState(file ? 'form' : 'list'); // 'list' | 'form'
-  const [editingFile, setEditingFile] = useFileModalState(file || null);
+  const isEditing = Boolean(file);
   const [name, setName] = useFileModalState(file?.name || '');
   const [gameJar, setGameJar] = useFileModalState(file?.gameJar || (availableJars[0] || 'avatar_fish_build40.jar'));
   const [modType, setModType] = useFileModalState(file?.modType || ((file?.gameJar && file.gameJar.toLowerCase().includes('fish')) ? 'fish' : 'upxu'));
   const [uploadStatus, setUploadStatus] = useFileModalState('');
   const [loading, setLoading] = useFileModalState(false);
   const [error, setError] = useFileModalState('');
-
-  useFileModalEffect(() => {
-    if (file) {
-      setEditingFile(file);
-      setName(file.name || '');
-      setGameJar(file.gameJar || availableJars[0] || 'avatar_fish_build40.jar');
-      setModType(file.modType || ((file.gameJar && file.gameJar.toLowerCase().includes('fish')) ? 'fish' : 'upxu'));
-      setViewMode('form');
-    }
-  }, [file]);
-
-  const openCreateForm = () => {
-    setEditingFile(null);
-    setName('');
-    setGameJar(availableJars[0] || 'avatar_fish_build40.jar');
-    setModType('upxu');
-    setError('');
-    setViewMode('form');
-  };
-
-  const openEditForm = (f) => {
-    setEditingFile(f);
-    setName(f.name || '');
-    setGameJar(f.gameJar || availableJars[0] || 'avatar_fish_build40.jar');
-    setModType(f.modType || ((f.gameJar && f.gameJar.toLowerCase().includes('fish')) ? 'fish' : 'upxu'));
-    setError('');
-    setViewMode('form');
-  };
-
-  const backToList = () => {
-    setEditingFile(null);
-    setError('');
-    setViewMode('list');
-  };
 
   const handleFileUpload = async (e) => {
     const uploaded = e.target.files[0];
@@ -72,7 +36,7 @@ window.FileModal = function FileModal({
     try {
       const data = await window.ApiClient.uploadJar(uploaded);
       if (data.success) {
-        setUploadStatus(`✓ Đã tải lên: ${data.filename}`);
+        setUploadStatus(`Đã tải lên: ${data.filename}`);
         setGameJar(data.filename);
         if (data.filename.toLowerCase().includes('fish')) {
           setModType('fish');
@@ -89,14 +53,14 @@ window.FileModal = function FileModal({
   };
 
   const handleSubmit = async (e) => {
-    e.preventDefault();
+    if (e) e.preventDefault();
     if (!name.trim()) {
       setError('Vui lòng nhập tên File!');
       return;
     }
 
     const payload = {
-      id: editingFile ? editingFile.id : undefined,
+      id: file ? file.id : undefined,
       name: name.trim(),
       gameJar,
       modType
@@ -107,8 +71,10 @@ window.FileModal = function FileModal({
     try {
       const data = await window.ApiClient.saveFile(payload);
       if (data.success) {
-        backToList();
+        const notifyAlert = window.showAlert || alert;
+        notifyAlert(data.message || (isEditing ? 'Đã cập nhật File thành công!' : 'Đã thêm File mới thành công!'), 'Thành Công', 'success');
         if (onSaved) onSaved();
+        if (onClose) onClose();
       } else {
         setError(data.message || 'Lỗi lưu File');
       }
@@ -119,287 +85,354 @@ window.FileModal = function FileModal({
     }
   };
 
+  return (
+    <window.ModalBase
+      title={isEditing ? `Sửa File: ${file.name}` : 'Thêm File Profile Mới'}
+      subtitle="Thiết lập tên file, cấu hình JAR và chế độ Auto"
+      icon="folder"
+      iconColor="var(--apple-blue)"
+      size="sm"
+      zIndex={10010}
+      onClose={onClose}
+      footer={
+        <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px', width: '100%' }}>
+          <button type="button" className="btn btn-secondary" onClick={onClose}>
+            Hủy
+          </button>
+          <button type="button" className="btn btn-primary" onClick={handleSubmit} disabled={loading} style={{ gap: '6px' }}>
+            <window.Icon name="check" size={14} />
+            {loading ? 'Đang lưu...' : (isEditing ? 'Lưu Cập Nhật' : 'Thêm File')}
+          </button>
+        </div>
+      }
+    >
+      {error && <div className="alert alert-danger" style={{ marginBottom: '14px' }}>{error}</div>}
+
+      <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+        <div className="form-group">
+          <label>Tên File / Nhóm tài khoản <span style={{ color: 'var(--apple-red)' }}>*</span>:</label>
+          <input
+            type="text"
+            className="form-control"
+            placeholder="VD: File 1 - Kim Cương, File 2 - Câu Cá..."
+            value={name}
+            onChange={e => setName(e.target.value)}
+            required
+            autoFocus
+          />
+        </div>
+
+        <div className="form-group">
+          <label>Loại Bản Mod (Chế độ tự động):</label>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px', marginTop: '4px' }}>
+            <label style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '10px',
+              padding: '12px 14px',
+              borderRadius: 'var(--radius-sm)',
+              border: '1px solid',
+              borderColor: modType === 'fish' ? 'var(--apple-blue)' : 'var(--glass-border-subtle)',
+              background: modType === 'fish' ? 'rgba(56, 189, 248, 0.12)' : 'var(--glass-matrix-bg)',
+              cursor: 'pointer',
+              transition: 'var(--transition-fast)'
+            }}>
+              <input
+                type="radio"
+                name="modType"
+                value="fish"
+                checked={modType === 'fish'}
+                onChange={() => setModType('fish')}
+                style={{ accentColor: 'var(--apple-blue)' }}
+              />
+              <div>
+                <strong style={{ color: 'var(--apple-blue)', display: 'block', fontSize: '0.86rem' }}>Auto Câu Cá</strong>
+                <span style={{ fontSize: '0.72rem', color: 'var(--text-secondary)' }}>Menu câu cá & vé</span>
+              </div>
+            </label>
+
+            <label style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '10px',
+              padding: '12px 14px',
+              borderRadius: 'var(--radius-sm)',
+              border: '1px solid',
+              borderColor: modType === 'upxu' ? 'var(--apple-purple)' : 'var(--glass-border-subtle)',
+              background: modType === 'upxu' ? 'rgba(168, 85, 247, 0.12)' : 'var(--glass-matrix-bg)',
+              cursor: 'pointer',
+              transition: 'var(--transition-fast)'
+            }}>
+              <input
+                type="radio"
+                name="modType"
+                value="upxu"
+                checked={modType === 'upxu'}
+                onChange={() => setModType('upxu')}
+                style={{ accentColor: 'var(--apple-purple)' }}
+              />
+              <div>
+                <strong style={{ color: 'var(--apple-purple)', display: 'block', fontSize: '0.86rem' }}>Auto Kim Cương</strong>
+                <span style={{ fontSize: '0.72rem', color: 'var(--text-secondary)' }}>Farm, đào KC & bán đá</span>
+              </div>
+            </label>
+          </div>
+        </div>
+
+        <div className="form-group">
+          <label>Tệp JAR Game Bản Chạy:</label>
+          <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+            <select className="form-control" value={gameJar} onChange={e => setGameJar(e.target.value)} style={{ flex: 1 }}>
+              {(availableJars || []).map(j => (
+                <option key={j} value={j}>{j}</option>
+              ))}
+            </select>
+            <label className="btn btn-secondary btn-sm" style={{ cursor: 'pointer', margin: 0, whiteSpace: 'nowrap', gap: '6px' }}>
+              <window.Icon name="upload" size={13} /> Tải .JAR
+              <input type="file" accept=".jar" style={{ display: 'none' }} onChange={handleFileUpload} />
+            </label>
+          </div>
+          {uploadStatus && (
+            <small style={{ color: 'var(--apple-green)', display: 'flex', alignItems: 'center', gap: '4px', marginTop: '4px' }}>
+              <window.Icon name="check-circle" size={12} /> {uploadStatus}
+            </small>
+          )}
+        </div>
+      </form>
+    </window.ModalBase>
+  );
+}
+
+/**
+ * Main File List Manager Modal
+ */
+window.FileModal = function FileModal({
+  file,
+  files = [],
+  activeFileId,
+  availableJars = [],
+  fetchJars,
+  onSwitchFile,
+  onDeleteFile,
+  onClose,
+  onSaved
+}) {
+  const [editingFile, setEditingFile] = useFileModalState(file || null);
+  const [showFormModal, setShowFormModal] = useFileModalState(Boolean(file));
+
+  useFileModalEffect(() => {
+    if (file) {
+      setEditingFile(file);
+      setShowFormModal(true);
+    }
+  }, [file]);
+
+  const openCreateForm = () => {
+    setEditingFile(null);
+    setShowFormModal(true);
+  };
+
+  const openEditForm = (f) => {
+    setEditingFile(f);
+    setShowFormModal(true);
+  };
+
+  const handleSavedForm = () => {
+    setShowFormModal(false);
+    setEditingFile(null);
+    if (onSaved) onSaved();
+  };
+
   const handleDelete = async (id, fileName) => {
     if (onDeleteFile) {
       onDeleteFile(id, fileName);
     }
-    if (editingFile && editingFile.id === id) {
-      backToList();
-    }
   };
 
   return (
-    <div className="modal-overlay" style={{ display: 'flex' }} onClick={onClose}>
-      <div className="modal-card" onClick={(e) => e.stopPropagation()} style={{ maxWidth: '720px', width: '100%' }}>
-        {/* Header */}
-        <div className="modal-header">
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <span style={{ fontSize: '1.25rem' }}>📁</span>
-            <h3 style={{ margin: 0, fontSize: '1.1rem' }}>
-              {viewMode === 'form'
-                ? (editingFile ? `Sửa File: ${editingFile.name}` : 'Thêm File / Profile JAR Mới')
-                : `Quản Lý Danh Sách File (${files.length})`}
-            </h3>
+    <>
+      <window.ModalBase
+        title={`Quản Lý Danh Sách File (${files.length})`}
+        subtitle="Mỗi file quản lý tối đa 6 tài khoản bot độc lập"
+        icon="folder"
+        iconColor="var(--apple-blue)"
+        size="lg"
+        onClose={onClose}
+        footer={
+          <div style={{ display: 'flex', justifyContent: 'space-between', width: '100%', alignItems: 'center' }}>
+            <div style={{ fontSize: '0.78rem', color: 'var(--text-secondary)' }}>
+              Tối đa 6 tài khoản / file (3 Hoàn Mỹ + 3 Diệu Kỳ)
+            </div>
+            <button type="button" className="btn btn-secondary" onClick={onClose}>
+              Đóng
+            </button>
           </div>
-          <button className="btn-close" onClick={onClose}>&times;</button>
-        </div>
+        }
+      >
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+          {/* Action Bar */}
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '10px' }}>
+            <span style={{ fontSize: '0.82rem', color: 'var(--text-secondary)' }}>
+              Danh sách các hồ sơ file độc lập trong hệ thống
+            </span>
+            <button
+              type="button"
+              className="btn btn-primary btn-sm"
+              onClick={openCreateForm}
+              style={{ display: 'flex', alignItems: 'center', gap: '6px' }}
+            >
+              <window.Icon name="plus" size={14} /> Thêm File Mới
+            </button>
+          </div>
 
-        {/* Body */}
-        <div className="modal-body" style={{ maxHeight: 'calc(85vh - 120px)', overflowY: 'auto' }}>
-          {error && <div className="alert alert-danger" style={{ marginBottom: '16px' }}>{error}</div>}
-
-          {viewMode === 'list' ? (
-            <div>
-              {/* List Top Action Bar */}
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px', flexWrap: 'wrap', gap: '10px' }}>
-                <span style={{ fontSize: '0.85rem', color: '#94a3b8' }}>
-                  Mỗi File chứa tối đa <strong>6 nick</strong> (3 Hoàn Mỹ + 3 Diệu Kỳ). Không bắt buộc Proxy.
-                </span>
-                <button
-                  type="button"
-                  className="btn btn-primary btn-sm"
-                  onClick={openCreateForm}
-                  style={{ display: 'flex', alignItems: 'center', gap: '6px' }}
-                >
-                  ➕ Thêm File Mới
-                </button>
+          {/* Files List */}
+          {files.length === 0 ? (
+            <div className="proxy-empty-state" style={{ padding: '36px 20px', background: 'var(--glass-matrix-bg)', borderRadius: 'var(--radius-md)', border: '1px dashed var(--glass-border-subtle)', textAlign: 'center' }}>
+              <div style={{ marginBottom: '8px' }}>
+                <window.Icon name="folder" size={32} color="var(--text-tertiary)" />
               </div>
-
-              {/* List of Files */}
-              {files.length === 0 ? (
-                <div style={{ textAlign: 'center', padding: '40px 20px', color: '#64748b', background: 'rgba(255, 255, 255, 0.02)', borderRadius: '10px', border: '1px dashed rgba(255, 255, 255, 0.08)' }}>
-                  <div style={{ fontSize: '2rem', marginBottom: '8px' }}>📁</div>
-                  <p style={{ margin: '0 0 12px 0' }}>Chưa có File nào trong danh sách.</p>
-                  <button type="button" className="btn btn-primary btn-sm" onClick={openCreateForm}>
-                    ➕ Thêm File Đầu Tiên
-                  </button>
-                </div>
-              ) : (
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-                  {files.map(f => {
-                    const isCurrent = f.id === activeFileId;
-                    const hmOnline = f.runningHmCount || 0;
-                    const dkOnline = f.runningDkCount || 0;
-                    const totalOnline = (f.runningCount !== undefined ? f.runningCount : 0);
-
-                    return (
-                      <div
-                        key={f.id}
-                        style={{
-                          display: 'flex',
-                          alignItems: 'center',
-                          justifyContent: 'space-between',
-                          padding: '14px 16px',
-                          background: isCurrent ? 'rgba(59, 130, 246, 0.08)' : 'rgba(255, 255, 255, 0.03)',
-                          borderRadius: '10px',
-                          border: '1px solid',
-                          borderColor: isCurrent ? 'rgba(59, 130, 246, 0.4)' : 'rgba(255, 255, 255, 0.08)'
-                        }}
-                      >
-                        <div>
-                          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px' }}>
-                            <strong style={{ color: '#f8fafc', fontSize: '0.95rem' }}>📁 {f.name}</strong>
-                            <span style={{
-                              padding: '2px 8px',
-                              borderRadius: '4px',
-                              fontSize: '0.72rem',
-                              fontWeight: 600,
-                              background: (f.modType === 'fish' || (!f.modType && f.gameJar && f.gameJar.toLowerCase().includes('fish'))) ? 'rgba(56, 189, 248, 0.15)' : 'rgba(168, 85, 247, 0.15)',
-                              color: (f.modType === 'fish' || (!f.modType && f.gameJar && f.gameJar.toLowerCase().includes('fish'))) ? '#38bdf8' : '#c084fc',
-                              border: '1px solid',
-                              borderColor: (f.modType === 'fish' || (!f.modType && f.gameJar && f.gameJar.toLowerCase().includes('fish'))) ? 'rgba(56, 189, 248, 0.35)' : 'rgba(168, 85, 247, 0.35)'
-                            }}>
-                              {(f.modType === 'fish' || (!f.modType && f.gameJar && f.gameJar.toLowerCase().includes('fish'))) ? '🎣 Auto up câu cá' : '💎 Auto Up kim cương'}
-                            </span>
-                            {isCurrent && (
-                              <span style={{
-                                padding: '2px 6px',
-                                borderRadius: '4px',
-                                fontSize: '0.72rem',
-                                fontWeight: 600,
-                                background: 'rgba(59, 130, 246, 0.2)',
-                                color: '#60a5fa',
-                                border: '1px solid rgba(59, 130, 246, 0.4)'
-                              }}>
-                                Đang xem
-                              </span>
-                            )}
-                            {totalOnline > 0 && (
-                              <span style={{ fontSize: '0.75rem', color: '#4ade80', fontWeight: 'bold' }}>
-                                🔥 {totalOnline} on
-                              </span>
-                            )}
-                          </div>
-                          <div style={{ fontSize: '0.82rem', color: '#94a3b8', display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
-                            <span>JAR: <strong style={{ color: '#cbd5e1' }}>{f.gameJar}</strong></span>
-                            <span>•</span>
-                            <span>Số lượng: <strong style={{ color: '#cbd5e1' }}>{f.totalAccounts || 0}/6 nick</strong></span>
-                            <span>•</span>
-                            <span>HM: <strong>{hmOnline}/3</strong> | DK: <strong>{dkOnline}/3</strong></span>
-                          </div>
-                        </div>
-
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                          {!isCurrent && onSwitchFile && (
-                            <button
-                              type="button"
-                              className="btn btn-sm btn-outline"
-                              onClick={() => {
-                                onSwitchFile(f.id);
-                                onClose();
-                              }}
-                              title="Chuyển đến xem File này trên giao diện"
-                              style={{ fontSize: '0.78rem', padding: '4px 10px' }}
-                            >
-                              👁️ Xem
-                            </button>
-                          )}
-                          <button
-                            type="button"
-                            className="btn btn-sm btn-secondary"
-                            onClick={() => openEditForm(f)}
-                            style={{ padding: '4px 8px', fontSize: '0.8rem' }}
-                            title="Chỉnh sửa File"
-                          >
-                            ✏️ Sửa
-                          </button>
-                          {files.length > 1 && (
-                            <button
-                              type="button"
-                              className="btn btn-sm btn-danger"
-                              onClick={() => handleDelete(f.id, f.name)}
-                              style={{ padding: '4px 8px', fontSize: '0.8rem' }}
-                              title="Xóa File này"
-                            >
-                              🗑️
-                            </button>
-                          )}
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              )}
+              <p style={{ margin: '0 0 12px 0', color: 'var(--text-secondary)', fontSize: '0.88rem' }}>Chưa có file nào trong danh sách.</p>
+              <button type="button" className="btn btn-primary btn-sm" onClick={openCreateForm} style={{ gap: '6px' }}>
+                <window.Icon name="plus" size={14} /> Tạo File Đầu Tiên
+              </button>
             </div>
           ) : (
-            /* Dedicated Box Form for Input */
-            <div className="card-glass" style={{ padding: '20px', background: 'rgba(255, 255, 255, 0.03)', borderRadius: '12px', border: '1px solid rgba(255, 255, 255, 0.08)' }}>
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '16px' }}>
-                <h4 style={{ margin: 0, fontSize: '1rem', color: '#60a5fa' }}>
-                  {editingFile ? `✏️ Chỉnh Sửa Thông Tin File: ${editingFile.name}` : '➕ Nhập Thông Tin File Mới'}
-                </h4>
-                <button type="button" className="btn btn-sm btn-secondary" onClick={backToList}>
-                  ⬅️ Quay lại danh sách
-                </button>
-              </div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+              {files.map(f => {
+                const isCurrent = f.id === activeFileId;
+                const hmOnline = f.runningHmCount || 0;
+                const dkOnline = f.runningDkCount || 0;
+                const totalOnline = (f.runningCount !== undefined ? f.runningCount : 0);
+                const isFishMod = f.modType === 'fish' || (!f.modType && f.gameJar && f.gameJar.toLowerCase().includes('fish'));
 
-              <form onSubmit={handleSubmit}>
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: '14px' }}>
-                  <div className="form-group">
-                    <label>Tên File / Nhóm tài khoản <span style={{ color: '#f87171' }}>*</span>:</label>
-                    <input
-                      type="text"
-                      className="form-control"
-                      placeholder="VD: File 1 - Auto Up kim cương, File 2 - Auto up câu cá..."
-                      value={name}
-                      onChange={e => setName(e.target.value)}
-                      required
-                    />
-                  </div>
+                return (
+                  <div
+                    key={f.id}
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'space-between',
+                      padding: '14px 16px',
+                      background: isCurrent ? 'rgba(10, 132, 255, 0.08)' : 'var(--glass-matrix-bg)',
+                      borderRadius: 'var(--radius-md)',
+                      border: '1px solid',
+                      borderColor: isCurrent ? 'rgba(10, 132, 255, 0.4)' : 'var(--glass-border-subtle)',
+                      transition: 'var(--transition-fast)'
+                    }}
+                  >
+                    <div style={{ minWidth: 0, flex: 1, paddingRight: '12px' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '6px', flexWrap: 'wrap' }}>
+                        <strong style={{ color: 'var(--text-primary)', fontSize: '0.94rem' }}>{f.name}</strong>
+                        <span style={{
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          gap: '4px',
+                          padding: '2px 8px',
+                          borderRadius: '6px',
+                          fontSize: '0.72rem',
+                          fontWeight: 600,
+                          background: isFishMod ? 'rgba(10, 132, 255, 0.12)' : 'rgba(191, 90, 242, 0.12)',
+                          color: isFishMod ? 'var(--apple-blue)' : 'var(--apple-purple)',
+                          border: '1px solid',
+                          borderColor: isFishMod ? 'rgba(10, 132, 255, 0.3)' : 'rgba(191, 90, 242, 0.3)'
+                        }}>
+                          <window.Icon name={isFishMod ? 'fish' : 'diamond'} size={12} />
+                          {isFishMod ? 'Auto Câu Cá' : 'Auto Kim Cương'}
+                        </span>
+                        {isCurrent && (
+                          <span style={{
+                            padding: '2px 7px',
+                            borderRadius: '6px',
+                            fontSize: '0.72rem',
+                            fontWeight: 600,
+                            background: 'rgba(10, 132, 255, 0.18)',
+                            color: 'var(--apple-blue)',
+                            border: '1px solid rgba(10, 132, 255, 0.4)'
+                          }}>
+                            Đang mở
+                          </span>
+                        )}
+                        {totalOnline > 0 && (
+                          <span style={{
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            gap: '4px',
+                            fontSize: '0.74rem',
+                            color: 'var(--apple-green)',
+                            fontWeight: 600,
+                            background: 'rgba(48, 209, 88, 0.12)',
+                            padding: '2px 7px',
+                            borderRadius: '6px',
+                            border: '1px solid rgba(48, 209, 88, 0.25)'
+                          }}>
+                            <span style={{ width: '6px', height: '6px', borderRadius: '50%', background: 'var(--apple-green)', display: 'inline-block' }}></span>
+                            {totalOnline} online
+                          </span>
+                        )}
+                      </div>
+                      <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', display: 'flex', gap: '10px', flexWrap: 'wrap', alignItems: 'center' }}>
+                        <span>JAR: <strong style={{ color: 'var(--text-primary)' }}>{f.gameJar}</strong></span>
+                        <span>•</span>
+                        <span>Số lượng: <strong style={{ color: 'var(--text-primary)' }}>{f.totalAccounts || 0}/6 nick</strong></span>
+                        <span>•</span>
+                        <span>HM: {hmOnline}/3 | DK: {dkOnline}/3</span>
+                      </div>
+                    </div>
 
-                  <div className="form-group">
-                    <label>Loại Bản Mod (Tùy chọn hiển thị ở menu Bật Auto):</label>
-                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px', marginTop: '6px' }}>
-                      <label style={{
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: '10px',
-                        padding: '10px 14px',
-                        borderRadius: '8px',
-                        border: '1px solid',
-                        borderColor: modType === 'fish' ? '#38bdf8' : 'rgba(255,255,255,0.12)',
-                        background: modType === 'fish' ? 'rgba(56, 189, 248, 0.12)' : 'rgba(255,255,255,0.03)',
-                        cursor: 'pointer'
-                      }}>
-                        <input
-                          type="radio"
-                          name="modType"
-                          value="fish"
-                          checked={modType === 'fish'}
-                          onChange={() => setModType('fish')}
-                        />
-                        <div>
-                          <strong style={{ color: '#38bdf8', display: 'block', fontSize: '0.88rem' }}>🎣 Auto up câu cá</strong>
-                          <span style={{ fontSize: '0.72rem', color: '#94a3b8' }}>Chỉ hiện Auto Câu Cá</span>
-                        </div>
-                      </label>
-
-                      <label style={{
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: '10px',
-                        padding: '10px 14px',
-                        borderRadius: '8px',
-                        border: '1px solid',
-                        borderColor: modType === 'upxu' ? '#c084fc' : 'rgba(255,255,255,0.12)',
-                        background: modType === 'upxu' ? 'rgba(168, 85, 247, 0.12)' : 'rgba(255,255,255,0.03)',
-                        cursor: 'pointer'
-                      }}>
-                        <input
-                          type="radio"
-                          name="modType"
-                          value="upxu"
-                          checked={modType === 'upxu'}
-                          onChange={() => setModType('upxu')}
-                        />
-                        <div>
-                          <strong style={{ color: '#c084fc', display: 'block', fontSize: '0.88rem' }}>💎 Auto Up kim cương</strong>
-                          <span style={{ fontSize: '0.72rem', color: '#94a3b8' }}>Hiện Farm, Đào KC, Bán Đá</span>
-                        </div>
-                      </label>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexShrink: 0 }}>
+                      {!isCurrent && onSwitchFile && (
+                        <button
+                          type="button"
+                          className="btn btn-sm btn-outline"
+                          onClick={() => {
+                            onSwitchFile(f.id);
+                            onClose();
+                          }}
+                          title="Chuyển sang xem File này"
+                          style={{ fontSize: '0.78rem', padding: '5px 10px', gap: '4px' }}
+                        >
+                          <window.Icon name="eye" size={13} /> Xem
+                        </button>
+                      )}
+                      <button
+                        type="button"
+                        className="btn btn-sm btn-secondary"
+                        onClick={() => openEditForm(f)}
+                        style={{ padding: '5px 8px' }}
+                        title="Chỉnh sửa File"
+                      >
+                        <window.Icon name="edit" size={13} />
+                      </button>
+                      {files.length > 1 && (
+                        <button
+                          type="button"
+                          className="btn btn-sm btn-danger"
+                          onClick={() => handleDelete(f.id, f.name)}
+                          style={{ padding: '5px 8px' }}
+                          title="Xóa File này"
+                        >
+                          <window.Icon name="trash" size={13} />
+                        </button>
+                      )}
                     </div>
                   </div>
-
-                  <div className="form-group">
-                    <label>Chọn Tệp JAR Game Bản Chạy:</label>
-                    <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
-                      <select className="form-control" value={gameJar} onChange={e => setGameJar(e.target.value)} style={{ flex: 1 }}>
-                        {(availableJars || []).map(j => (
-                          <option key={j} value={j}>{j}</option>
-                        ))}
-                      </select>
-                      <label className="btn btn-secondary btn-sm" style={{ cursor: 'pointer', margin: 0, whiteSpace: 'nowrap' }}>
-                        📤 Tải .JAR
-                        <input type="file" accept=".jar" style={{ display: 'none' }} onChange={handleFileUpload} />
-                      </label>
-                    </div>
-                    {uploadStatus && <small style={{ color: '#34d399', display: 'block', marginTop: '4px' }}>{uploadStatus}</small>}
-                  </div>
-                </div>
-
-                <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '20px', gap: '10px' }}>
-                  <button type="button" className="btn btn-secondary" onClick={backToList}>
-                    Hủy
-                  </button>
-                  <button type="submit" className="btn btn-primary" disabled={loading}>
-                    {loading ? 'Đang lưu...' : (editingFile ? '💾 Lưu Cập Nhật' : '➕ Thêm File')}
-                  </button>
-                </div>
-              </form>
+                );
+              })}
             </div>
           )}
         </div>
+      </window.ModalBase>
 
-        {/* Footer */}
-        <div className="modal-footer" style={{ borderTop: '1px solid rgba(255, 255, 255, 0.08)', padding: '12px 20px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-          {viewMode === 'form' ? (
-            <button type="button" className="btn btn-outline btn-sm" onClick={backToList}>
-              ⬅️ Danh Sách File
-            </button>
-          ) : <div />}
-          <button type="button" className="btn btn-secondary" onClick={onClose}>Đóng</button>
-        </div>
-      </div>
-    </div>
+      {/* Standalone Box Modal for Add/Edit File */}
+      {showFormModal && (
+        <FileFormModal
+          file={editingFile}
+          availableJars={availableJars}
+          fetchJars={fetchJars}
+          onClose={() => setShowFormModal(false)}
+          onSaved={handleSavedForm}
+        />
+      )}
+    </>
   );
 };

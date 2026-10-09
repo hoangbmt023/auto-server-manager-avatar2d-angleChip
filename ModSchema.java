@@ -189,7 +189,7 @@ public class ModSchema {
         UP_XU.dialogPointerType = "bt";
         UP_XU.alertDialogClass = null;
 
-        UP_XU.playerContainerClasses = new String[] { "main.AngelChip", "go" };
+        UP_XU.playerContainerClasses = new String[] { "main.AngelChip", "go", "fE" };
         UP_XU.playerClassName = "dD";
         UP_XU.playerCoinsArrayField = "do";
         UP_XU.playerLockedGoldField = "do";
@@ -254,11 +254,12 @@ public class ModSchema {
         UP_XU.sellOreIntervalField = "try";
         UP_XU.sellOreDelayMsField = "for";
         UP_XU.sellOreZoneFromField = "int";
-        UP_XU.sellOreZoneToField = "do";
-        UP_XU.sellOreResetNhbField = "int";
-        UP_XU.sellOreResetKcxField = "if";
-        UP_XU.sellOreDropNhbField = "for";
-        UP_XU.sellOreDropKcxField = "do";
+        UP_XU.sellOreZoneToField = "for";
+        UP_XU.sellOreResetNhbField = "do";
+        UP_XU.sellOreResetKcxField = "for";
+        UP_XU.sellOreDropNhbField = "if";
+        UP_XU.sellOreDropKcxField = "int";
+        UP_XU.sellOreSaveMethod = "do";
         UP_XU.sellOreTaskClassName = "al";
         UP_XU.sellOreTargetMsField = "if";
         UP_XU.sellOreStartMsField = "do";
@@ -381,12 +382,12 @@ public class ModSchema {
         FISH.sellOreClassName = "c";
         FISH.sellOreIntervalField = "try";
         FISH.sellOreDelayMsField = "do";
-        FISH.sellOreZoneFromField = "do";
+        FISH.sellOreZoneFromField = "for";
         FISH.sellOreZoneToField = "int";
-        FISH.sellOreResetNhbField = "if";
+        FISH.sellOreResetNhbField = "do";
         FISH.sellOreResetKcxField = "for";
-        FISH.sellOreDropNhbField = "for";
-        FISH.sellOreDropKcxField = "do";
+        FISH.sellOreDropNhbField = "int";
+        FISH.sellOreDropKcxField = "if";
         FISH.sellOreSaveMethod = "do";
         FISH.sellOreTaskClassName = "c";
         FISH.sellOreTargetMsField = "if";

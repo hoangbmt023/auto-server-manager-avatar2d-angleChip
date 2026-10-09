@@ -1,10 +1,12 @@
 /**
- * RentalSetupModal Component
- * Dedicated Center-Screen Modal for Rental / Up Thue Configuration:
- * - 🎯 Xu Up (targetCoins)
- * - ⏳ Ngày Up (upDays)
- * - 🔄 Reset Dữ Liệu
+ * RentalSetupModal Component (Presentation Layer / Modals)
+ * Porsche & Apple Minimalist Liquid Glass Rental Configuration:
+ * - Xu Up (targetCoins)
+ * - Ngày Up (upDays)
+ * - Reset Dữ Liệu
  */
+const { useState: useRentalState } = React;
+
 window.RentalSetupModal = function RentalSetupModal({
   account,
   onClose,
@@ -12,11 +14,11 @@ window.RentalSetupModal = function RentalSetupModal({
 }) {
   if (!account) return null;
 
-  const [subTab, setSubTab] = React.useState('targetCoins'); // 'targetCoins' | 'upDays' | 'reset'
-  const [targetCoinsInput, setTargetCoinsInput] = React.useState(account.targetCoins ? account.targetCoins : '');
-  const [upDaysInput, setUpDaysInput] = React.useState(account.upDays ? account.upDays : '');
-  const [isSubmitting, setIsSubmitting] = React.useState(false);
-  const [feedback, setFeedback] = React.useState(null);
+  const [subTab, setSubTab] = useRentalState('targetCoins'); // 'targetCoins' | 'upDays' | 'reset'
+  const [targetCoinsInput, setTargetCoinsInput] = useRentalState(account.targetCoins ? account.targetCoins : '');
+  const [upDaysInput, setUpDaysInput] = useRentalState(account.upDays ? account.upDays : '');
+  const [isSubmitting, setIsSubmitting] = useRentalState(false);
+  const [feedback, setFeedback] = useRentalState(null);
 
   const showFeedback = (msg, type = 'success') => {
     setFeedback({ msg, type });
@@ -35,6 +37,7 @@ window.RentalSetupModal = function RentalSetupModal({
       const val = Math.max(0, Number(targetCoinsInput) || 0);
       const res = await window.ApiClient.updateAccountSetup(account.id, { targetCoins: val });
       if (res.success) {
+        if (window.showAlert) window.showAlert('Đã lưu mục tiêu xu Up Thuê thành công!', 'Thành Công', 'success');
         if (onAccountUpdated) onAccountUpdated();
         if (onClose) onClose();
       } else {
@@ -54,6 +57,7 @@ window.RentalSetupModal = function RentalSetupModal({
       const val = Math.max(0, Number(upDaysInput) || 0);
       const res = await window.ApiClient.updateAccountSetup(account.id, { upDays: val });
       if (res.success) {
+        if (window.showAlert) window.showAlert('Đã lưu số ngày Up Thuê thành công!', 'Thành Công', 'success');
         if (onAccountUpdated) onAccountUpdated();
         if (onClose) onClose();
       } else {
@@ -71,6 +75,7 @@ window.RentalSetupModal = function RentalSetupModal({
       setIsSubmitting(true);
       const res = await window.ApiClient.resetAccountData(account.id);
       if (res.success) {
+        if (window.showAlert) window.showAlert('Đã đặt lại dữ liệu Up Thuê thành công!', 'Thành Công', 'success');
         if (onAccountUpdated) onAccountUpdated();
         if (onClose) onClose();
       } else {
@@ -84,138 +89,131 @@ window.RentalSetupModal = function RentalSetupModal({
   };
 
   return (
-    <div className="center-modal-overlay" onClick={onClose}>
-      <div className="center-modal-card" style={{ maxWidth: '520px' }} onClick={(e) => e.stopPropagation()}>
-
-        {/* Header */}
-        <div className="center-modal-header">
-          <div className="center-modal-title">
-            💰 Cài Đặt Up Thuê <span className="modal-title-acc">({account.username})</span>
-          </div>
-          <button type="button" className="center-modal-close" onClick={onClose}>✕</button>
+    <window.ModalBase
+      title={`Cài Đặt Up Thuê: ${account.username}`}
+      subtitle={`Máy chủ ${account.serverName || 'Hoàn Mỹ'}`}
+      icon="dollar-sign"
+      iconColor="var(--apple-green)"
+      size="sm"
+      onClose={onClose}
+    >
+      {/* Feedback Banner */}
+      {feedback && (
+        <div className={`alert alert-${feedback.type === 'error' ? 'danger' : 'success'}`} style={{ marginBottom: '14px' }}>
+          {feedback.msg}
         </div>
+      )}
 
-        {/* Feedback */}
-        {feedback && (
-          <div className={`alert-box alert-${feedback.type}`} style={{ margin: '14px 20px 0 20px' }}>
-            {feedback.msg}
-          </div>
-        )}
-
-        {/* Body */}
-        <div className="center-modal-body">
-          <div className="acc-setup-tabs">
-            <button
-              type="button"
-              className={`acc-setup-tab-btn ${subTab === 'targetCoins' ? 'active' : ''}`}
-              onClick={() => setSubTab('targetCoins')}
-            >
-              🎯 Cài Đặt Xu Up
-            </button>
-            <button
-              type="button"
-              className={`acc-setup-tab-btn ${subTab === 'upDays' ? 'active' : ''}`}
-              onClick={() => setSubTab('upDays')}
-            >
-              ⏳ Cài Đặt Ngày Up
-            </button>
-            <button
-              type="button"
-              className={`acc-setup-tab-btn ${subTab === 'reset' ? 'active' : ''}`}
-              onClick={() => setSubTab('reset')}
-            >
-              🔄 Reset Dữ Liệu
-            </button>
-          </div>
-
-          {subTab === 'targetCoins' && (
-            <form onSubmit={handleSaveCoins}>
-              <div className="acc-setup-prompt">
-                <span className="acc-setup-prompt-title">Nhập số xu cần up:</span>
-                <span className="acc-setup-prompt-desc">
-                  (Nhập số xu mục tiêu. Khi đạt mốc này, bot sẽ dừng hoặc thông báo. Để <strong>0</strong> để không giới hạn)
-                </span>
-              </div>
-              <div className="form-group" style={{ marginBottom: '16px' }}>
-                <input
-                  type="number"
-                  className="form-control"
-                  placeholder="Nhập số xu (VD: 5000000)"
-                  value={targetCoinsInput}
-                  onFocus={(e) => { if (e.target.value === '0') e.target.select(); }}
-                  onChange={(e) => setTargetCoinsInput(e.target.value)}
-                  min="0"
-                  step="100"
-                  autoFocus
-                />
-                <div style={{ marginTop: '6px', fontSize: '0.8rem', color: '#60a5fa' }}>
-                  {Number(targetCoinsInput) > 0 ? `Đang đặt: ${formatNumber(targetCoinsInput)} Xu` : 'Không giới hạn xu'}
-                </div>
-              </div>
-              <div className="modal-actions">
-                <button type="button" className="btn btn-secondary" onClick={onClose}>Hủy</button>
-                <button type="submit" className="btn btn-primary" disabled={isSubmitting}>
-                  {isSubmitting ? 'Đang lưu...' : '✅ Đồng ý'}
-                </button>
-              </div>
-            </form>
-          )}
-
-          {subTab === 'upDays' && (
-            <form onSubmit={handleSaveDays}>
-              <div className="acc-setup-prompt">
-                <span className="acc-setup-prompt-title">Nhập số ngày up:</span>
-                <span className="acc-setup-prompt-desc">
-                  (Số ngày treo nick. Để <strong>0</strong> nếu muốn up <strong>Vĩnh viễn</strong>)
-                </span>
-              </div>
-              <div className="form-group" style={{ marginBottom: '16px' }}>
-                <input
-                  type="number"
-                  className="form-control"
-                  placeholder="Nhập số ngày (VD: 30)"
-                  value={upDaysInput}
-                  onFocus={(e) => { if (e.target.value === '0') e.target.select(); }}
-                  onChange={(e) => setUpDaysInput(e.target.value)}
-                  min="0"
-                  autoFocus
-                />
-                <div style={{ marginTop: '6px', fontSize: '0.8rem', color: '#60a5fa' }}>
-                  {Number(upDaysInput) > 0 ? `Thời hạn: ${upDaysInput} ngày` : 'Thời hạn: Vĩnh viễn'}
-                </div>
-              </div>
-              <div className="modal-actions">
-                <button type="button" className="btn btn-secondary" onClick={onClose}>Hủy</button>
-                <button type="submit" className="btn btn-primary" disabled={isSubmitting}>
-                  {isSubmitting ? 'Đang lưu...' : '✅ Đồng ý'}
-                </button>
-              </div>
-            </form>
-          )}
-
-          {subTab === 'reset' && (
-            <div>
-              <div className="acc-setup-prompt">
-                <span className="acc-setup-prompt-title" style={{ color: '#f87171' }}>⚠️ Xác nhận Reset dữ liệu Up Thuê?</span>
-                <span className="acc-setup-prompt-desc">
-                  Thao tác này sẽ đặt lại ngày bắt đầu up về hôm nay, đưa mốc xu ban đầu về số dư hiện tại, xóa số xu đã cày và số tim thu hoạch về 0.
-                </span>
-              </div>
-              <div className="modal-actions" style={{ marginTop: '20px' }}>
-                <button type="button" className="btn btn-secondary" onClick={onClose}>Không</button>
-                <button
-                  type="button"
-                  className="btn btn-danger"
-                  disabled={isSubmitting}
-                  onClick={handleResetData}
-                >
-                  {isSubmitting ? 'Đang reset...' : '✅ Đồng ý Reset'}
-                </button>
-              </div>
-            </div>
-          )}
-        </div>
+      {/* Sub Tabs */}
+      <div className="segmented-control" style={{ display: 'flex', width: '100%', marginBottom: '16px' }}>
+        <button
+          type="button"
+          className={`btn ${subTab === 'targetCoins' ? 'active btn-primary' : ''}`}
+          onClick={() => setSubTab('targetCoins')}
+          style={{ flex: 1, fontSize: '0.8rem', gap: '4px' }}
+        >
+          <window.Icon name="target" size={13} /> Mục Tiêu Xu
+        </button>
+        <button
+          type="button"
+          className={`btn ${subTab === 'upDays' ? 'active btn-primary' : ''}`}
+          onClick={() => setSubTab('upDays')}
+          style={{ flex: 1, fontSize: '0.8rem', gap: '4px' }}
+        >
+          <window.Icon name="calendar" size={13} /> Thời Hạn
+        </button>
+        <button
+          type="button"
+          className={`btn ${subTab === 'reset' ? 'active btn-danger' : ''}`}
+          onClick={() => setSubTab('reset')}
+          style={{ flex: 1, fontSize: '0.8rem', gap: '4px' }}
+        >
+          <window.Icon name="refresh" size={13} /> Reset
+        </button>
       </div>
-    </div>
+
+      {subTab === 'targetCoins' && (
+        <form onSubmit={handleSaveCoins} style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+          <div className="form-group">
+            <label>Số xu mục tiêu cần up:</label>
+            <input
+              type="number"
+              className="form-control"
+              placeholder="Nhập số xu (VD: 5000000)"
+              value={targetCoinsInput}
+              onFocus={(e) => { if (e.target.value === '0') e.target.select(); }}
+              onChange={(e) => setTargetCoinsInput(e.target.value)}
+              min="0"
+              step="1000"
+              autoFocus
+            />
+            <small style={{ color: 'var(--apple-blue)', marginTop: '4px', display: 'block' }}>
+              {Number(targetCoinsInput) > 0 ? `Đang đặt: ${formatNumber(targetCoinsInput)} Xu` : 'Đặt 0 để không giới hạn xu'}
+            </small>
+          </div>
+          <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px', marginTop: '6px' }}>
+            <button type="button" className="btn btn-secondary" onClick={onClose}>Hủy</button>
+            <button type="submit" className="btn btn-primary" disabled={isSubmitting} style={{ gap: '6px' }}>
+              <window.Icon name="check" size={14} />
+              {isSubmitting ? 'Đang lưu...' : 'Lưu Cài Đặt'}
+            </button>
+          </div>
+        </form>
+      )}
+
+      {subTab === 'upDays' && (
+        <form onSubmit={handleSaveDays} style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+          <div className="form-group">
+            <label>Số ngày up (Thời hạn):</label>
+            <input
+              type="number"
+              className="form-control"
+              placeholder="Nhập số ngày (VD: 30)"
+              value={upDaysInput}
+              onFocus={(e) => { if (e.target.value === '0') e.target.select(); }}
+              onChange={(e) => setUpDaysInput(e.target.value)}
+              min="0"
+              autoFocus
+            />
+            <small style={{ color: 'var(--apple-blue)', marginTop: '4px', display: 'block' }}>
+              {Number(upDaysInput) > 0 ? `Thời hạn: ${upDaysInput} ngày` : 'Thời hạn: Vĩnh viễn (0)'}
+            </small>
+          </div>
+          <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px', marginTop: '6px' }}>
+            <button type="button" className="btn btn-secondary" onClick={onClose}>Hủy</button>
+            <button type="submit" className="btn btn-primary" disabled={isSubmitting} style={{ gap: '6px' }}>
+              <window.Icon name="check" size={14} />
+              {isSubmitting ? 'Đang lưu...' : 'Lưu Cài Đặt'}
+            </button>
+          </div>
+        </form>
+      )}
+
+      {subTab === 'reset' && (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+          <div style={{ background: 'rgba(255, 69, 58, 0.08)', padding: '14px 16px', borderRadius: 'var(--radius-sm)', border: '1px solid rgba(255, 69, 58, 0.25)' }}>
+            <strong style={{ color: 'var(--apple-red)', display: 'block', marginBottom: '4px', fontSize: '0.88rem' }}>
+              Xác nhận Reset số liệu up thuê?
+            </strong>
+            <p style={{ margin: 0, fontSize: '0.8rem', color: 'var(--text-secondary)', lineHeight: 1.4 }}>
+              Thao tác này sẽ đặt lại ngày bắt đầu về hôm nay, cập nhật mốc xu ban đầu theo số dư hiện tại và đưa số xu đã cày / số tim thu hoạch về 0.
+            </p>
+          </div>
+          <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px', marginTop: '6px' }}>
+            <button type="button" className="btn btn-secondary" onClick={onClose}>Hủy</button>
+            <button
+              type="button"
+              className="btn btn-danger"
+              disabled={isSubmitting}
+              onClick={handleResetData}
+              style={{ gap: '6px' }}
+            >
+              <window.Icon name="refresh" size={14} />
+              {isSubmitting ? 'Đang reset...' : 'Xác Nhận Reset'}
+            </button>
+          </div>
+        </div>
+      )}
+    </window.ModalBase>
   );
 };

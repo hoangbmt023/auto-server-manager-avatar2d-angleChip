@@ -34,8 +34,8 @@ class ProxyController {
       const body = await parseJsonBody(req);
       const { proxy, testResult } = await this.proxyService.saveProxy(body);
       const message = testResult && testResult.isExpired
-        ? `⚠️ Đã lưu Proxy nhưng kiểm tra kết nối THẤT BẠI: ${testResult.message}. Đã tự động đánh dấu HẾT HẠN!`
-        : `✅ Đã lưu Proxy và kiểm tra kết nối thành công (${testResult?.latencyMs || 0}ms)!`;
+        ? `Đã lưu Proxy nhưng kiểm tra kết nối THẤT BẠI: ${testResult.message}. Đã tự động đánh dấu HẾT HẠN!`
+        : `Đã lưu Proxy và kiểm tra kết nối thành công (${testResult?.latencyMs || 0}ms)!`;
       this.broadcastChange();
       return sendJson(res, 200, {
         success: true,

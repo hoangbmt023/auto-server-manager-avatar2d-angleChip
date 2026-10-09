@@ -1,7 +1,7 @@
 /**
- * DialogModal Component (Presentation Layer)
- * Custom replacement for native browser alert() and confirm() dialogs.
- * Responsive, accessible, and completely styled with CSS classes.
+ * DialogModal Component (Presentation Layer / Alerts & Confirms)
+ * Porsche & Apple Minimalist Liquid Glass Alert & Confirmation Sheets
+ * Portal-rendered directly onto document.body with vector iconography
  */
 window.DialogModal = function DialogModal({
   dialog,
@@ -12,22 +12,24 @@ window.DialogModal = function DialogModal({
   const mode = dialog.mode || 'alert';
   const type = dialog.type || (mode === 'confirm' ? 'warning' : 'info');
   const confirmText = dialog.confirmText || (mode === 'confirm' ? 'Đồng Ý' : 'Đã Hiểu');
-  const cancelText = dialog.cancelText || 'Thoát';
+  const cancelText = dialog.cancelText || 'Hủy Bỏ';
 
-  const getIcon = () => {
+  const getIconInfo = () => {
     switch (type) {
       case 'error':
       case 'danger':
-        return '❌';
+        return { name: 'alert-triangle', color: 'var(--apple-red)', bg: 'rgba(255, 69, 58, 0.15)', border: 'rgba(255, 69, 58, 0.35)' };
       case 'warning':
-        return '⚠️';
+        return { name: 'alert-triangle', color: 'var(--apple-orange)', bg: 'rgba(255, 159, 10, 0.15)', border: 'rgba(255, 159, 10, 0.35)' };
       case 'success':
-        return '✅';
+        return { name: 'check-circle', color: 'var(--apple-green)', bg: 'rgba(48, 209, 88, 0.15)', border: 'rgba(48, 209, 88, 0.35)' };
       case 'info':
       default:
-        return 'ℹ️';
+        return { name: 'bot', color: 'var(--apple-blue)', bg: 'rgba(10, 132, 255, 0.15)', border: 'rgba(10, 132, 255, 0.35)' };
     }
   };
+
+  const iconInfo = getIconInfo();
 
   const getConfirmButtonClass = () => {
     switch (type) {
@@ -60,12 +62,19 @@ window.DialogModal = function DialogModal({
     }
   };
 
-  return (
+  const dialogContent = (
     <div className="dialog-overlay" onClick={handleCancel}>
       <div className="dialog-card" onClick={(e) => e.stopPropagation()}>
         <div className="dialog-header">
-          <div className={`dialog-icon-badge ${type}`}>
-            {getIcon()}
+          <div
+            className="dialog-icon-badge"
+            style={{
+              background: iconInfo.bg,
+              borderColor: iconInfo.border,
+              boxShadow: `0 0 20px -4px ${iconInfo.bg}`
+            }}
+          >
+            <window.Icon name={iconInfo.name} size={24} color={iconInfo.color} strokeWidth={2.2} />
           </div>
           <h3 className="dialog-title">
             {dialog.title || (mode === 'confirm' ? 'Xác Nhận Thao Tác' : 'Thông Báo Hệ Thống')}
@@ -91,11 +100,18 @@ window.DialogModal = function DialogModal({
             className={getConfirmButtonClass()}
             onClick={handleConfirm}
             autoFocus
+            style={{ gap: '6px' }}
           >
+            <window.Icon name={type === 'error' || type === 'danger' ? 'trash' : 'check'} size={14} />
             {confirmText}
           </button>
         </div>
       </div>
     </div>
   );
+
+  if (typeof ReactDOM !== 'undefined' && ReactDOM.createPortal && document.body) {
+    return ReactDOM.createPortal(dialogContent, document.body);
+  }
+  return dialogContent;
 };

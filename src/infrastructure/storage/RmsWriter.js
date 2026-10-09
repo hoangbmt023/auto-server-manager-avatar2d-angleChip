@@ -372,10 +372,10 @@ class RmsWriter {
       payload.writeInt32BE(delayMs, off); off += 4;
       payload.writeInt32BE(zoneFrom, off); off += 4;
       payload.writeInt32BE(zoneTo, off); off += 4;
-      payload.writeInt8(dropKcxIfFailed, off++);
-      payload.writeInt8(dropNhbIfFailed, off++);
-      payload.writeInt8(resetTimeOnKcx, off++);
       payload.writeInt8(resetTimeOnNhb, off++);
+      payload.writeInt8(resetTimeOnKcx, off++);
+      payload.writeInt8(dropNhbIfFailed, off++);
+      payload.writeInt8(dropKcxIfFailed, off++);
 
       for (const suiteDir of suiteDirs) {
         if (!fs.existsSync(suiteDir)) {

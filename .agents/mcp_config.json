@@ -1,0 +1,15 @@
+{
+  "mcpServers": {
+    "open-design": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "@open-design/daemon@latest",
+        "mcp"
+      ],
+      "env": {
+        "OPEN_DESIGN_PORT": "7456"
+      }
+    }
+  }
+}
