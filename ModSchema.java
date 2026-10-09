@@ -448,7 +448,7 @@ public class ModSchema {
         CHIP_MIX.upThueSaveRmsMethod = "if";
         CHIP_MIX.upThueResetRmsMethod = "for";
 
-        CHIP_MIX.diamondClassName = "aj";
+        CHIP_MIX.diamondClassName = "dy";
         CHIP_MIX.diamondSingletonMethod = "do";
         CHIP_MIX.kcxCountField = "do";
         CHIP_MIX.nhbCountField = "for";
@@ -463,7 +463,7 @@ public class ModSchema {
         CHIP_MIX.diamondPriorityOrderField = "if";
         CHIP_MIX.diamondSaveMethod = "int";
 
-        CHIP_MIX.farmClassName = "bq";
+        CHIP_MIX.farmClassName = "bt";
         CHIP_MIX.farmSingletonMethod = "do";
         CHIP_MIX.farmBabyClassName = "bP";
         CHIP_MIX.farmModeField = "do";
@@ -507,7 +507,7 @@ public class ModSchema {
         CHIP_MIX.fishSharkCountField = "for";
         CHIP_MIX.fishKcxCountField = "new";
 
-        CHIP_MIX.sellOreClassName = "c";
+        CHIP_MIX.sellOreClassName = "d";
         CHIP_MIX.sellOreIntervalField = "try";
         CHIP_MIX.sellOreDelayMsField = "do";
         CHIP_MIX.sellOreZoneFromField = "for";
@@ -517,20 +517,20 @@ public class ModSchema {
         CHIP_MIX.sellOreDropNhbField = "int";
         CHIP_MIX.sellOreDropKcxField = "if";
         CHIP_MIX.sellOreSaveMethod = "do";
-        CHIP_MIX.sellOreTaskClassName = "c";
+        CHIP_MIX.sellOreTaskClassName = "d";
         CHIP_MIX.sellOreTargetMsField = "if";
         CHIP_MIX.sellOreStartMsField = "for";
         CHIP_MIX.zoneClassName = "go";
         CHIP_MIX.zoneField = "do";
 
         CHIP_MIX.taskControllerClassName = "bX";
-        CHIP_MIX.taskArgClassName = "ha";
+        CHIP_MIX.taskArgClassName = "hc";
         CHIP_MIX.taskStartMethod = "do";
-        CHIP_MIX.taskStopMethod = "new";
+        CHIP_MIX.taskStopMethod = "try";
         CHIP_MIX.activeTaskField = "do";
-        CHIP_MIX.farmTaskClassName = "bq";
-        CHIP_MIX.diamondTaskClassName = "aj";
-        CHIP_MIX.farmTraderTaskClassName = "hn";
+        CHIP_MIX.farmTaskClassName = "hp";
+        CHIP_MIX.diamondTaskClassName = "dy";
+        CHIP_MIX.farmTraderTaskClassName = null;
     }
 
     /**

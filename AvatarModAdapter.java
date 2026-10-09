@@ -2490,17 +2490,31 @@ public class AvatarModAdapter {
             Object taskObj = null;
 
             if ("farm".equalsIgnoreCase(autoType)) {
-                if (schema.farmTraderTaskClassName != null && !schema.farmTraderTaskClassName.isEmpty()) {
-                    Class<?> farmCls = cl.loadClass(schema.farmClassName);
-                    Byte modeObj = (Byte) getStaticField(farmCls, schema.farmModeField, byte.class);
-                    byte mode = (modeObj != null) ? modeObj.byteValue() : 0;
-                    taskObj = (mode == 0) ? cl.loadClass(schema.farmTraderTaskClassName).newInstance()
-                            : farmCls.newInstance();
-                } else {
-                    taskObj = cl.loadClass(schema.farmTaskClassName).newInstance();
+                boolean triggeredViaCmd = false;
+                try {
+                    Method cmdMethod = taskCtrlCls.getMethod("do", String.class);
+                    Object res = cmdMethod.invoke(null, "af");
+                    triggeredViaCmd = (res instanceof Boolean) ? ((Boolean) res).booleanValue() : true;
+                } catch (Throwable ignored) {
                 }
-                Method doMethod = taskCtrlCls.getMethod(schema.taskStartMethod, taskArgCls);
-                doMethod.invoke(null, taskObj);
+
+                if (!triggeredViaCmd) {
+                    if (schema.farmTraderTaskClassName != null && !schema.farmTraderTaskClassName.isEmpty()) {
+                        try {
+                            Class<?> farmCls = cl.loadClass(schema.farmClassName);
+                            Byte modeObj = (Byte) getStaticField(farmCls, schema.farmModeField, byte.class);
+                            byte mode = (modeObj != null) ? modeObj.byteValue() : 0;
+                            taskObj = (mode == 0) ? cl.loadClass(schema.farmTraderTaskClassName).newInstance()
+                                    : farmCls.newInstance();
+                        } catch (Throwable t) {
+                            taskObj = cl.loadClass(schema.farmTaskClassName).newInstance();
+                        }
+                    } else {
+                        taskObj = cl.loadClass(schema.farmTaskClassName).newInstance();
+                    }
+                    Method doMethod = taskCtrlCls.getMethod(schema.taskStartMethod, taskArgCls);
+                    doMethod.invoke(null, taskObj);
+                }
                 System.out.println("🌾 [BẬT AUTO FARM]: Đã kích hoạt Auto Farm [" + schema.name + "]!");
                 System.out.println(
                         "[AUTO_STATUS]: {\"isRunning\":true,\"autoType\":\"farm\",\"status\":\"running\",\"message\":\"Đang chạy Auto Farm...\"}");
@@ -2826,15 +2840,17 @@ public class AvatarModAdapter {
                             String type = null;
 
                             if (clsName.equals(schema.farmTaskClassName) || "AutoFarm".equals(clsName)
-                                    || "aC".equals(clsName) || "bq".equals(clsName)) {
+                                    || "aC".equals(clsName) || "bq".equals(clsName) || "hp".equals(clsName)
+                                    || "bt".equals(clsName)) {
                                 friendly = "Auto Farm (Nông trại)";
                                 type = "farm";
-                            } else if (clsName.equals(schema.farmTraderTaskClassName) || "AutoLaiBuon".equals(clsName)
-                                    || "hn".equals(clsName)) {
+                            } else if (schema.farmTraderTaskClassName != null && !schema.farmTraderTaskClassName.isEmpty()
+                                    && (clsName.equals(schema.farmTraderTaskClassName) || "AutoLaiBuon".equals(clsName)
+                                    || "hn".equals(clsName))) {
                                 friendly = "Auto Farm (Lái buôn hỗ trợ)";
                                 type = "farm";
                             } else if (clsName.equals(schema.diamondTaskClassName) || "AutoKimCuong".equals(clsName)
-                                    || "X".equals(clsName) || "aj".equals(clsName)) {
+                                    || "X".equals(clsName) || "aj".equals(clsName) || "dy".equals(clsName)) {
                                 friendly = "Auto Đào Kim Cương";
                                 type = "diamond";
                             } else if (clsName.equals(schema.fishTaskClassName) || "AutoCauCa".equals(clsName)
@@ -2842,7 +2858,7 @@ public class AvatarModAdapter {
                                 friendly = "Auto Câu Cá";
                                 type = "fish";
                             } else if (clsName.equals(schema.sellOreTaskClassName) || "AutoBanDa".equals(clsName)
-                                    || "al".equals(clsName) || "c".equals(clsName)) {
+                                    || "al".equals(clsName) || "c".equals(clsName) || "d".equals(clsName)) {
                                 friendly = "Auto Bán Đá";
                                 type = "sell_ore";
                             } else if ("AutoChamEmBe".equals(clsName) || "bJ".equals(clsName) || "bP".equals(clsName)
@@ -2850,7 +2866,7 @@ public class AvatarModAdapter {
                                 friendly = "Auto Chăm Em Bé";
                                 type = "baby";
                             } else if ("AutoTaiXiu".equals(clsName) || "av_0".equals(clsName)
-                                    || "cl_0".equals(clsName) || "TxMenu".equals(clsName)) {
+                                    || "cl_0".equals(clsName) || "TxMenu".equals(clsName) || "dC".equals(clsName)) {
                                 friendly = "Auto Tài Xỉu";
                                 type = "tai_xiu";
                             } else if ("SkRunner".equals(clsName) || "SkFarm".equals(clsName)) {
@@ -2859,12 +2875,15 @@ public class AvatarModAdapter {
                             } else if ("LichRunner".equals(clsName)) {
                                 friendly = "Auto Theo Lịch";
                                 type = "lich";
-                            } else if ("NvMenu".equals(clsName)) {
+                            } else if ("NvMenu".equals(clsName) || "gT".equals(clsName)) {
                                 friendly = "Auto Nhiệm Vụ";
                                 type = "mission";
-                            } else if ("ak".equals(clsName)) {
-                                friendly = "Auto Nâng Cấp";
+                            } else if ("ak".equals(clsName) || "gr".equals(clsName) || "eZ".equals(clsName)) {
+                                friendly = "Auto Nâng Cấp / Luyện Đá";
                                 type = "upgrade";
+                            } else if ("fY".equals(clsName)) {
+                                friendly = "Auto Ngồi Tù";
+                                type = "prison";
                             } else {
                                 friendly = "Auto (" + clsName + ")";
                                 type = "auto";
