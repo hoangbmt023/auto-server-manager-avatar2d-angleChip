@@ -2388,21 +2388,55 @@ public class AvatarModAdapter {
             setStaticField(aQCls, schema.upDaysField, long.class, (long) upDays);
             setStaticField(aQCls, schema.startedTsField, long.class, System.currentTimeMillis());
 
-            // Lưu RMS thông qua schema
-            try {
-                Class<?> saveCls = cl.loadClass(schema.upThueSaveRmsClass);
-                Method saveMethod = saveCls.getMethod(schema.upThueSaveRmsMethod);
-                saveMethod.invoke(null);
-            } catch (Throwable ignored) {
+            // Lưu RMS thông qua schema nếu có
+            if (schema.upThueSaveRmsClass != null && !schema.upThueSaveRmsClass.isEmpty()) {
+                try {
+                    Class<?> saveCls = cl.loadClass(schema.upThueSaveRmsClass);
+                    Method saveMethod = saveCls.getMethod(schema.upThueSaveRmsMethod);
+                    saveMethod.invoke(null);
+                } catch (Throwable ignored) {
+                }
             }
 
-            // Cập nhật UI thông qua schema
+            // Gọi các hàm lưu RMS trên aQ nếu có
+            for (String mName : new String[] { "save", "do", "if", "for", "byte", "try", "new" }) {
+                try {
+                    Method m = aQCls.getDeclaredMethod(mName);
+                    if (java.lang.reflect.Modifier.isStatic(m.getModifiers()) && m.getParameterCount() == 0
+                            && m.getReturnType().equals(void.class)) {
+                        m.setAccessible(true);
+                        m.invoke(null);
+                    }
+                } catch (Throwable ignored) {
+                }
+            }
+
+            // Cập nhật UI chuỗi ngày tháng thông qua schema
             try {
-                Method aQDoMethod = aQCls.getMethod(schema.upThueSingletonMethod);
-                Object aQInstance = aQDoMethod.invoke(null);
-                if (aQInstance != null) {
-                    Method fmtMethod = aQCls.getMethod(schema.upThueFormatDateMethod);
-                    fmtMethod.invoke(aQInstance);
+                Object aQInstance = null;
+                if (schema.upThueSingletonMethod != null && !schema.upThueSingletonMethod.isEmpty()) {
+                    try {
+                        Method aQDoMethod = aQCls.getMethod(schema.upThueSingletonMethod);
+                        aQInstance = aQDoMethod.invoke(null);
+                    } catch (Throwable ignored) {
+                    }
+                }
+                if (aQInstance == null) {
+                    for (Field f : aQCls.getDeclaredFields()) {
+                        if (java.lang.reflect.Modifier.isStatic(f.getModifiers()) && f.getType().equals(aQCls)) {
+                            f.setAccessible(true);
+                            aQInstance = f.get(null);
+                            if (aQInstance != null)
+                                break;
+                        }
+                    }
+                }
+                if (aQInstance != null && schema.upThueFormatDateMethod != null) {
+                    try {
+                        Method fmtMethod = aQCls.getMethod(schema.upThueFormatDateMethod);
+                        fmtMethod.invoke(aQInstance);
+                    } catch (Throwable ignored) {
+                    }
                 }
             } catch (Throwable ignored) {
             }
@@ -2430,20 +2464,58 @@ public class AvatarModAdapter {
             setStaticField(aQCls, schema.upDaysField, long.class, 0L);
             setStaticField(aQCls, schema.startedTsField, long.class, System.currentTimeMillis());
 
-            try {
-                Class<?> saveCls = cl.loadClass(schema.upThueSaveRmsClass);
-                Method resetMethod = saveCls.getMethod(schema.upThueResetRmsMethod);
-                resetMethod.invoke(null);
-            } catch (Throwable ignored) {
+            if (schema.upThueSaveRmsClass != null && !schema.upThueSaveRmsClass.isEmpty()) {
+                try {
+                    Class<?> saveCls = cl.loadClass(schema.upThueSaveRmsClass);
+                    Method resetMethod = saveCls.getMethod(schema.upThueResetRmsMethod);
+                    resetMethod.invoke(null);
+                } catch (Throwable ignored) {
+                }
+            }
+
+            // Gọi các hàm lưu RMS trên aQ nếu có
+            for (String mName : new String[] { "save", "do", "if", "for", "byte", "try", "new" }) {
+                try {
+                    Method m = aQCls.getDeclaredMethod(mName);
+                    if (java.lang.reflect.Modifier.isStatic(m.getModifiers()) && m.getParameterCount() == 0
+                            && m.getReturnType().equals(void.class)) {
+                        m.setAccessible(true);
+                        m.invoke(null);
+                    }
+                } catch (Throwable ignored) {
+                }
             }
 
             try {
-                Method aQDoMethod = aQCls.getMethod(schema.upThueSingletonMethod);
-                Object aQInstance = aQDoMethod.invoke(null);
+                Object aQInstance = null;
+                if (schema.upThueSingletonMethod != null && !schema.upThueSingletonMethod.isEmpty()) {
+                    try {
+                        Method aQDoMethod = aQCls.getMethod(schema.upThueSingletonMethod);
+                        aQInstance = aQDoMethod.invoke(null);
+                    } catch (Throwable ignored) {
+                    }
+                }
+                if (aQInstance == null) {
+                    for (Field f : aQCls.getDeclaredFields()) {
+                        if (java.lang.reflect.Modifier.isStatic(f.getModifiers()) && f.getType().equals(aQCls)) {
+                            f.setAccessible(true);
+                            aQInstance = f.get(null);
+                            if (aQInstance != null)
+                                break;
+                        }
+                    }
+                }
                 if (aQInstance != null) {
-                    setField(aQInstance, schema.expiresAtStringField, "Vĩnh viễn", String.class);
-                    Method fmtMethod = aQCls.getMethod(schema.upThueFormatDateMethod);
-                    fmtMethod.invoke(aQInstance);
+                    if (schema.expiresAtStringField != null) {
+                        setField(aQInstance, schema.expiresAtStringField, "Vĩnh viễn", String.class);
+                    }
+                    if (schema.upThueFormatDateMethod != null) {
+                        try {
+                            Method fmtMethod = aQCls.getMethod(schema.upThueFormatDateMethod);
+                            fmtMethod.invoke(aQInstance);
+                        } catch (Throwable ignored) {
+                        }
+                    }
                 }
             } catch (Throwable ignored) {
             }

@@ -436,17 +436,17 @@ public class ModSchema {
 
         CHIP_MIX.upThueClassName = "aQ";
         CHIP_MIX.upThueSingletonMethod = "do";
-        CHIP_MIX.upThueFormatDateMethod = "try";
-        CHIP_MIX.targetCoinsField = "int";
-        CHIP_MIX.earnedCoinsField = "if";
-        CHIP_MIX.collectedHeartsField = "for";
+        CHIP_MIX.upThueFormatDateMethod = "do";
+        CHIP_MIX.targetCoinsField = "if";
+        CHIP_MIX.earnedCoinsField = "for";
+        CHIP_MIX.collectedHeartsField = "int";
         CHIP_MIX.upDaysField = "for";
-        CHIP_MIX.startedTsField = "int";
-        CHIP_MIX.startedAtStringField = "for";
-        CHIP_MIX.expiresAtStringField = "if";
-        CHIP_MIX.upThueSaveRmsClass = "cp";
-        CHIP_MIX.upThueSaveRmsMethod = "if";
-        CHIP_MIX.upThueResetRmsMethod = "for";
+        CHIP_MIX.startedTsField = "do";
+        CHIP_MIX.startedAtStringField = "if";
+        CHIP_MIX.expiresAtStringField = "for";
+        CHIP_MIX.upThueSaveRmsClass = null;
+        CHIP_MIX.upThueSaveRmsMethod = null;
+        CHIP_MIX.upThueResetRmsMethod = null;
 
         CHIP_MIX.diamondClassName = "dy";
         CHIP_MIX.diamondSingletonMethod = "do";
