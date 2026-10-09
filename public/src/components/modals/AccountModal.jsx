@@ -1,11 +1,11 @@
 /**
  * AccountModal Component (Presentation Layer / Modals)
- * Add and Edit Account Modal form with File Profile, Server and Proxy assignment.
+ * Porsche & Apple Precision Add/Edit Account Form with ModalBase & Vector Icons
  */
 const { useState: useAccModalState, useRef: useAccModalRef, useEffect: useAccModalEffect } = React;
 
 /**
- * Reusable CustomSelect dropdown component (CSS-based, overflow-safe, dark theme)
+ * Reusable CustomSelect dropdown component (CSS-based, overflow-safe, luxury glass theme)
  */
 function CustomSelect({
   value,
@@ -73,7 +73,7 @@ function CustomSelect({
           {selectedOption ? (
             <React.Fragment>
               {selectedOption.isExpired && (
-                <span className="select-badge-expired">⚠️ HẾT HẠN</span>
+                <span className="select-badge-expired">HẾT HẠN</span>
               )}
               <span className="select-value-text">{selectedOption.label}</span>
               {selectedOption.sub && (
@@ -84,7 +84,9 @@ function CustomSelect({
             <span className="select-placeholder">{placeholder}</span>
           )}
         </div>
-        <div className="custom-select-arrow">▾</div>
+        <div className="custom-select-arrow">
+          <window.Icon name="chevronDown" size={13} color="var(--text-tertiary)" />
+        </div>
       </div>
 
       {isOpen && (
@@ -103,7 +105,7 @@ function CustomSelect({
               <div className="select-item-main">
                 <div className="select-item-title-box">
                   {opt.isExpired && (
-                    <span className="select-badge-expired">⚠️ HẾT HẠN</span>
+                    <span className="select-badge-expired">HẾT HẠN</span>
                   )}
                   <span className="select-item-title">{opt.label}</span>
                 </div>
@@ -154,8 +156,8 @@ window.AccountModal = function AccountModal({
   const proxyOptions = [
     {
       value: '',
-      label: 'Không dùng Proxy (IP Server)',
-      sub: 'Sử dụng trực tiếp IP VPS/Hosting'
+      label: 'Không dùng Proxy (Direct IP)',
+      sub: 'Sử dụng trực tiếp IP Server VPS'
     },
     ...proxies.map(p => ({
       value: p.id,
@@ -197,6 +199,7 @@ window.AccountModal = function AccountModal({
     try {
       const data = await window.ApiClient.saveAccount(payload);
       if (data.success) {
+        notifyAlert(data.message || (isEditing ? 'Đã cập nhật thông tin tài khoản thành công!' : 'Đã thêm tài khoản mới thành công!'), 'Thành Công', 'success');
         onSaved(fileId);
       } else {
         notifyAlert(data.message || 'Lỗi lưu tài khoản', 'Lỗi Lưu Tài Khoản', 'error');
@@ -207,102 +210,122 @@ window.AccountModal = function AccountModal({
   };
 
   return (
-    <div className="modal-overlay">
-      <div className="modal-card modal-card-md">
-        <div className="modal-header">
-          <h3>{isEditing ? `✏️ Chỉnh Sửa Tài Khoản: ${account.username}` : '➕ Thêm Tài Khoản Avatar Mới'}</h3>
-          <button className="btn-close" onClick={onClose}>&times;</button>
+    <window.ModalBase
+      title={isEditing ? `Chỉnh Sửa: ${account.username}` : 'Thêm Tài Khoản Mới'}
+      subtitle="Gán File hồ sơ, Server và Proxy mạng"
+      icon={isEditing ? 'edit' : 'plus'}
+      iconColor="var(--apple-blue)"
+      size="md"
+      onClose={onClose}
+      footer={
+        <>
+          <button type="button" className="btn btn-secondary" onClick={onClose}>Hủy Bỏ</button>
+          <button type="button" className="btn btn-primary" onClick={handleSubmit}>
+            <window.Icon name="check" size={14} /> Lưu Tài Khoản
+          </button>
+        </>
+      }
+    >
+      <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '18px' }}>
+        {/* Expired Proxy Warning */}
+        {(() => {
+          const currentSelectedProxy = proxies.find(p => p.id === proxyId);
+          if (!currentSelectedProxy || !currentSelectedProxy.isExpired) return null;
+          return (
+            <div className="alert-banner alert-banner-danger" style={{ padding: '10px 14px' }}>
+              <window.Icon name="shield" size={18} color="var(--apple-red)" />
+              <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>
+                <strong style={{ color: 'var(--apple-red)' }}>Proxy đã hết hạn:</strong> Proxy <b>{currentSelectedProxy.name}</b> đã bị lỗi xác thực. Vui lòng đổi sang proxy khác.
+              </div>
+            </div>
+          );
+        })()}
+
+        <div className="form-group">
+          <label style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+            <window.Icon name="folder" size={14} color="var(--apple-blue)" />
+            <span>Thuộc File / Profile (Tối đa 6 nick):</span>
+          </label>
+          <CustomSelect
+            value={fileId}
+            onChange={setFileId}
+            options={fileOptions}
+            placeholder="Chọn File / Profile..."
+          />
         </div>
-        <form onSubmit={handleSubmit}>
-          <div className="modal-body">
-            {/* Expired Proxy Warning at top below header / above File Profile */}
-            {(() => {
-              const currentSelectedProxy = proxies.find(p => p.id === proxyId);
-              if (!currentSelectedProxy || !currentSelectedProxy.isExpired) return null;
-              return (
-                <div className="proxy-expired-alert account-modal-alert">
-                  <span className="alert-icon">⚠️</span>
-                  <div className="alert-text">
-                    <strong>CẢNH BÁO: PROXY CỦA TÀI KHOẢN NÀY ĐÃ HẾT HẠN!</strong>
-                    Proxy <b>{currentSelectedProxy.name}</b> ({currentSelectedProxy.host}:{currentSelectedProxy.port}) đã bị đánh dấu hết hạn / lỗi xác thực. Vui lòng chuyển sang proxy khác hoặc chọn <em>"Không dùng Proxy"</em>.
-                  </div>
-                </div>
-              );
-            })()}
 
-            <div className="form-group">
-              <label>📁 Thuộc File / Profile (Mỗi file tối đa 6 nick):</label>
-              <CustomSelect
-                value={fileId}
-                onChange={setFileId}
-                options={fileOptions}
-                placeholder="Chọn File / Profile..."
-              />
-            </div>
-
-            <div className="form-row">
-              <div className="form-group">
-                <label>Tên tài khoản (Username):</label>
-                <input
-                  type="text"
-                  className="form-control"
-                  placeholder="Nhập nick avatar"
-                  value={username}
-                  onChange={e => setUsername(e.target.value)}
-                  required
-                />
-              </div>
-              <div className="form-group">
-                <label>Mật khẩu (Password):</label>
-                <input
-                  type="password"
-                  className="form-control"
-                  placeholder={isEditing ? '(Giữ nguyên nếu không đổi)' : 'Nhập mật khẩu'}
-                  value={password}
-                  onChange={e => setPassword(e.target.value)}
-                />
-              </div>
-            </div>
-
-            <div className="form-row">
-              <div className="form-group">
-                <label title="Server Game (Tối đa 3 nick/server)">🌐 Server Game (Tối đa 3 nick/server):</label>
-                <CustomSelect
-                  value={serverId}
-                  onChange={setServerId}
-                  options={serverOptions}
-                  placeholder="Chọn Server..."
-                />
-              </div>
-
-              <div className="form-group">
-                <label title="Gán Proxy Kết Nối (Tối đa 6 online/proxy)">🔒 Gán Proxy Kết Nối (Tối đa 6 online/proxy):</label>
-                <CustomSelect
-                  value={proxyId}
-                  onChange={setProxyId}
-                  options={proxyOptions}
-                  placeholder="Không dùng Proxy (IP Server)"
-                />
-              </div>
-            </div>
-
-            <div className="form-group">
-              <label>Ghi chú:</label>
-              <input
-                type="text"
-                className="form-control"
-                placeholder="VD: Nick câu cá farm chính"
-                value={note}
-                onChange={e => setNote(e.target.value)}
-              />
-            </div>
+        <div className="form-row">
+          <div className="form-group">
+            <label style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+              <window.Icon name="user" size={14} color="var(--apple-blue)" />
+              <span>Tên tài khoản (Username):</span>
+            </label>
+            <input
+              type="text"
+              className="form-control"
+              placeholder="Nhập nick avatar"
+              value={username}
+              onChange={e => setUsername(e.target.value)}
+              required
+            />
           </div>
-          <div className="modal-footer">
-            <button type="button" className="btn btn-secondary" onClick={onClose}>Hủy Bỏ</button>
-            <button type="submit" className="btn btn-primary">Lưu Tài Khoản</button>
+          <div className="form-group">
+            <label style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+              <window.Icon name="shield" size={14} color="var(--apple-blue)" />
+              <span>Mật khẩu (Password):</span>
+            </label>
+            <input
+              type="password"
+              className="form-control"
+              placeholder={isEditing ? '(Giữ nguyên nếu không đổi)' : 'Nhập mật khẩu'}
+              value={password}
+              onChange={e => setPassword(e.target.value)}
+            />
           </div>
-        </form>
-      </div>
-    </div>
+        </div>
+
+        <div className="form-row">
+          <div className="form-group">
+            <label style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+              <window.Icon name="server" size={14} color="var(--apple-blue)" />
+              <span>Server Game:</span>
+            </label>
+            <CustomSelect
+              value={serverId}
+              onChange={setServerId}
+              options={serverOptions}
+              placeholder="Chọn Server..."
+            />
+          </div>
+
+          <div className="form-group">
+            <label style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+              <window.Icon name="globe" size={14} color="var(--apple-blue)" />
+              <span>Gán Proxy Kết Nối:</span>
+            </label>
+            <CustomSelect
+              value={proxyId}
+              onChange={setProxyId}
+              options={proxyOptions}
+              placeholder="Không dùng Proxy (Direct IP)"
+            />
+          </div>
+        </div>
+
+        <div className="form-group">
+          <label style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+            <window.Icon name="edit" size={14} color="var(--apple-blue)" />
+            <span>Ghi chú:</span>
+          </label>
+          <input
+            type="text"
+            className="form-control"
+            placeholder="VD: Nick câu cá farm chính"
+            value={note}
+            onChange={e => setNote(e.target.value)}
+          />
+        </div>
+      </form>
+    </window.ModalBase>
   );
 };

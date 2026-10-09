@@ -326,9 +326,19 @@ class SingleBotProcess extends EventEmitter {
         try {
           const jsonPart = line.substring(line.indexOf('[AUTO_STATUS]:') + 14).trim();
           const parsed = JSON.parse(jsonPart);
+
+          let primaryType = parsed.autoType;
+          let subTask = parsed.subTask ? parsed.autoType : null;
+          if (parsed.parentAutoType) {
+            primaryType = parsed.parentAutoType;
+            subTask = parsed.autoType;
+          }
+
           this.autoState = {
             ...this.autoState,
-            ...parsed
+            ...parsed,
+            autoType: primaryType,
+            subTask: subTask
           };
           this.emit('auto-status', { accountId: this.account.id, autoState: this.autoState });
 
@@ -338,6 +348,7 @@ class SingleBotProcess extends EventEmitter {
               this.autoState = {
                 isRunning: false,
                 autoType: null,
+                subTask: null,
                 status: 'idle',
                 message: ''
               };
@@ -348,10 +359,12 @@ class SingleBotProcess extends EventEmitter {
         } catch (e) {}
       }
 
-      if (line.includes('Đã chăm sóc xong') || line.includes('Đã xong việc') || line.includes('chăm sóc xong') || line.includes('Nông trại bạn đã được chăm sóc') || line.includes('AUTO HOÀN THÀNH')) {
+      if ((line.includes('Đã chăm sóc xong') || line.includes('Đã xong việc') || line.includes('Nông trại bạn đã được chăm sóc')) &&
+          (!this.autoState || this.autoState.autoType === 'farm')) {
         this.autoState = {
           isRunning: false,
           autoType: 'farm',
+          subTask: null,
           status: 'finished',
           finished: true,
           message: 'Đã farm xong!'
@@ -363,6 +376,7 @@ class SingleBotProcess extends EventEmitter {
           this.autoState = {
             isRunning: false,
             autoType: null,
+            subTask: null,
             status: 'idle',
             message: ''
           };
@@ -401,9 +415,13 @@ class SingleBotProcess extends EventEmitter {
           if (parsed.isAutoRunning !== undefined) {
             if (parsed.isAutoRunning && parsed.autoType) {
               let primaryType = parsed.autoType;
-              // Nếu đang chạy auto kim cương / câu cá mà tạm về farm, giữ nguyên primary autoType
-              if (parsed.autoType === 'farm' && this.autoState && (this.autoState.autoType === 'diamond' || this.autoState.autoType === 'fish' || this.autoState.autoType === 'kc')) {
+              let subTask = null;
+
+              // Nếu đang chạy auto kim cương / câu cá mà tạm về farm hoặc bán đá / baby, giữ nguyên primary autoType
+              if ((parsed.autoType === 'farm' || parsed.autoType === 'sell_ore' || parsed.autoType === 'banda' || parsed.autoType === 'stone' || parsed.autoType === 'baby') &&
+                  this.autoState && (this.autoState.autoType === 'diamond' || this.autoState.autoType === 'fish' || this.autoState.autoType === 'kc')) {
                 primaryType = this.autoState.autoType;
+                subTask = parsed.autoType;
               }
 
               let friendly = 'Auto';
@@ -411,14 +429,22 @@ class SingleBotProcess extends EventEmitter {
               else if (primaryType === 'diamond' || primaryType === 'kc') friendly = 'Auto Kim Cương';
               else if (primaryType === 'farm') friendly = 'Auto Farm';
               else if (primaryType === 'sell_ore' || primaryType === 'banda') friendly = 'Auto Bán Đá';
+              else if (primaryType === 'tai_xiu') friendly = 'Auto Tài Xỉu';
+              else if (primaryType === 'baby') friendly = 'Auto Chăm Em Bé';
 
-              const statusMsg = (parsed.autoType === 'farm' && primaryType !== 'farm')
-                ? `Đang về chăm farm (từ ${friendly})...`
-                : `Đang chạy ${friendly}...`;
+              let statusMsg = `Đang chạy ${friendly}...`;
+              if (subTask === 'farm') {
+                statusMsg = `Đang về chăm farm (từ ${friendly})...`;
+              } else if (subTask === 'sell_ore' || subTask === 'banda' || subTask === 'stone') {
+                statusMsg = `Đang bán đá (từ ${friendly})...`;
+              } else if (subTask === 'baby') {
+                statusMsg = `Đang chăm em bé (từ ${friendly})...`;
+              }
 
               this.autoState = {
                 isRunning: true,
                 autoType: primaryType,
+                subTask: subTask,
                 status: 'running',
                 message: statusMsg
               };
@@ -427,6 +453,7 @@ class SingleBotProcess extends EventEmitter {
               this.autoState = {
                 isRunning: false,
                 autoType: null,
+                subTask: null,
                 status: 'idle',
                 message: ''
               };
@@ -652,8 +679,10 @@ class SingleBotProcess extends EventEmitter {
     if (this.child && this.child.stdin && !this.child.stdin.destroyed) {
       try {
         if (action === 'start') {
-          // Nếu đang có tiến trình auto khác chạy, gửi lệnh dừng trước để chuyển đổi tuần tự
-          if (this.autoState && this.autoState.isRunning) {
+          // Nếu đang có tiến trình auto khác chạy, gửi lệnh dừng trước để chuyển đổi tuần tự (trừ khi chuyển sang bán đá từ KC/Fish)
+          const isDiamondOrFishRunning = this.autoState && this.autoState.isRunning && (this.autoState.autoType === 'diamond' || this.autoState.autoType === 'kc' || this.autoState.autoType === 'fish');
+          const isTargetSellOre = (autoType === 'sell_ore' || autoType === 'banda' || autoType === 'stone');
+          if (this.autoState && this.autoState.isRunning && !(isDiamondOrFishRunning && isTargetSellOre)) {
             this.child.stdin.write('STOP_AUTO\n');
           }
 

@@ -1,32 +1,40 @@
-/* ========================================================
-   CUSTOM DIALOG MODAL (Alert & Confirm Replacements)
-   ======================================================== */
+/* ==========================================================================
+   🍎 OPENDESIGN / APPLE LIQUID GLASS - DIALOG & CONFIRMATION SHEETS
+   Theme-Aware (Dark & Light) Glassmorphic Dialog Windows
+   ========================================================================== */
 
 .dialog-overlay {
   position: fixed;
   inset: 0;
-  background: rgba(0, 0, 0, 0.75);
-  backdrop-filter: blur(8px);
-  -webkit-backdrop-filter: blur(8px);
+  background: rgba(0, 0, 0, 0.72);
+  backdrop-filter: var(--blur-deep);
+  -webkit-backdrop-filter: var(--blur-deep);
   display: flex;
   align-items: center;
   justify-content: center;
-  z-index: 10000;
-  padding: 16px;
-  animation: dialogFadeIn 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  z-index: 10020;
+  padding: 20px;
+  animation: appleFadeIn 0.18s var(--ease-apple);
+}
+
+[data-theme="light"] .dialog-overlay {
+  background: rgba(15, 23, 42, 0.4);
 }
 
 .dialog-card {
-  background: #0f172a;
-  border: 1px solid rgba(255, 255, 255, 0.12);
-  border-radius: 16px;
+  background: var(--glass-card);
+  backdrop-filter: var(--blur-deep);
+  -webkit-backdrop-filter: var(--blur-deep);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-lg);
   max-width: 440px;
   width: 100%;
-  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.7), 0 0 0 1px rgba(255, 255, 255, 0.05);
+  box-shadow: var(--shadow-glass);
   overflow: hidden;
-  animation: dialogScaleUp 0.22s cubic-bezier(0.16, 1, 0.3, 1);
+  animation: appleScaleUp 0.22s var(--ease-apple);
   display: flex;
   flex-direction: column;
+  color: var(--text-primary);
 }
 
 .dialog-header {
@@ -38,56 +46,31 @@
 }
 
 .dialog-icon-badge {
-  width: 56px;
-  height: 56px;
+  width: 54px;
+  height: 54px;
   border-radius: 50%;
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 26px;
   margin-bottom: 14px;
-  box-shadow: 0 0 20px rgba(0, 0, 0, 0.4);
-}
-
-.dialog-icon-badge.error,
-.dialog-icon-badge.danger {
-  background: linear-gradient(135deg, rgba(239, 68, 68, 0.2), rgba(185, 28, 28, 0.3));
-  border: 1px solid rgba(239, 68, 68, 0.5);
-  color: #f87171;
-}
-
-.dialog-icon-badge.warning {
-  background: linear-gradient(135deg, rgba(245, 158, 11, 0.2), rgba(180, 83, 9, 0.3));
-  border: 1px solid rgba(245, 158, 11, 0.5);
-  color: #fbbf24;
-}
-
-.dialog-icon-badge.success {
-  background: linear-gradient(135deg, rgba(34, 197, 94, 0.2), rgba(21, 128, 61, 0.3));
-  border: 1px solid rgba(34, 197, 94, 0.5);
-  color: #4ade80;
-}
-
-.dialog-icon-badge.info {
-  background: linear-gradient(135deg, rgba(56, 189, 248, 0.2), rgba(14, 165, 233, 0.3));
-  border: 1px solid rgba(56, 189, 248, 0.5);
-  color: #38bdf8;
+  border: 1px solid var(--glass-border);
+  transition: var(--transition-fast);
 }
 
 .dialog-title {
   margin: 0;
-  font-size: 1.15rem;
-  font-weight: 700;
-  color: #f8fafc;
-  line-height: 1.35;
+  font-size: 1.1rem;
+  font-weight: 600;
+  color: var(--text-primary);
+  letter-spacing: -0.015em;
 }
 
 .dialog-body {
-  padding: 10px 24px 20px 24px;
+  padding: 10px 24px 22px 24px;
   text-align: center;
-  font-size: 0.92rem;
-  color: #cbd5e1;
-  line-height: 1.55;
+  font-size: 0.88rem;
+  color: var(--text-secondary);
+  line-height: 1.5;
   word-break: break-word;
 }
 
@@ -95,41 +78,16 @@
   display: flex;
   gap: 10px;
   padding: 14px 20px;
-  background: rgba(0, 0, 0, 0.25);
-  border-top: 1px solid rgba(255, 255, 255, 0.08);
+  background: var(--glass-panel-bg);
+  border-top: 1px solid var(--glass-border-subtle);
   justify-content: flex-end;
-}
-
-.dialog-actions .btn {
-  padding: 9px 18px;
-  font-size: 0.88rem;
-  font-weight: 600;
-  border-radius: 8px;
-  min-width: 100px;
-  cursor: pointer;
-  transition: all 0.15s ease;
 }
 
 .dialog-actions.single-action {
   justify-content: center;
 }
 
-.dialog-actions.single-action .btn {
-  width: 100%;
-}
-
-@keyframes dialogFadeIn {
-  from { opacity: 0; }
-  to { opacity: 1; }
-}
-
-@keyframes dialogScaleUp {
-  from {
-    opacity: 0;
-    transform: scale(0.92) translateY(8px);
-  }
-  to {
-    opacity: 1;
-    transform: scale(1) translateY(0);
-  }
+.dialog-actions .btn {
+  min-width: 100px;
+  justify-content: center;
 }

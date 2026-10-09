@@ -3,16 +3,86 @@ const net = require('net');
 /**
  * ProxyChecker (Infrastructure Layer)
  * Tests SOCKS5 and HTTP/HTTPS proxies using pure native Node.js net sockets.
+ * Features 3-attempt resilient retry check to prevent false-positive errors on temporary network hiccups.
  * Accurately detects Authentication Failures (Expired proxy credentials), Closed Ports, and Timeouts.
  */
 class ProxyChecker {
   /**
-   * Test a proxy connection and authentication.
+   * Resilient proxy check with multi-attempt retry (default: 3 attempts).
+   * If any attempt succeeds, returns success immediately without unnecessary delays.
+   * If an attempt fails due to temporary network glitch, waits briefly and retries.
+   *
    * @param {Object} proxy - { host, port, type, username, password }
-   * @param {number} timeoutMs - Timeout in milliseconds (default: 6000ms)
+   * @param {number} timeoutMs - Timeout per attempt in milliseconds (default: 3500ms)
+   * @param {number} maxRetries - Maximum number of check attempts (default: 3)
+   * @param {number} retryDelayMs - Delay between failed retries in milliseconds (default: 500ms)
+   * @returns {Promise<{ success: boolean, isExpired: boolean, latencyMs: number, message: string, attempts: number }>}
+   */
+  static async testProxy(proxy, timeoutMs = 3500, maxRetries = 3, retryDelayMs = 500) {
+    if (!proxy) {
+      return {
+        success: false,
+        isExpired: true,
+        latencyMs: 0,
+        message: 'Dữ liệu Proxy không tồn tại!',
+        attempts: 1
+      };
+    }
+
+    const host = (proxy.host || '').trim();
+    const port = parseInt(proxy.port, 10);
+    if (!host || !port || isNaN(port) || port < 1 || port > 65535) {
+      return {
+        success: false,
+        isExpired: false,
+        latencyMs: 0,
+        message: 'Địa chỉ Host hoặc Cổng Port không hợp lệ (1 - 65535)!',
+        attempts: 1
+      };
+    }
+
+    let lastResult = null;
+
+    for (let attempt = 1; attempt <= maxRetries; attempt++) {
+      lastResult = await this.testSingleAttempt(proxy, timeoutMs);
+
+      // Nếu thành công (Live / Hoạt động tốt) -> Trả về ngay lập tức
+      if (lastResult.success && !lastResult.isExpired) {
+        return {
+          ...lastResult,
+          attempts: attempt
+        };
+      }
+
+      // Nếu lỗi do sai cấu hình cơ bản (sai port, sai host), không cần retry lãng phí
+      if (lastResult.message && lastResult.message.includes('không hợp lệ')) {
+        return {
+          ...lastResult,
+          attempts: attempt
+        };
+      }
+
+      // Nếu còn lượt thử tiếp theo, nghỉ ngắn retryDelayMs rồi thử lại
+      if (attempt < maxRetries) {
+        await new Promise(resolve => setTimeout(resolve, retryDelayMs));
+      }
+    }
+
+    // Nếu cả 3 lần thử đều thất bại
+    return {
+      ...lastResult,
+      attempts: maxRetries,
+      message: `${lastResult.message || 'Lỗi kết nối proxy'} (Đã kiểm tra ${maxRetries} lần)`
+    };
+  }
+
+  /**
+   * Performs a single low-level socket handshake attempt to test SOCKS5 or HTTP proxy.
+   * @param {Object} proxy - { host, port, type, username, password }
+   * @param {number} timeoutMs - Timeout in milliseconds (default: 3500ms)
    * @returns {Promise<{ success: boolean, isExpired: boolean, latencyMs: number, message: string }>}
    */
-  static testProxy(proxy, timeoutMs = 6000) {
+  static testSingleAttempt(proxy, timeoutMs = 3500) {
     return new Promise((resolve) => {
       const startTime = Date.now();
       const type = (proxy.type || 'socks').toLowerCase();
@@ -62,9 +132,9 @@ class ProxyChecker {
         if (err.code === 'ECONNREFUSED') {
           isExpired = true;
           userMsg = 'Máy chủ Proxy từ chối kết nối (Port đóng hoặc gói proxy đã hết hạn)';
-        } else if (err.code === 'ETIMEDOUT' || err.code === 'EHOSTUNREACH') {
+        } else if (err.code === 'ETIMEDOUT' || err.code === 'EHOSTUNREACH' || err.code === 'ENOTFOUND') {
           isExpired = true;
-          userMsg = 'Không thể kết nối đến máy chủ Proxy (Host không phản hồi)';
+          userMsg = 'Không thể kết nối đến máy chủ Proxy (Host không phản hồi hoặc sai IP)';
         }
 
         finish({
@@ -220,6 +290,16 @@ class ProxyChecker {
         });
       }
     });
+  }
+
+  /**
+   * Helper to format a proxy URL or display string safely.
+   */
+  static formatProxyDisplay(proxy) {
+    if (!proxy) return '';
+    const type = (proxy.type || 'socks5').toUpperCase();
+    const auth = proxy.username ? `${proxy.username}:***@` : '';
+    return `${type}://${auth}${proxy.host}:${proxy.port}`;
   }
 }
 

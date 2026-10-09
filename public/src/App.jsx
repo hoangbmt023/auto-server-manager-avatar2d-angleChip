@@ -22,6 +22,16 @@ function App() {
   const [autoScroll, setAutoScroll] = useState(true);
   const [uptime, setUptime] = useState(0);
   const [availableJars, setAvailableJars] = useState(['avatar_fish_build40.jar']);
+  const [theme, setTheme] = useState(() => localStorage.getItem('app_theme') || 'dark');
+
+  useEffect(() => {
+    document.documentElement.setAttribute('data-theme', theme);
+    localStorage.setItem('app_theme', theme);
+  }, [theme]);
+
+  const toggleTheme = useCallback(() => {
+    setTheme(prev => (prev === 'dark' ? 'light' : 'dark'));
+  }, []);
 
   // Modals
   const [accountModal, setAccountModal] = useState({ open: false, editing: null });
@@ -92,7 +102,7 @@ function App() {
       const data = await window.ApiClient.getStatus();
       if (data.success) {
         setStatus(data);
-        if (data.activeFileId) setActiveFileId(data.activeFileId);
+        setActiveFileId(prev => (prev ? prev : (data.activeFileId || 'file_1')));
       }
     } catch (e) {}
   }, []);
@@ -102,7 +112,7 @@ function App() {
       const data = await window.ApiClient.getFiles();
       if (data.success) {
         setFiles(data.files || []);
-        if (data.activeFileId) setActiveFileId(data.activeFileId);
+        setActiveFileId(prev => (prev ? prev : (data.activeFileId || (data.files && data.files[0] ? data.files[0].id : 'file_1'))));
       }
     } catch (e) {}
   }, []);
@@ -431,18 +441,9 @@ function App() {
     });
   };
 
-  const handleSwitchFile = async (id) => {
-    try {
-      const data = await window.ApiClient.switchFile(id);
-      if (data.success) {
-        setActiveFileId(id);
-        fetchFiles();
-        fetchAccounts();
-        fetchStatus();
-      }
-    } catch (err) {
-      showAlert('Lỗi: ' + err.message, 'Lỗi Hệ Thống', 'error');
-    }
+  const handleSwitchFile = (id) => {
+    setActiveFileId(id);
+    window.ApiClient.switchFile(id).catch(() => {});
   };
 
   const handleDeleteFile = async (id, name) => {
@@ -450,6 +451,7 @@ function App() {
       try {
         const data = await window.ApiClient.deleteFile(id);
         if (data.success) {
+          showAlert(data.message || `Đã xóa File [${name}] thành công!`, 'Thành Công', 'success');
           fetchFiles();
           fetchAccounts();
           fetchStatus();
@@ -563,6 +565,9 @@ function App() {
       terminalRef={terminalRef}
       uptime={uptime}
       formatUptime={formatUptime}
+      theme={theme}
+      setTheme={setTheme}
+      toggleTheme={toggleTheme}
       runningHm={runningHm}
       runningDk={runningDk}
       runningTotal={runningTotal}

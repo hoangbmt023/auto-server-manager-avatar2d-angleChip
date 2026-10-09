@@ -2,7 +2,16 @@
 
 Hệ thống quản lý, điều khiển và giám sát đa tài khoản **Bot Avatar 2D (AngelChip Emulator & Mod)** chạy ngầm 24/7 trên môi trường Hosting **cPanel (Node.js)** hoặc VPS/Server (Windows / Linux).
 
-Ứng dụng được tái cấu trúc theo mô hình **Clean Architecture / DDD**, tích hợp bảo mật mã hóa **AES-256-CBC**, quản lý biến môi trường động (`.env`), cấu trúc thư mục chuẩn hóa và giao diện **Web Dashboard React** trực quan thời gian thực.
+Ứng dụng được thiết kế theo mô hình **Clean Architecture / DDD**, tích hợp bảo mật mã hóa **AES-256-CBC**, cơ chế quản lý biến môi trường động (`.env`), kiểm tra Proxy 3 lần dự phòng (`3-Attempt Retry`), trích xuất ảnh Avatar đồ họa kép sắc nét (**Dual-Canvas Differential Engine**) và giao diện **Web Dashboard React** trực quan thời gian thực.
+
+---
+
+## 📚 Tài Liệu Hướng Dẫn Chi Tiết (Documentation)
+
+| Tài liệu | Mô tả | Đường dẫn |
+| :--- | :--- | :--- |
+| 🚀 **Hướng Dẫn Cài Đặt cPanel** | Hướng dẫn từng bước triển khai trên cPanel Hosting qua Setup Node.js App | [CPANEL_DEPLOYMENT.md](docs/CPANEL_DEPLOYMENT.md) |
+| 🎨 **Hệ Thống Thiết Kế UI/UX** | Porsche Minimalist Liquid Glass UI (v3.0), Design Tokens & Iconography | [DESIGN.md](docs/DESIGN.md) |
 
 ---
 
@@ -10,7 +19,7 @@ Hệ thống quản lý, điều khiển và giám sát đa tài khoản **Bot A
 
 - 🤖 **Quản lý đa tài khoản (Multi-Account & Multi-Bot)**:
   - Treo đồng thời nhiều tài khoản Avatar với các bản Mod độc lập.
-  - Tự động phân luồng Server (Hoàn Mỹ / Diệu Kỳ) và kiểm soát giới hạn tài khoản an toàn (tối đa 4 acc/server/IP).
+  - Tự động phân luồng Server (Hoàn Mỹ / Diệu Kỳ) và kiểm soát giới hạn tài khoản an toàn (`ServerLimitRule`: tối đa 3 acc/server/IP).
   - Tự động phục hồi trạng thái treo bot khi khởi động lại server (`autoRestart` & `autoStart`).
 
 - 🎮 **Hỗ trợ đầy đủ các bản Mod & Tính năng Auto**:
@@ -20,19 +29,23 @@ Hệ thống quản lý, điều khiển và giám sát đa tài khoản **Bot A
   - 🪨 **Auto Bán Đá & Ngọc (Thợ Kim Hoàn)**: Tự động di chuyển bán KCX / NHB theo khu vực, thời gian cấu hình và quãng nghỉ.
   - 💰 **Cài Đặt Up Thuê**: Cấu hình mục tiêu xu cần up, số ngày up thuê, tự động dừng hoặc reset khi đạt mốc.
 
+- 🖼️ **Dual-Canvas Character Avatar Engine**:
+  - Tự động trích xuất đồ họa nhân vật thời gian thực từ game Avatar 2D.
+  - Xử lý nền trong suốt bằng thuật toán lọc màu vi sai (**Dual-Canvas Differential Keying**), loại bỏ viền màu tím/hồng, bảo toàn màu trắng `#FFFFFF` (mắt, cánh, trang phục) và màu đen `#000000` ở cả chế độ Sáng (Light Mode) và Tối (Dark Mode).
+
 - 🌐 **Web Dashboard Real-time (Live Terminal & SSE)**:
   - Xem trực tiếp nhật ký log game của từng bot theo thời gian thực qua Server-Sent Events (SSE).
   - Thống kê tài sản (Xu, Lượng, Lượng khóa), xu kiếm được, tim thu hoạch, thời gian online (Uptime), CPU & RAM.
-  - Tương thích hoàn hảo trên cả máy tính (Desktop) và điện thoại di động (Mobile Responsive).
+  - Thiết kế sang trọng theo phong cách Porsche & Apple Liquid Glass, hỗ trợ 100% Vector Icons và Responsive toàn diện.
+
+- 🔌 **Proxy Pool & 3-Attempt Resilient Checking**:
+  - Tích hợp công cụ kiểm tra Proxy 3 lần liên tiếp có độ trễ (`ProxyChecker.js`), tránh phán đoán sai khi mạng chập chờn.
+  - Hỗ trợ cả Proxy SOCKS5 và HTTP, gán riêng cho từng tài khoản hoặc từng tệp cấu hình bot.
 
 - 🛡️ **Bảo Mật & Quản Lý Môi Trường**:
   - Mã hóa mật khẩu tài khoản và mật khẩu bảng điều khiển bằng thuật toán **AES-256-CBC** trong [config.json](config.json).
   - Quản lý cấu hình nhạy cảm qua file môi trường `.env.development` và `.env.production`.
   - Phân quyền bảo vệ Web Dashboard bằng mã PIN/mật khẩu an toàn.
-
-- 🔌 **Quản Lý Danh Sách Proxy (Proxy Pool)**:
-  - Thêm, sửa, xóa, kiểm tra độ trễ (Ping Test) Proxy SOCKS5 / HTTP trực tiếp từ Dashboard.
-  - Gán Proxy riêng cho từng tài khoản hoặc từng tệp cấu hình bot.
 
 - ⚡ **Zero-Dependency Core & Portable JRE 17**:
   - Không cần cài đặt các thư viện npm nặng nề, sử dụng 100% Core API Node.js chuẩn.
@@ -52,6 +65,10 @@ test-cpanel-avatar/
 ├── package.json                # Scripts & thông tin dự án
 ├── server.js                   # Điểm khởi chạy chính (Server Entrypoint)
 ├── app.js                      # Wrapper khởi động dành riêng cho cPanel Setup Node.js App
+│
+├── docs/                       # Tài liệu hướng dẫn & thiết kế
+│   ├── CPANEL_DEPLOYMENT.md    # Hướng dẫn chi tiết triển khai lên cPanel Hosting
+│   └── DESIGN.md               # Đặc tả thiết kế giao diện Porsche & Apple Liquid Glass
 │
 ├── data/                       # Thư mục lưu trữ dữ liệu người dùng & bot
 │   ├── rms/                    # Lưu trữ RMS của từng tài khoản theo RMS Mode
@@ -73,6 +90,7 @@ test-cpanel-avatar/
 │   │   ├── logging/            # SseEventBus (Server-Sent Events)
 │   │   ├── persistence/        # ConfigRepository (Mã hóa & lưu trữ atomic)
 │   │   ├── process/            # JavaDetector, SingleBotProcess
+│   │   ├── network/            # ProxyChecker (3-Attempt Retry)
 │   │   ├── security/           # EncryptionService (AES-256-CBC)
 │   │   └── storage/            # RmsWriter (Đồng bộ tài khoản & cài đặt mod vào RMS)
 │   │
@@ -119,29 +137,16 @@ Mở trình duyệt tại: **`http://localhost:3001`** (hoặc port cấu hình 
 
 ---
 
-## 🌐 Hướng Dẫn Triển Khai Lên cPanel Hosting
+## 🌐 Triển Khai Lên cPanel Hosting
 
-1. **Chuẩn bị mã nguồn**:
-   - Nén toàn bộ thư mục dự án thành file `.zip` (trừ `node_modules` và thư mục `.git`).
-   - Đảm bảo trong thư mục `jars/emulator/` có file `AngelChipEmulator_V2Proxy.jar` và `jars/games/` có các file JAR mod game của bạn.
+Xem hướng dẫn chi tiết từng bước tại [docs/CPANEL_DEPLOYMENT.md](docs/CPANEL_DEPLOYMENT.md).
 
-2. **Tải lên cPanel**:
-   - Mở **File Manager** trong cPanel $\rightarrow$ Tải file `.zip` lên thư mục hosting (ví dụ: `/home/username/avatar-bot`) $\rightarrow$ Giải nén (Extract).
-
-3. **Tạo ứng dụng Node.js trong cPanel**:
-   - Vào mục **Setup Node.js App** (Cài đặt ứng dụng Node.js).
-   - Nhấn **Create Application**:
-     - **Node.js version**: Chọn bản `18.x`, `20.x` hoặc `22.x`.
-     - **Application mode**: `Production`.
-     - **Application root**: Nhập đường dẫn thư mục giải nén (ví dụ: `avatar-bot`).
-     - **Application URL**: Chọn tên miền / subdomain của bạn.
-     - **Application startup file**: Nhập `app.js`.
-   - Nhấn **Create** rồi nhấn **Start Application**.
-
-4. **Kích hoạt Portable Java (nếu hosting chưa có Java)**:
-   - Truy cập vào **Application URL** của bạn.
-   - Nhấn nút **`⚡ Tự động cài Portable Java ngay`** để hệ thống tự tải OpenJDK 17 Linux x64 về hosting trong 1-2 phút.
-   - Sau khi hoàn tất, nhấn **Bắt đầu Bot** để treo các tài khoản 24/7.
+Tóm tắt các bước:
+1. Nén thư mục dự án thành file `.zip` (trừ `node_modules`, `config.json`, `.git`).
+2. Tải lên cPanel qua **File Manager** và giải nén.
+3. Vào **Setup Node.js App** $\rightarrow$ Tạo ứng dụng mới với Startup file là `app.js`.
+4. Mở URL Web Dashboard $\rightarrow$ Nhấn **`⚡ Tự động tải & cài đặt Portable Java 17`** (nếu máy chủ chưa có Java).
+5. Thêm tài khoản và bắt đầu treo 24/7!
 
 ---
 

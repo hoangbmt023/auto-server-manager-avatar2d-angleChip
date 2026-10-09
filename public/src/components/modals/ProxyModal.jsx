@@ -1,7 +1,165 @@
 /**
- * ProxyModal Component (Presentation Layer)
- * Box-style Proxy Manager: List view with dedicated popup/box form for adding & editing proxies.
- * Includes Live/Expired Health Check, Expiration Flags, and Status Filtering.
+ * ProxyModal & ProxyFormModal Component (Presentation Layer / Modals)
+ * Porsche & Apple Minimalist Liquid Glass Proxy Manager
+ * Realtime Health Check, Expiration Flags, and Status Filtering.
+ * Main List view with dedicated standalone popup box modal for Add / Edit.
+ */
+const { useState: useProxyModalState, useEffect: useProxyModalEffect } = React;
+
+/**
+ * Standalone popup box modal for Adding / Editing a Proxy
+ */
+function ProxyFormModal({
+  proxy,
+  onSaveProxy,
+  onClose,
+  onSaved
+}) {
+  const isEditing = Boolean(proxy);
+  const [name, setName] = useProxyModalState(proxy?.name || '');
+  const [type, setType] = useProxyModalState(proxy?.type || 'socks');
+  const [host, setHost] = useProxyModalState(proxy?.host || '');
+  const [port, setPort] = useProxyModalState(proxy?.port ? String(proxy.port) : '');
+  const [username, setUsername] = useProxyModalState(proxy?.username || '');
+  const [password, setPassword] = useProxyModalState(proxy?.password || '');
+  const [error, setError] = useProxyModalState('');
+  const [loading, setLoading] = useProxyModalState(false);
+
+  const handleSubmit = async (e) => {
+    if (e) e.preventDefault();
+    if (!host.trim()) {
+      setError('Vui lòng nhập Host / IP Proxy!');
+      return;
+    }
+    const pNum = parseInt(port, 10);
+    if (!pNum || isNaN(pNum) || pNum < 1 || pNum > 65535) {
+      setError('Cổng Port không hợp lệ (1 - 65535)!');
+      return;
+    }
+
+    setLoading(true);
+    setError('');
+    try {
+      await onSaveProxy({
+        id: proxy ? proxy.id : undefined,
+        name: name.trim() || `${type.toUpperCase()} (${host.trim()}:${pNum})`,
+        type,
+        host: host.trim(),
+        port: pNum,
+        username: username.trim(),
+        password: password.trim()
+      });
+      if (onSaved) onSaved();
+      if (onClose) onClose();
+    } catch (err) {
+      setError(err.message || 'Lỗi khi lưu proxy!');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <window.ModalBase
+      title={isEditing ? `Sửa Proxy: ${proxy.name}` : 'Thêm Proxy Mới'}
+      subtitle="Cấu hình IP, Port, giao thức SOCKS5/HTTP và tài khoản"
+      icon="globe"
+      iconColor="var(--apple-blue)"
+      size="md"
+      zIndex={10010}
+      onClose={onClose}
+      footer={
+        <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px', width: '100%' }}>
+          <button type="button" className="btn btn-secondary" onClick={onClose}>
+            Hủy Bỏ
+          </button>
+          <button type="button" className="btn btn-primary" onClick={handleSubmit} disabled={loading} style={{ gap: '6px' }}>
+            <window.Icon name="check" size={14} />
+            {loading ? 'Đang lưu...' : (isEditing ? 'Cập Nhật Proxy' : 'Lưu Proxy')}
+          </button>
+        </div>
+      }
+    >
+      {error && <div className="alert alert-danger" style={{ marginBottom: '14px' }}>{error}</div>}
+
+      <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+        <div className="form-group">
+          <label>Tên gợi nhớ Proxy:</label>
+          <input
+            type="text"
+            className="form-control"
+            placeholder="VD: Proxy SOCKS5 VN 1, Proxy Xoay..."
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            autoFocus
+          />
+        </div>
+
+        <div className="form-row">
+          <div className="form-group">
+            <label>Giao thức (Type):</label>
+            <select className="form-control" value={type} onChange={(e) => setType(e.target.value)}>
+              <option value="socks">SOCKS5 / SOCKS4</option>
+              <option value="http">HTTP / HTTPS</option>
+            </select>
+          </div>
+
+          <div className="form-group">
+            <label>Cổng Port <span style={{ color: 'var(--apple-red)' }}>*</span>:</label>
+            <input
+              type="number"
+              className="form-control"
+              placeholder="VD: 1080, 52686"
+              value={port}
+              onChange={(e) => setPort(e.target.value)}
+              min="1"
+              max="65535"
+              required
+            />
+          </div>
+        </div>
+
+        <div className="form-group">
+          <label>Host / IP <span style={{ color: 'var(--apple-red)' }}>*</span>:</label>
+          <input
+            type="text"
+            className="form-control"
+            placeholder="VD: 171.241.76.244 hoặc vn.proxy.com"
+            value={host}
+            onChange={(e) => setHost(e.target.value)}
+            required
+          />
+        </div>
+
+        <div className="form-row">
+          <div className="form-group">
+            <label>Tài khoản (Username):</label>
+            <input
+              type="text"
+              className="form-control"
+              placeholder="Bỏ trống nếu không có"
+              value={username}
+              onChange={(e) => setUsername(e.target.value)}
+            />
+          </div>
+
+          <div className="form-group">
+            <label>Mật khẩu (Password):</label>
+            <input
+              type="password"
+              className="form-control"
+              placeholder="Bỏ trống nếu không có"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+            />
+          </div>
+        </div>
+      </form>
+    </window.ModalBase>
+  );
+}
+
+/**
+ * Main Proxy List Manager Modal
  */
 window.ProxyModal = function ProxyModal({
   onClose,
@@ -11,24 +169,15 @@ window.ProxyModal = function ProxyModal({
   initialFilter = 'all',
   onRefreshProxies
 }) {
-  const [viewMode, setViewMode] = React.useState('list'); // 'list' | 'form'
-  const [filter, setFilter] = React.useState(initialFilter || 'all'); // 'all' | 'active' | 'expired'
-  const [editingProxy, setEditingProxy] = React.useState(null);
+  const [filter, setFilter] = useProxyModalState(initialFilter || 'all'); // 'all' | 'active' | 'expired'
+  const [editingProxy, setEditingProxy] = useProxyModalState(null);
+  const [showFormModal, setShowFormModal] = useProxyModalState(false);
 
-  const [name, setName] = React.useState('');
-  const [type, setType] = React.useState('socks');
-  const [host, setHost] = React.useState('');
-  const [port, setPort] = React.useState('');
-  const [username, setUsername] = React.useState('');
-  const [password, setPassword] = React.useState('');
-  const [error, setError] = React.useState('');
-  const [loading, setLoading] = React.useState(false);
+  const [testingId, setTestingId] = useProxyModalState(null);
+  const [testingAll, setTestingAll] = useProxyModalState(false);
+  const [testNotice, setTestNotice] = useProxyModalState(null); // { type: 'success'|'error'|'info', text: '' }
 
-  const [testingId, setTestingId] = React.useState(null);
-  const [testingAll, setTestingAll] = React.useState(false);
-  const [testNotice, setTestNotice] = React.useState(null); // { type: 'success'|'error', text: '' }
-
-  React.useEffect(() => {
+  useProxyModalEffect(() => {
     if (initialFilter) {
       setFilter(initialFilter);
     }
@@ -45,64 +194,12 @@ window.ProxyModal = function ProxyModal({
 
   const openCreateForm = () => {
     setEditingProxy(null);
-    setName('');
-    setType('socks');
-    setHost('');
-    setPort('');
-    setUsername('');
-    setPassword('');
-    setError('');
-    setViewMode('form');
+    setShowFormModal(true);
   };
 
   const openEditForm = (p) => {
     setEditingProxy(p);
-    setName(p.name || '');
-    setType(p.type || 'socks');
-    setHost(p.host || '');
-    setPort(p.port ? String(p.port) : '');
-    setUsername(p.username || '');
-    setPassword(p.password || '');
-    setError('');
-    setViewMode('form');
-  };
-
-  const backToList = () => {
-    setEditingProxy(null);
-    setError('');
-    setViewMode('list');
-  };
-
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    if (!host.trim()) {
-      setError('Vui lòng nhập Host / IP Proxy!');
-      return;
-    }
-    const pNum = parseInt(port, 10);
-    if (!pNum || isNaN(pNum) || pNum < 1 || pNum > 65535) {
-      setError('Cổng Port không hợp lệ (1 - 65535)!');
-      return;
-    }
-
-    setLoading(true);
-    setError('');
-    try {
-      await onSaveProxy({
-        id: editingProxy ? editingProxy.id : undefined,
-        name: name.trim() || `${type.toUpperCase()} (${host.trim()}:${pNum})`,
-        type,
-        host: host.trim(),
-        port: pNum,
-        username: username.trim(),
-        password: password.trim()
-      });
-      backToList();
-    } catch (err) {
-      setError(err.message || 'Lỗi khi lưu proxy!');
-    } finally {
-      setLoading(false);
-    }
+    setShowFormModal(true);
   };
 
   const handleDelete = async (id, proxyName) => {
@@ -133,17 +230,17 @@ window.ProxyModal = function ProxyModal({
       if (res.success) {
         setTestNotice({
           type: 'success',
-          text: `🟢 Proxy [${pName}]: ${res.message || 'Hoạt động tốt'}`
+          text: `Proxy [${pName}]: ${res.message || 'Hoạt động tốt'}`
         });
       } else {
         setTestNotice({
           type: 'error',
-          text: `🔴 Proxy [${pName}]: ${res.message || 'Không thể kết nối / Hết hạn'}`
+          text: `Proxy [${pName}]: ${res.message || 'Không thể kết nối / Hết hạn'}`
         });
       }
       if (typeof onRefreshProxies === 'function') onRefreshProxies();
     } catch (err) {
-      setTestNotice({ type: 'error', text: `❌ Lỗi kiểm tra: ${err.message}` });
+      setTestNotice({ type: 'error', text: `Lỗi kiểm tra: ${err.message}` });
     } finally {
       setTestingId(null);
     }
@@ -151,7 +248,7 @@ window.ProxyModal = function ProxyModal({
 
   const handleTestAll = async () => {
     setTestingAll(true);
-    setTestNotice({ type: 'info', text: '⏳ Đang kiểm tra toàn bộ danh sách proxy...' });
+    setTestNotice({ type: 'info', text: 'Đang kiểm tra toàn bộ danh sách proxy...' });
     try {
       const res = await window.ApiClient.testAllProxies();
       if (res.success) {
@@ -159,303 +256,294 @@ window.ProxyModal = function ProxyModal({
         const liveCount = res.results.length - deadCount;
         setTestNotice({
           type: deadCount > 0 ? 'error' : 'success',
-          text: `📊 Đã kiểm tra ${res.results.length} Proxy: ${liveCount} Hoạt động, ${deadCount} Hết hạn / Lỗi.`
+          text: `Đã kiểm tra ${res.results.length} Proxy: ${liveCount} Hoạt động, ${deadCount} Hết hạn / Lỗi.`
         });
       }
       if (typeof onRefreshProxies === 'function') onRefreshProxies();
     } catch (err) {
-      setTestNotice({ type: 'error', text: `❌ Lỗi kiểm tra tất cả: ${err.message}` });
+      setTestNotice({ type: 'error', text: `Lỗi kiểm tra tất cả: ${err.message}` });
     } finally {
       setTestingAll(false);
     }
   };
 
   return (
-    <div className="modal-overlay modal-overlay-flex" onClick={onClose}>
-      <div className="modal-card modal-card-lg" onClick={(e) => e.stopPropagation()}>
-        {/* Header */}
-        <div className="modal-header">
-          <div className="modal-header-title-group">
-            <span className="modal-header-icon">🌐</span>
-            <h3 className="modal-header-title">
-              {viewMode === 'form'
-                ? (editingProxy ? `Sửa Proxy: ${editingProxy.name}` : 'Thêm Proxy Mới')
-                : `Quản Lý Danh Sách Proxy (${proxies.length})`}
-            </h3>
+    <>
+      <window.ModalBase
+        title={`Quản Lý Danh Sách Proxy (${proxies.length})`}
+        subtitle="Kiểm tra đường truyền, trạng thái sống/chết và gán tài khoản"
+        icon="globe"
+        iconColor="var(--apple-blue)"
+        size="lg"
+        onClose={onClose}
+        footer={
+          <div style={{ display: 'flex', justifyContent: 'space-between', width: '100%', alignItems: 'center' }}>
+            <div style={{ fontSize: '0.78rem', color: 'var(--text-secondary)' }}>
+              Tối đa 6 nick / Proxy mạng
+            </div>
+            <button type="button" className="btn btn-secondary" onClick={onClose}>
+              Đóng
+            </button>
           </div>
-          <button className="btn-close" onClick={onClose}>&times;</button>
-        </div>
+        }
+      >
+        {/* Test Notice Banner */}
+        {testNotice && (
+          <div className={`proxy-test-notice ${testNotice.type}`} style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '14px' }}>
+            <window.Icon
+              name={testNotice.type === 'success' ? 'check-circle' : (testNotice.type === 'error' ? 'alert-triangle' : 'zap')}
+              size={16}
+            />
+            <span style={{ flex: 1, fontSize: '0.84rem' }}>{testNotice.text}</span>
+            <button
+              type="button"
+              className="btn-notice-close"
+              onClick={() => setTestNotice(null)}
+              style={{ background: 'none', border: 'none', color: 'inherit', cursor: 'pointer', fontSize: '1.1rem' }}
+            >
+              &times;
+            </button>
+          </div>
+        )}
 
-        {/* Body */}
-        <div className="modal-body modal-body-scroll">
-          {error && <div className="alert alert-danger">{error}</div>}
-
-          {/* Test Notice Banner */}
-          {testNotice && (
-            <div className={`proxy-test-notice ${testNotice.type}`}>
-              <span>{testNotice.text}</span>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+          {/* Action & Filter Bar */}
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '10px' }}>
+            {/* Status Filter Tabs */}
+            <div className="segmented-control" style={{ display: 'flex', gap: '2px' }}>
               <button
                 type="button"
-                className="btn-notice-close"
-                onClick={() => setTestNotice(null)}
+                className={`btn btn-sm ${filter === 'all' ? 'active btn-primary' : ''}`}
+                onClick={() => setFilter('all')}
               >
-                &times;
+                Tất cả ({proxies.length})
+              </button>
+              <button
+                type="button"
+                className={`btn btn-sm ${filter === 'active' ? 'active btn-primary' : ''}`}
+                onClick={() => setFilter('active')}
+                style={{ gap: '4px' }}
+              >
+                <span style={{ width: '6px', height: '6px', borderRadius: '50%', background: 'var(--apple-green)', display: 'inline-block' }}></span>
+                Sống ({activeCount})
+              </button>
+              <button
+                type="button"
+                className={`btn btn-sm ${filter === 'expired' ? 'active btn-danger' : ''}`}
+                onClick={() => setFilter('expired')}
+                style={{ gap: '4px' }}
+              >
+                <span style={{ width: '6px', height: '6px', borderRadius: '50%', background: 'var(--apple-red)', display: 'inline-block' }}></span>
+                Lỗi ({expiredCount})
               </button>
             </div>
-          )}
 
-          {viewMode === 'list' ? (
-            <div>
-              {/* Filter Tabs and Action Bar */}
-              <div className="proxy-action-bar">
-                {/* Status Filter Tabs */}
-                <div className="proxy-filter-tabs">
-                  <button
-                    type="button"
-                    className={`btn btn-sm ${filter === 'all' ? 'btn-primary' : 'btn-secondary'}`}
-                    onClick={() => setFilter('all')}
-                  >
-                    Tất cả ({proxies.length})
-                  </button>
-                  <button
-                    type="button"
-                    className={`btn btn-sm ${filter === 'active' ? 'btn-success' : 'btn-secondary'}`}
-                    onClick={() => setFilter('active')}
-                  >
-                    🟢 Sống ({activeCount})
-                  </button>
-                  <button
-                    type="button"
-                    className={`btn btn-sm ${filter === 'expired' ? 'btn-danger' : 'btn-secondary'}`}
-                    onClick={() => setFilter('expired')}
-                  >
-                    ⚠️ Hết hạn / Lỗi ({expiredCount})
-                  </button>
-                </div>
+            <div style={{ display: 'flex', gap: '8px' }}>
+              <button
+                type="button"
+                className="btn btn-secondary btn-sm"
+                onClick={handleTestAll}
+                disabled={testingAll || proxies.length === 0}
+                title="Kiểm tra kết nối toàn bộ Proxy"
+                style={{ gap: '6px', display: 'inline-flex', alignItems: 'center' }}
+              >
+                <window.Icon name="zap" size={14} color="var(--apple-orange)" />
+                {testingAll ? 'Đang test...' : 'Test tất cả'}
+              </button>
+              <button
+                type="button"
+                className="btn btn-primary btn-sm"
+                onClick={openCreateForm}
+                style={{ gap: '6px', display: 'inline-flex', alignItems: 'center' }}
+              >
+                <window.Icon name="plus" size={14} /> Thêm Proxy
+              </button>
+            </div>
+          </div>
 
-                <div className="header-btn-group">
-                  <button
-                    type="button"
-                    className="btn btn-secondary btn-sm"
-                    onClick={handleTestAll}
-                    disabled={testingAll || proxies.length === 0}
-                    title="Kiểm tra kết nối và hạn dùng toàn bộ Proxy"
-                  >
-                    {testingAll ? '⏳ Đang test...' : '⚡ Test tất cả'}
-                  </button>
-                  <button
-                    type="button"
-                    className="btn btn-primary btn-sm"
-                    onClick={openCreateForm}
-                  >
-                    ➕ Thêm Proxy
-                  </button>
-                </div>
+          {/* List of Proxies */}
+          {filteredProxies.length === 0 ? (
+            <div className="proxy-empty-state" style={{ padding: '36px 20px', background: 'var(--glass-matrix-bg)', borderRadius: 'var(--radius-md)', border: '1px dashed var(--glass-border-subtle)', textAlign: 'center' }}>
+              <div style={{ marginBottom: '8px' }}>
+                <window.Icon name="globe" size={32} color="var(--text-tertiary)" />
               </div>
-
-              {/* List of Proxies */}
-              {filteredProxies.length === 0 ? (
-                <div className="proxy-empty-state">
-                  <div className="empty-state-icon">🌐</div>
-                  <p>
-                    {filter === 'expired'
-                      ? 'Không có Proxy nào bị hết hạn hoặc lỗi.'
-                      : (filter === 'active' ? 'Không có Proxy nào đang hoạt động.' : 'Chưa có Proxy nào trong danh sách.')}
-                  </p>
-                  {filter !== 'all' ? (
-                    <button type="button" className="btn btn-secondary btn-sm" onClick={() => setFilter('all')}>
-                      Xem tất cả Proxy
-                    </button>
-                  ) : (
-                    <button type="button" className="btn btn-primary btn-sm" onClick={openCreateForm}>
-                      ➕ Thêm Proxy Đầu Tiên
-                    </button>
-                  )}
-                </div>
+              <p style={{ margin: '0 0 12px 0', color: 'var(--text-secondary)', fontSize: '0.88rem' }}>
+                {filter === 'expired'
+                  ? 'Không có Proxy nào bị lỗi hoặc hết hạn.'
+                  : (filter === 'active' ? 'Không có Proxy nào đang sống.' : 'Chưa có Proxy nào trong danh sách.')}
+              </p>
+              {filter !== 'all' ? (
+                <button type="button" className="btn btn-secondary btn-sm" onClick={() => setFilter('all')}>
+                  Xem tất cả Proxy
+                </button>
               ) : (
-                <div className="items-list-col">
-                  {filteredProxies.map(p => {
-                    const isFull = p.onlineCount >= 6;
-                    const isTestingThis = testingId === p.id;
-                    const isExpired = Boolean(p.isExpired);
-                    const protocolType = (p.type || 'socks').toLowerCase() === 'http' ? 'http' : 'socks';
-
-                    return (
-                      <div
-                        key={p.id}
-                        className={`proxy-item-card ${isExpired ? 'is-expired' : ''}`}
-                      >
-                        <div className="proxy-item-info">
-                          <div className="proxy-item-header">
-                            <strong className="proxy-name">{p.name}</strong>
-
-                            {/* Status Badge */}
-                            {isExpired ? (
-                              <span className="proxy-status-badge expired">
-                                🛑 HẾT HẠN / LỖI
-                              </span>
-                            ) : (
-                              <span className="proxy-status-badge live">
-                                🟢 SỐNG {p.latencyMs ? `(${p.latencyMs}ms)` : ''}
-                              </span>
-                            )}
-
-                            <span className={`proxy-protocol-badge ${protocolType}`}>
-                              {p.type || 'SOCKS5'}
-                            </span>
-                          </div>
-
-                          <div className="proxy-item-host">
-                            {p.host}:{p.port} {p.username ? `(User: ${p.username})` : ''}
-                          </div>
-
-                          {/* Error / Last check reason if expired */}
-                          {isExpired && p.errorReason && (
-                            <div className="proxy-item-error">
-                              ⚠️ {p.errorReason}
-                            </div>
-                          )}
-                        </div>
-
-                        <div className="proxy-item-actions">
-                          <div className="text-right">
-                            <span className={`proxy-online-badge ${isFull ? 'full' : (p.onlineCount > 0 ? 'active' : 'empty')}`}>
-                              Online: {p.onlineCount || 0} / 6
-                            </span>
-                            <div className="proxy-assigned-text">
-                              Gán: {p.totalAssigned || 0} nick
-                            </div>
-                          </div>
-
-                          <div className="proxy-btn-group">
-                            <button
-                              type="button"
-                              className={`btn btn-sm ${isExpired ? 'btn-warning' : 'btn-secondary'}`}
-                              onClick={() => handleTestProxy(p.id, p.name)}
-                              disabled={isTestingThis}
-                              title="Kiểm tra kết nối và auth của Proxy"
-                            >
-                              {isTestingThis ? '⏳ Test...' : (isExpired ? '🔄 Test lại' : '🔍 Test')}
-                            </button>
-                            <button
-                              type="button"
-                              className="btn btn-sm btn-secondary"
-                              onClick={() => openEditForm(p)}
-                              title="Chỉnh sửa Proxy"
-                            >
-                              ✏️ Sửa
-                            </button>
-                            <button
-                              type="button"
-                              className="btn btn-sm btn-danger"
-                              onClick={() => handleDelete(p.id, p.name)}
-                              title="Xóa Proxy"
-                            >
-                              🗑️
-                            </button>
-                          </div>
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
+                <button type="button" className="btn btn-primary btn-sm" onClick={openCreateForm} style={{ gap: '6px' }}>
+                  <window.Icon name="plus" size={14} /> Thêm Proxy Đầu Tiên
+                </button>
               )}
             </div>
           ) : (
-            /* Dedicated Box Form for Input */
-            <div className="card-glass form-box-container">
-              <div className="form-box-header">
-                <h4 className="form-box-title">
-                  {editingProxy ? '✏️ Chỉnh Sửa Thông Tin Proxy' : '➕ Nhập Thông Tin Proxy Mới'}
-                </h4>
-                <button type="button" className="btn btn-sm btn-secondary" onClick={backToList}>
-                  ⬅️ Quay lại danh sách
-                </button>
-              </div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+              {filteredProxies.map(p => {
+                const isFull = p.onlineCount >= 6;
+                const isTestingThis = testingId === p.id;
+                const isExpired = Boolean(p.isExpired);
+                const protocolType = (p.type || 'socks').toLowerCase() === 'http' ? 'http' : 'socks';
 
-              <form onSubmit={handleSubmit}>
-                <div className="form-grid-2col">
-                  <div className="form-group grid-col-span-2">
-                    <label className="form-label">Tên gợi nhớ Proxy:</label>
-                    <input
-                      type="text"
-                      className="form-control"
-                      placeholder="VD: Proxy SOCKS5 VN 1, Proxy Xoay..."
-                      value={name}
-                      onChange={(e) => setName(e.target.value)}
-                    />
+                return (
+                  <div
+                    key={p.id}
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'space-between',
+                      padding: '14px 16px',
+                      background: isExpired ? 'rgba(255, 69, 58, 0.06)' : 'var(--glass-matrix-bg)',
+                      borderRadius: 'var(--radius-md)',
+                      border: '1px solid',
+                      borderColor: isExpired ? 'rgba(255, 69, 58, 0.35)' : 'var(--glass-border-subtle)',
+                      flexWrap: 'wrap',
+                      gap: '12px',
+                      transition: 'var(--transition-fast)'
+                    }}
+                  >
+                    <div style={{ flex: '1 1 240px', minWidth: 0 }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px', flexWrap: 'wrap' }}>
+                        <strong style={{ color: isExpired ? 'var(--apple-red)' : 'var(--text-primary)', fontSize: '0.94rem' }}>
+                          {p.name}
+                        </strong>
+
+                        {isExpired ? (
+                          <span style={{
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            gap: '4px',
+                            padding: '2px 7px',
+                            borderRadius: '4px',
+                            fontSize: '0.7rem',
+                            fontWeight: 700,
+                            background: 'rgba(255, 69, 58, 0.18)',
+                            color: 'var(--apple-red)',
+                            border: '1px solid rgba(255, 69, 58, 0.35)'
+                          }}>
+                            <window.Icon name="alert-triangle" size={11} /> LỖI / HẾT HẠN
+                          </span>
+                        ) : (
+                          <span style={{
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            gap: '4px',
+                            padding: '2px 7px',
+                            borderRadius: '4px',
+                            fontSize: '0.7rem',
+                            fontWeight: 700,
+                            background: 'rgba(48, 209, 88, 0.15)',
+                            color: 'var(--apple-green)',
+                            border: '1px solid rgba(48, 209, 88, 0.3)'
+                          }}>
+                            <span style={{ width: '5px', height: '5px', borderRadius: '50%', background: 'var(--apple-green)' }}></span>
+                            SỐNG {p.latencyMs ? `(${p.latencyMs}ms)` : ''}
+                          </span>
+                        )}
+
+                        <span style={{
+                          padding: '2px 6px',
+                          borderRadius: '4px',
+                          fontSize: '0.7rem',
+                          fontWeight: 600,
+                          textTransform: 'uppercase',
+                          background: protocolType === 'socks' ? 'rgba(191, 90, 242, 0.15)' : 'rgba(255, 159, 10, 0.15)',
+                          color: protocolType === 'socks' ? 'var(--apple-purple)' : 'var(--apple-orange)',
+                          border: '1px solid',
+                          borderColor: protocolType === 'socks' ? 'rgba(191, 90, 242, 0.3)' : 'rgba(255, 159, 10, 0.3)'
+                        }}>
+                          {p.type || 'SOCKS5'}
+                        </span>
+                      </div>
+
+                      <div style={{ fontSize: '0.82rem', color: 'var(--text-secondary)', fontFamily: 'var(--font-mono)' }}>
+                        {p.host}:{p.port} {p.username ? `(User: ${p.username})` : ''}
+                      </div>
+
+                      {isExpired && p.errorReason && (
+                        <div style={{ fontSize: '0.74rem', color: 'var(--apple-red)', marginTop: '4px', fontStyle: 'italic' }}>
+                          {p.errorReason}
+                        </div>
+                      )}
+                    </div>
+
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexShrink: 0 }}>
+                      <div style={{ textAlign: 'right' }}>
+                        <span style={{
+                          display: 'inline-block',
+                          padding: '2px 7px',
+                          borderRadius: '6px',
+                          fontSize: '0.74rem',
+                          fontWeight: 600,
+                          background: isFull ? 'rgba(255, 69, 58, 0.15)' : (p.onlineCount > 0 ? 'rgba(48, 209, 88, 0.15)' : 'var(--glass-matrix-bg)'),
+                          color: isFull ? 'var(--apple-red)' : (p.onlineCount > 0 ? 'var(--apple-green)' : 'var(--text-secondary)'),
+                          border: '1px solid',
+                          borderColor: isFull ? 'rgba(255, 69, 58, 0.3)' : (p.onlineCount > 0 ? 'rgba(48, 209, 88, 0.3)' : 'var(--glass-border-subtle)')
+                        }}>
+                          Online: {p.onlineCount || 0}/6
+                        </span>
+                        <div style={{ fontSize: '0.72rem', color: 'var(--text-secondary)', marginTop: '2px' }}>
+                          Gán: {p.totalAssigned || 0} nick
+                        </div>
+                      </div>
+
+                      <div style={{ display: 'flex', gap: '6px' }}>
+                        <button
+                          type="button"
+                          className="btn btn-sm btn-secondary"
+                          onClick={() => handleTestProxy(p.id, p.name)}
+                          disabled={isTestingThis}
+                          title="Kiểm tra kết nối"
+                          style={{ padding: '5px 8px', gap: '4px', display: 'inline-flex', alignItems: 'center' }}
+                        >
+                          <window.Icon name="zap" size={13} color="var(--apple-orange)" />
+                          {isTestingThis ? 'Test...' : 'Test'}
+                        </button>
+                        <button
+                          type="button"
+                          className="btn btn-sm btn-secondary"
+                          onClick={() => openEditForm(p)}
+                          title="Sửa Proxy"
+                          style={{ padding: '5px 8px' }}
+                        >
+                          <window.Icon name="edit" size={13} />
+                        </button>
+                        <button
+                          type="button"
+                          className="btn btn-sm btn-danger"
+                          onClick={() => handleDelete(p.id, p.name)}
+                          title="Xóa Proxy"
+                          style={{ padding: '5px 8px' }}
+                        >
+                          <window.Icon name="trash" size={13} />
+                        </button>
+                      </div>
+                    </div>
                   </div>
-
-                  <div className="form-group">
-                    <label className="form-label">Giao thức (Type):</label>
-                    <select className="form-control" value={type} onChange={(e) => setType(e.target.value)}>
-                      <option value="socks">SOCKS5 / SOCKS4</option>
-                      <option value="http">HTTP / HTTPS</option>
-                    </select>
-                  </div>
-
-                  <div className="form-group">
-                    <label className="form-label">Host / IP <span className="text-danger">*</span>:</label>
-                    <input
-                      type="text"
-                      className="form-control"
-                      placeholder="VD: 171.241.76.244 hoặc vn.proxy.com"
-                      value={host}
-                      onChange={(e) => setHost(e.target.value)}
-                      required
-                    />
-                  </div>
-
-                  <div className="form-group">
-                    <label className="form-label">Cổng Port <span className="text-danger">*</span>:</label>
-                    <input
-                      type="number"
-                      className="form-control"
-                      placeholder="VD: 1080, 52686"
-                      value={port}
-                      onChange={(e) => setPort(e.target.value)}
-                      min="1"
-                      max="65535"
-                      required
-                    />
-                  </div>
-
-                  <div className="form-group">
-                    <label className="form-label">Tài khoản (Username nếu có):</label>
-                    <input
-                      type="text"
-                      className="form-control"
-                      placeholder="Bỏ trống nếu không có"
-                      value={username}
-                      onChange={(e) => setUsername(e.target.value)}
-                    />
-                  </div>
-
-                  <div className="form-group">
-                    <label className="form-label">Mật khẩu (Password nếu có):</label>
-                    <input
-                      type="password"
-                      className="form-control"
-                      placeholder="Bỏ trống nếu không có"
-                      value={password}
-                      onChange={(e) => setPassword(e.target.value)}
-                    />
-                  </div>
-                </div>
-
-                <div className="form-actions-end">
-                  <button type="button" className="btn btn-secondary" onClick={backToList}>
-                    Hủy Bỏ
-                  </button>
-                  <button type="submit" className="btn btn-primary" disabled={loading}>
-                    {loading ? 'Đang lưu...' : (editingProxy ? 'Cập Nhật Proxy' : 'Lưu Proxy')}
-                  </button>
-                </div>
-              </form>
+                );
+              })}
             </div>
           )}
         </div>
-      </div>
-    </div>
+      </window.ModalBase>
+
+      {/* Standalone Box Modal for Add/Edit Proxy */}
+      {showFormModal && (
+        <ProxyFormModal
+          proxy={editingProxy}
+          onSaveProxy={onSaveProxy}
+          onClose={() => setShowFormModal(false)}
+          onSaved={() => {
+            setShowFormModal(false);
+            if (typeof onRefreshProxies === 'function') onRefreshProxies();
+          }}
+        />
+      )}
+    </>
   );
 };

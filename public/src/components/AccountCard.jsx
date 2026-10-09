@@ -1,12 +1,99 @@
 /**
  * AccountCard Component (Presentation Layer)
- * Renders individual Avatar account item with real-time in-game player stats.
- * Compact layout with dedicated Mod Setup and Auto Execution Dropdowns.
+ * Porsche & Apple Minimalist 6-Metric Bot Card with Vector Icons
  */
 function formatNumber(num) {
   if (num === null || num === undefined || isNaN(num)) return '0';
   return Number(num).toLocaleString('vi-VN');
 }
+
+window.AvatarCharacterView = React.memo(function AvatarCharacterView({
+  username = '',
+  isRunning = false,
+  isError = false,
+  isMaintenance = false,
+  status = 'offline',
+  avatarUrl = null,
+  gold = 0,
+  size = 54
+}) {
+  const cleanUser = (username || '').trim();
+  const activeStatus = status || (isError ? 'error' : isMaintenance ? 'maintenance' : isRunning ? 'online' : 'offline');
+
+  // Khi bot online trong game và trích xuất được sprite từ engine mod
+  if (avatarUrl) {
+    return (
+      <div
+        className={`avatar-chibi-wrapper is-${activeStatus}`}
+        style={{
+          width: size,
+          height: size,
+          minWidth: size,
+          minHeight: size,
+          maxWidth: size,
+          maxHeight: size,
+          flexShrink: 0,
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          background: 'transparent',
+          border: 'none',
+          boxShadow: 'none',
+          overflow: 'hidden'
+        }}
+        title={`Nhân vật TeaMobi Avatar 2D: ${cleanUser}`}
+      >
+        <img
+          src={avatarUrl}
+          alt={cleanUser}
+          style={{
+            width: '100%',
+            height: '100%',
+            objectFit: 'contain',
+            imageRendering: 'pixelated'
+          }}
+        />
+      </div>
+    );
+  }
+
+  // Khi chưa có avatar / offline: Hiển thị icon Apple glass gọn gàng
+  return (
+    <div
+      className={`avatar-chibi-wrapper is-${activeStatus}`}
+      style={{
+        width: size,
+        height: size,
+        minWidth: size,
+        minHeight: size,
+        maxWidth: size,
+        maxHeight: size,
+        flexShrink: 0,
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        background: 'rgba(255, 255, 255, 0.04)',
+        borderRadius: '12px',
+        border: '1px solid var(--border-glass)'
+      }}
+      title={`Tài khoản: ${cleanUser}`}
+    >
+      <window.Icon
+        name={isError ? 'alert-triangle' : isRunning ? 'bot' : 'user'}
+        size={22}
+        color={isRunning ? 'var(--apple-green)' : 'var(--text-tertiary)'}
+      />
+    </div>
+  );
+}, (prev, next) => {
+  return prev.avatarUrl === next.avatarUrl &&
+         prev.status === next.status &&
+         prev.isRunning === next.isRunning &&
+         prev.isError === next.isError &&
+         prev.isMaintenance === next.isMaintenance &&
+         prev.size === next.size &&
+         prev.username === next.username;
+});
 
 window.AccountCard = function AccountCard({
   account,
@@ -23,7 +110,7 @@ window.AccountCard = function AccountCard({
   const isRunning = Boolean(account.isRunning);
   const serverName = account.serverName || (account.serverId === 0 ? 'Hoàn Mỹ' : 'Diệu Kỳ');
   const proxyObj = (proxies || []).find(p => p.id === account.proxyId);
-  const proxyLabel = proxyObj ? (proxyObj.name || `${proxyObj.host}:${proxyObj.port}`) : 'IP Server';
+  const proxyLabel = proxyObj ? (proxyObj.name || `${proxyObj.host}:${proxyObj.port}`) : 'Direct IP';
 
   const file = (files || []).find(f => f.id === account.fileId) || activeFile;
   const modType = file?.modType || ((file?.gameJar && file.gameJar.toLowerCase().includes('fish')) ? 'fish' : 'upxu');
@@ -60,463 +147,365 @@ window.AccountCard = function AccountCard({
 
   const [menuOpen, setMenuOpen] = React.useState(false);
   const [autoMenuOpen, setAutoMenuOpen] = React.useState(false);
+  const [moreMenuOpen, setMoreMenuOpen] = React.useState(false);
   const menuRef = React.useRef(null);
   const autoMenuRef = React.useRef(null);
+  const moreMenuRef = React.useRef(null);
 
   // Close dropdown menus when clicking outside
   React.useEffect(() => {
     const handleClickOutside = (e) => {
-      if (menuRef.current && !menuRef.current.contains(e.target)) {
-        setMenuOpen(false);
-      }
-      if (autoMenuRef.current && !autoMenuRef.current.contains(e.target)) {
-        setAutoMenuOpen(false);
-      }
+      if (menuRef.current && !menuRef.current.contains(e.target)) setMenuOpen(false);
+      if (autoMenuRef.current && !autoMenuRef.current.contains(e.target)) setAutoMenuOpen(false);
+      if (moreMenuRef.current && !moreMenuRef.current.contains(e.target)) setMoreMenuOpen(false);
     };
-    if (menuOpen || autoMenuOpen) {
+    if (menuOpen || autoMenuOpen || moreMenuOpen) {
       document.addEventListener('mousedown', handleClickOutside);
     }
     return () => {
       document.removeEventListener('mousedown', handleClickOutside);
     };
-  }, [menuOpen, autoMenuOpen]);
+  }, [menuOpen, autoMenuOpen, moreMenuOpen]);
 
   const handleSelectFeature = (featureKey) => {
     setMenuOpen(false);
-    if (onOpenSetup) {
-      onOpenSetup(account, featureKey);
-    }
+    if (onOpenSetup) onOpenSetup(account, featureKey);
   };
 
   const handleTriggerAutoAction = (autoType, action) => {
     setAutoMenuOpen(false);
-    if (onTriggerAuto) {
-      onTriggerAuto(account.id, account.username, autoType, action);
-    }
+    if (onTriggerAuto) onTriggerAuto(account.id, account.username, autoType, action);
   };
 
   let cardStyleClass = '';
-  let avatarIcon = '👤';
+  let avatarIconName = 'user';
+  let statusType = 'offline';
+  let statusLabel = 'Tắt';
 
   if (isError) {
     cardStyleClass = 'error-account';
-    avatarIcon = '❌';
+    avatarIconName = 'alert';
+    statusType = 'error';
+    statusLabel = 'Lỗi kết nối';
   } else if (isMaintenance) {
     cardStyleClass = 'maintenance-account';
-    avatarIcon = '🛠️';
+    avatarIconName = 'settings';
+    statusType = 'maintenance';
+    statusLabel = 'Bảo trì';
   } else if (accountState.state === 'target_reached' || accountState.state === 'completed' || accountState.isCompleted) {
     cardStyleClass = 'completed-account';
-    avatarIcon = '🏆';
+    avatarIconName = 'target';
+    statusType = 'completed';
+    statusLabel = 'Đạt mục tiêu';
   } else if (accountState.state === 'disconnected' || accountState.state === 'other_login') {
     cardStyleClass = 'warn-account';
-    avatarIcon = '⚠️';
+    avatarIconName = 'shield';
+    statusType = 'warn';
+    statusLabel = 'Cảnh báo';
   } else if (accountState.state === 'connecting') {
     cardStyleClass = 'connecting-account';
-    avatarIcon = '🔄';
+    avatarIconName = 'refresh';
+    statusType = 'connecting';
+    statusLabel = 'Đang kết nối';
   } else if (isRunning) {
     cardStyleClass = 'active-account';
-    avatarIcon = '🔥';
+    avatarIconName = 'bot';
+    statusType = 'online';
+    statusLabel = 'Online';
   }
 
   const isAutoRunning = Boolean(autoState.isRunning || (stats.isAutoRunning && stats.autoType));
   const activeAutoType = autoState.autoType || stats.autoType || null;
+  const subTask = autoState.subTask || null;
 
-  const isFarmRunning = isAutoRunning && activeAutoType === 'farm';
+  const isFarmRunning = isAutoRunning && (activeAutoType === 'farm' && !subTask);
   const isDiamondRunning = isAutoRunning && (activeAutoType === 'diamond' || activeAutoType === 'kc');
   const isFishRunning = isAutoRunning && (activeAutoType === 'fish' || activeAutoType === 'cau_ca');
-  const isSellOreRunning = isAutoRunning && (activeAutoType === 'sell_ore' || activeAutoType === 'banda' || activeAutoType === 'stone');
+  const isSellOreRunning = isAutoRunning && (activeAutoType === 'sell_ore' || activeAutoType === 'banda' || activeAutoType === 'stone' || subTask === 'sell_ore' || subTask === 'banda');
+  const isSellOreSubTaskActive = subTask === 'sell_ore' || subTask === 'banda' || subTask === 'stone';
 
   return (
-    <div className={`account-card-item ${cardStyleClass} ${(menuOpen || autoMenuOpen) ? 'menu-open-active' : ''}`}>
+    <div className={`account-card-item ${cardStyleClass}`}>
+      {/* 1. Header Row */}
       <div className="acc-header">
         <div className="acc-user-info">
-          <div className="acc-avatar-icon">{avatarIcon}</div>
-          <div style={{ flex: 1 }}>
+          <div className="acc-avatar-icon">
+            <window.AvatarCharacterView
+              username={account.username}
+              isRunning={isRunning}
+              isError={isError}
+              isMaintenance={isMaintenance}
+              status={statusType}
+              avatarUrl={account.avatarUrl || stats.avatarUrl}
+              gold={gold}
+              size={54}
+            />
+          </div>
+          <div style={{ minWidth: 0 }}>
             <div className="acc-username-row">
               <span className="acc-username">{account.username}</span>
+              <span
+                className={`status-dot ${statusType}`}
+                title={statusLabel}
+              ></span>
               {gold > 0 && (
-                <span className="badge-luong" title="Lượng (Ngọc)">💎 {formatNumber(gold)} L</span>
+                <span className="btn-xs" style={{ background: 'rgba(100, 210, 255, 0.12)', color: 'var(--apple-teal)', borderRadius: '999px', fontWeight: 600, display: 'inline-flex', alignItems: 'center', gap: '3px' }}>
+                  <window.Icon name="gem" size={11} color="var(--apple-teal)" /> {formatNumber(gold)} L
+                </span>
               )}
               {lockedGold > 0 && (
-                <span className="badge-luong" style={{ background: 'rgba(234,179,8,0.15)', color: '#facc15', borderColor: 'rgba(234,179,8,0.3)' }} title="Lượng Khóa (LK)">
-                  🔒 {formatNumber(lockedGold)} LK
+                <span className="btn-xs" style={{ background: 'rgba(255, 214, 10, 0.12)', color: 'var(--apple-gold)', borderRadius: '999px', fontWeight: 600, display: 'inline-flex', alignItems: 'center', gap: '3px' }}>
+                  <window.Icon name="shield" size={11} color="var(--apple-gold)" /> {formatNumber(lockedGold)} LK
                 </span>
               )}
             </div>
-            <div className="acc-note">{account.note || 'Không có ghi chú'}</div>
-            <div className="acc-badges">
-              <span className="badge-server">🌐 Server: <strong>{serverName}</strong></span>
-              {proxyObj ? (
-                <span className="badge-server" style={{ borderColor: 'rgba(168, 85, 247, 0.45)', background: 'rgba(168, 85, 247, 0.12)', color: '#c084fc' }} title={`Proxy: ${proxyObj.type.toUpperCase()} - ${proxyObj.host}:${proxyObj.port}`}>
-                  🔒 Proxy: <strong>{proxyObj.name || `${proxyObj.host}:${proxyObj.port}`}</strong>
-                </span>
-              ) : (
-                <span className="badge-server" style={{ borderColor: 'rgba(59, 130, 246, 0.35)', background: 'rgba(59, 130, 246, 0.1)', color: '#93c5fd' }} title="Tài khoản dùng trực tiếp IP máy chủ">
-                  🌐 Proxy: <strong>IP Server</strong>
-                </span>
-              )}
-
-              {isError ? (
-                <span className="badge-status-error" title={accountState.message}>
-                  ❌ {accountState.message || 'Sai tài khoản hoặc mật khẩu!'}
-                </span>
-              ) : isMaintenance ? (
-                <span className="badge-status-maintenance" title={accountState.message}>
-                  🛠️ {accountState.message || 'Server Đang Bảo Trì'}
-                </span>
-              ) : accountState.state === 'other_login' ? (
-                <span className="badge-status-warn" title={accountState.message}>
-                  ⚠️ Đăng nhập nơi khác
-                </span>
-              ) : accountState.state === 'disconnected' ? (
-                <span className="badge-status-warn" title={accountState.message}>
-                  ⚠️ Mất kết nối, đang thử lại
-                </span>
-              ) : (accountState.state === 'target_reached' || accountState.state === 'completed' || accountState.isCompleted) ? (
-                <span className="badge-server" style={{ borderColor: 'rgba(234, 179, 8, 0.55)', background: 'rgba(234, 179, 8, 0.15)', color: '#facc15', fontWeight: 'bold' }} title={accountState.message || 'Đã đạt yêu cầu up xu!'}>
-                  🏆 Đã Đạt Mục Tiêu
-                </span>
-              ) : isRunning ? (
-                <span className="badge-active">
-                  ⭐ Đang Treo Online {account.runningPid ? `(PID: ${account.runningPid})` : ''}
-                </span>
-              ) : (
-                <span className="badge-server" style={{ opacity: 0.75 }}>💤 Đang Tắt</span>
-              )}
-
-              {/* Real-time Auto Status Badges */}
-              {isAutoRunning ? (
-                <span className="badge-status-auto-running" title={autoState.message || 'Đang thực hiện Auto'}>
-                  {activeAutoType === 'farm' ? '🌾 Đang Auto Farm...' : (activeAutoType === 'diamond' || activeAutoType === 'kc' ? '💎 Đang Auto Kim Cương...' : (activeAutoType === 'fish' || activeAutoType === 'cau_ca' ? '🎣 Đang Auto Câu Cá...' : (isSellOreRunning ? '🪨 Đang Auto Bán Đá...' : '⚡ Đang Chạy Auto...')))}
-                </span>
-              ) : autoState.status === 'finished' ? (
-                <span className="badge-status-auto-finished" title="Bot đã hoàn tất lượt auto">
-                  ✅ {activeAutoType === 'farm' ? 'Đã Farm Xong' : (activeAutoType === 'diamond' ? 'Đã Xong Auto KC' : (activeAutoType === 'fish' ? 'Đã Xong Câu Cá' : 'Đã Hoàn Thành Auto'))}
-                </span>
-              ) : autoState.status === 'stopped' ? (
-                <span className="badge-status-auto-stopped" title="Đã dừng tiến trình auto">
-                  ⏹️ Đã Dừng Auto
-                </span>
-              ) : null}
+            <div style={{ fontSize: '0.72rem', color: 'var(--text-tertiary)', marginTop: '2px', display: 'flex', gap: '6px', alignItems: 'center' }}>
+              <span>{serverName}</span>
+              <span>•</span>
+              <span title={proxyLabel} style={{ display: 'inline-flex', alignItems: 'center', gap: '3px' }}>
+                <window.Icon name={proxyObj ? 'shield' : 'globe'} size={11} /> {proxyObj ? (proxyObj.name || 'Proxy') : 'Direct IP'}
+              </span>
             </div>
           </div>
         </div>
       </div>
 
-      {/* In-Game Player Stats Panel */}
-      <div className="acc-stats-panel">
-        <div className="acc-stat-box">
-          <span className="acc-stat-lbl">💰 Xu Hiện Có (TK):</span>
-          <span className="acc-stat-val acc-stat-xu">{formatNumber(coins)} Xu</span>
+      {/* 2. Full 6-Metric Grid with Vector Icons */}
+      <div className="acc-stats-matrix">
+        {/* Box 1: Xu Hiện Có */}
+        <div className="acc-metric-cell">
+          <span className="acc-metric-label">
+            <window.Icon name="coins" size={12} color="var(--apple-gold)" /> Xu Có
+          </span>
+          <span className="acc-metric-val coins">{formatNumber(coins)}</span>
         </div>
-        <div className="acc-stat-box">
-          <span className="acc-stat-lbl">🎯 Xu Cần Up:</span>
-          <span className="acc-stat-val">{targetCoins > 0 ? `${formatNumber(targetCoins)} Xu` : 'Không đặt'}</span>
-        </div>
-        <div className="acc-stat-box">
-          <span className="acc-stat-lbl">💖 Tim Thu Được:</span>
-          <span className="acc-stat-val acc-stat-tim">{formatNumber(collectedHearts)} Tim</span>
-        </div>
-        <div className="acc-stat-box">
-          <span className="acc-stat-lbl">📈 Xu Up Được:</span>
-          <span className={`acc-stat-val ${Number(earnedCoins) < 0 ? 'acc-stat-loss' : 'acc-stat-gain'}`}>
-            {formatNumber(earnedCoins)} Xu
+
+        {/* Box 2: Xu Up Được */}
+        <div className="acc-metric-cell">
+          <span className="acc-metric-label">
+            <window.Icon name="trending" size={12} color={Number(earnedCoins) < 0 ? 'var(--apple-red)' : 'var(--apple-green)'} /> Xu Up
+          </span>
+          <span className="acc-metric-val" style={{ color: Number(earnedCoins) < 0 ? 'var(--apple-red)' : 'var(--apple-green)' }}>
+            {formatNumber(earnedCoins)}
           </span>
         </div>
-        <div className="acc-stat-box">
-          <span className="acc-stat-lbl">📅 Ngày Bắt Đầu Up:</span>
-          <span className="acc-stat-val">{startedAt && startedAt !== '--' ? startedAt : (isRunning ? 'Hôm nay' : '--')}</span>
-        </div>
-        <div className="acc-stat-box">
-          <span className="acc-stat-lbl">⏳ Ngày Hết Hạn:</span>
-          <span className="acc-stat-val">{expiresAt}</span>
+
+        {/* Box 3: Xu Cần Up */}
+        <div className="acc-metric-cell">
+          <span className="acc-metric-label">
+            <window.Icon name="target" size={12} color="var(--apple-blue)" /> Mục Tiêu
+          </span>
+          <span className="acc-metric-val">{targetCoins > 0 ? formatNumber(targetCoins) : 'Không đặt'}</span>
         </div>
 
-        {/* THÔNG SỐ LIVE TỪ GAME (CHỈ HIỆN KHI BẬT AUTO CÂU CÁ HOẶC AUTO KIM CƯƠNG / BÁN ĐÁ) */}
-        {isFishRunning ? (
-          <>
-            <div className="acc-stat-box" style={{ borderColor: 'rgba(34, 197, 94, 0.45)', background: 'rgba(34, 197, 94, 0.12)' }}>
-              <span className="acc-stat-lbl" style={{ color: '#4ade80' }}>⏳ Farming (Về Farm):</span>
-              <span className="acc-stat-val" style={{ color: '#86efac', fontWeight: 700, fontSize: '0.95rem', fontFamily: 'monospace' }}>
-                {(stats.farmingCountdown && stats.farmingCountdown !== '--:--') ? stats.farmingCountdown : (stats.farmingTime || '--:--')}
-              </span>
-            </div>
-            <div className="acc-stat-box" style={{ borderColor: 'rgba(6, 182, 212, 0.45)', background: 'rgba(6, 182, 212, 0.12)' }}>
-              <span className="acc-stat-lbl" style={{ color: '#22d3ee' }}>🎣 Cá câu được:</span>
-              <span className="acc-stat-val" style={{ color: '#67e8f9', fontWeight: 700, fontSize: '0.95rem' }}>
-                {stats.fishCaught !== undefined ? stats.fishCaught : 0}
-              </span>
-            </div>
-            <div className="acc-stat-box" style={{ borderColor: 'rgba(236, 72, 153, 0.45)', background: 'rgba(236, 72, 153, 0.12)' }}>
-              <span className="acc-stat-lbl" style={{ color: '#f472b6' }}>🦈 Cá mập:</span>
-              <span className="acc-stat-val" style={{ color: '#fbcfe8', fontWeight: 700, fontSize: '0.95rem' }}>
-                {stats.sharkCaught !== undefined ? stats.sharkCaught : 0}
-              </span>
-            </div>
-            <div className="acc-stat-box" style={{ borderColor: 'rgba(59, 130, 246, 0.45)', background: 'rgba(59, 130, 246, 0.12)' }}>
-              <span className="acc-stat-lbl" style={{ color: '#60a5fa' }}>💎 KCX (Kim Cương):</span>
-              <span className="acc-stat-val" style={{ color: '#93c5fd', fontWeight: 700, fontSize: '0.95rem' }}>
-                {stats.kcx !== undefined ? stats.kcx : (stats.fishKcx !== undefined ? stats.fishKcx : '+0')}
-              </span>
-            </div>
-          </>
-        ) : isSellOreRunning ? (
-          <>
-            <div className="acc-stat-box" style={{ borderColor: 'rgba(245, 158, 11, 0.45)', background: 'rgba(245, 158, 11, 0.12)' }}>
-              <span className="acc-stat-lbl" style={{ color: '#fbbf24' }}>⏳ Thời gian:</span>
-              <span className="acc-stat-val" style={{ color: '#fde68a', fontWeight: 700, fontSize: '0.95rem', fontFamily: 'monospace' }}>
-                {stats.sellOreTime || '--:--'}
-              </span>
-            </div>
-            <div className="acc-stat-box" style={{ borderColor: 'rgba(16, 185, 129, 0.45)', background: 'rgba(16, 185, 129, 0.12)' }}>
-              <span className="acc-stat-lbl" style={{ color: '#34d399' }}>📍 Khu hiện tại:</span>
-              <span className="acc-stat-val" style={{ color: '#6ee7b7', fontWeight: 700, fontSize: '0.95rem' }}>
-                {stats.currentZone !== undefined && stats.currentZone !== null ? stats.currentZone : 0}
-              </span>
-            </div>
-          </>
-        ) : isDiamondRunning ? (
-          <>
-            <div className="acc-stat-box" style={{ borderColor: 'rgba(59, 130, 246, 0.45)', background: 'rgba(59, 130, 246, 0.12)' }}>
-              <span className="acc-stat-lbl" style={{ color: '#60a5fa' }}>💎 KCX (Kim Cương):</span>
-              <span className="acc-stat-val" style={{ color: '#93c5fd', fontWeight: 700, fontSize: '0.95rem' }}>
-                {stats.kcx !== undefined ? stats.kcx : '+0'}
-              </span>
-            </div>
-            <div className="acc-stat-box" style={{ borderColor: 'rgba(168, 85, 247, 0.45)', background: 'rgba(168, 85, 247, 0.12)' }}>
-              <span className="acc-stat-lbl" style={{ color: '#c084fc' }}>🔮 NHB (Huyền Bí):</span>
-              <span className="acc-stat-val" style={{ color: '#e9d5ff', fontWeight: 700, fontSize: '0.95rem' }}>
-                {stats.nhb !== undefined ? stats.nhb : '+0'}
-              </span>
-            </div>
-            <div className="acc-stat-box" style={{ borderColor: 'rgba(34, 197, 94, 0.45)', background: 'rgba(34, 197, 94, 0.12)' }}>
-              <span className="acc-stat-lbl" style={{ color: '#4ade80' }}>⏳ Farming (Về Farm):</span>
-              <span className="acc-stat-val" style={{ color: '#86efac', fontWeight: 700, fontSize: '0.95rem', fontFamily: 'monospace' }}>
-                {(stats.farmingCountdown && stats.farmingCountdown !== '--:--') ? stats.farmingCountdown : (stats.farmingTime || '--:--')}
-              </span>
-            </div>
-          </>
-        ) : null}
+        {/* Box 4: Tim Thu Được */}
+        <div className="acc-metric-cell">
+          <span className="acc-metric-label">
+            <window.Icon name="heart" size={12} color="#ff2d55" /> Tim Thu
+          </span>
+          <span className="acc-metric-val" style={{ color: '#ff2d55' }}>{formatNumber(collectedHearts)}</span>
+        </div>
+
+        {/* Box 5: Ngày Bắt Đầu */}
+        <div className="acc-metric-cell">
+          <span className="acc-metric-label">
+            <window.Icon name="calendar" size={12} color="var(--text-tertiary)" /> Bắt Đầu
+          </span>
+          <span className="acc-metric-val">{startedAt}</span>
+        </div>
+
+        {/* Box 6: Hạn Up */}
+        <div className="acc-metric-cell">
+          <span className="acc-metric-label">
+            <window.Icon name="clock" size={12} color="var(--text-tertiary)" /> Hạn Up
+          </span>
+          <span className="acc-metric-val">{expiresAt}</span>
+        </div>
+
+        {/* Live Auto metrics sub-panel */}
+        {isFarmRunning && (
+          <div className="acc-metric-cell" style={{ gridColumn: '1 / -1', background: 'rgba(50, 215, 75, 0.08)', padding: '6px 10px', borderRadius: '6px', border: '1px solid rgba(50, 215, 75, 0.2)', display: 'flex', flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+            <span style={{ color: 'var(--apple-green)', fontWeight: 600, fontSize: '0.74rem', display: 'flex', alignItems: 'center', gap: '5px' }}>
+              <window.Icon name="sprout" size={13} /> Auto Farm: {stats.farmingStatus || stats.currentAction || 'Đang chăm sóc'}
+            </span>
+            <span style={{ fontSize: '0.72rem', color: 'var(--text-secondary)' }}>
+              Chờ thu hoạch: {stats.farmingCountdown || stats.farmingTime || '--:--'}
+            </span>
+          </div>
+        )}
+        {isFishRunning && (
+          <div className="acc-metric-cell" style={{ gridColumn: '1 / -1', background: 'rgba(100, 210, 255, 0.08)', padding: '6px 10px', borderRadius: '6px', border: '1px solid rgba(100, 210, 255, 0.2)', display: 'flex', flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: '6px' }}>
+            <span style={{ color: 'var(--apple-teal)', fontWeight: 600, fontSize: '0.74rem', display: 'flex', alignItems: 'center', gap: '4px', whiteSpace: 'nowrap' }}>
+              <window.Icon name="fish" size={13} /> {stats.fishCaught || 0} cá ({stats.sharkCaught || 0} mập)
+            </span>
+            <span style={{ fontSize: '0.72rem', color: 'var(--text-secondary)', whiteSpace: 'nowrap' }}>
+              Farm: {stats.farmingCountdown || stats.farmingTime || '--:--'}
+            </span>
+          </div>
+        )}
+        {isDiamondRunning && (
+          <div className="acc-metric-cell" style={{ gridColumn: '1 / -1', background: 'rgba(191, 90, 242, 0.08)', padding: '6px 10px', borderRadius: '6px', border: '1px solid rgba(191, 90, 242, 0.2)', display: 'flex', flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: '6px' }}>
+            <span style={{ color: 'var(--apple-purple)', fontWeight: 600, fontSize: '0.74rem', display: 'flex', alignItems: 'center', gap: '4px', whiteSpace: 'nowrap' }}>
+              <window.Icon name="gem" size={13} /> KCX: {stats.kcx || '+0'} • NHB: {stats.nhb || '+0'}
+            </span>
+            <span style={{ fontSize: '0.72rem', color: 'var(--text-secondary)', whiteSpace: 'nowrap' }}>
+              Farm: {stats.farmingCountdown || stats.farmingTime || '--:--'}
+            </span>
+          </div>
+        )}
+        {isSellOreRunning && (
+          <div className="acc-metric-cell" style={{ gridColumn: '1 / -1', background: 'rgba(255, 159, 10, 0.08)', padding: '6px 10px', borderRadius: '0', border: '1px solid rgba(255, 159, 10, 0.2)', display: 'flex', flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: '6px' }}>
+            <span style={{ color: 'var(--apple-orange)', fontWeight: 600, fontSize: '0.74rem', display: 'flex', alignItems: 'center', gap: '5px' }}>
+              <window.Icon name="rock" size={13} /> Auto Bán Đá: Khu {stats.currentZone || 0}
+            </span>
+            <span style={{ fontSize: '0.72rem', color: 'var(--apple-orange)', fontWeight: 600, background: 'rgba(255, 159, 10, 0.12)', padding: '2px 6px', borderRadius: '0' }}>
+              Chờ bán: {stats.sellOreTime || '--:--'}
+            </span>
+          </div>
+        )}
+        {isAutoRunning && !isFishRunning && !isDiamondRunning && !isSellOreRunning && !isFarmRunning && (
+          <div className="acc-metric-cell" style={{ gridColumn: '1 / -1', background: 'rgba(10, 132, 255, 0.08)', padding: '6px 10px', borderRadius: '6px', border: '1px solid rgba(10, 132, 255, 0.2)', display: 'flex', flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+            <span style={{ color: 'var(--apple-blue)', fontWeight: 600, fontSize: '0.74rem', display: 'flex', alignItems: 'center', gap: '5px' }}>
+              <window.Icon name="zap" size={13} /> Auto: {autoState.autoType || 'Đang chạy'}
+            </span>
+            <span style={{ fontSize: '0.72rem', color: 'var(--text-secondary)' }}>
+              {autoState.message || stats.autoStatus || 'Hoạt động'}
+            </span>
+          </div>
+        )}
       </div>
 
-      <div className="acc-actions">
+      {/* 3. Streamlined Action Capsule Bar */}
+      <div className="acc-action-bar">
+        {/* Play / Stop Button */}
         {isRunning ? (
-          <button className="btn btn-sm btn-danger" onClick={() => onStopAccount(account.id, account.username)}>
-            ⏹️ Dừng Treo
+          <button className="btn btn-sm btn-danger" onClick={() => onStopAccount(account.id, account.username)} title="Dừng bot này">
+            <window.Icon name="stop" size={13} /> Dừng
           </button>
         ) : (
-          <button className="btn btn-sm btn-primary" onClick={() => onStartAccount(account.id, account.username)}>
-            ▶ Treo Nick Này
+          <button className="btn btn-sm btn-primary" onClick={() => onStartAccount(account.id, account.username)} title="Chạy bot này">
+            <window.Icon name="play" size={13} /> Treo
           </button>
         )}
 
-        {/* 1. Bật Auto Dropdown Menu Button */}
-        <div className="acc-dropdown-wrapper" ref={autoMenuRef}>
+        {/* Auto Actions Dropdown */}
+        <div style={{ position: 'relative', flex: 1 }} ref={autoMenuRef}>
           <button
             type="button"
-            className={`acc-auto-toggle-btn ${autoState.isRunning ? 'running' : ''} ${autoMenuOpen ? 'active' : ''}`}
-            title="Kích hoạt nhanh các chức năng Auto (Auto Farm, Auto Kim Cương, Auto Fish, Auto Bán Đá...)"
+            className={`btn btn-sm ${autoState.isRunning ? 'btn-active' : 'btn-secondary'}`}
+            style={{ width: '100%', gap: '4px' }}
             onClick={() => setAutoMenuOpen(!autoMenuOpen)}
           >
-            {autoState.isRunning ? (autoState.autoType === 'farm' ? '🌾 Đang Farm...' : (autoState.autoType === 'diamond' ? '💎 Đang Đào KC...' : (autoState.autoType === 'fish' ? '🎣 Đang Câu Cá...' : (isSellOreRunning ? '🪨 Đang Bán Đá...' : '⚡ Đang Chạy Auto...')))) : '🎮 Bật Auto'} {autoMenuOpen ? '▲' : '▼'}
+            <window.Icon name="zap" size={13} color={autoState.isRunning ? 'var(--apple-blue)' : 'currentColor'} />
+            {autoState.isRunning ? 'Đang Auto' : 'Auto'}
+            <window.Icon name="chevronDown" size={12} />
           </button>
 
           {autoMenuOpen && (
-            <div className="acc-floating-menu" style={{ minWidth: '250px' }}>
-              <div className="acc-floating-header">
-                🎮 Điều Khiển Auto ({account.username})
-                <span style={{ display: 'block', fontSize: '0.72rem', color: isFishMod ? '#38bdf8' : '#c084fc', fontWeight: 500 }}>
-                  {isFishMod ? '🎣 Auto up câu cá' : '💎 Auto Up kim cương'}
-                </span>
+            <div className="dropdown-menu-glass">
+              <div style={{ padding: '6px 10px', fontSize: '0.7rem', color: 'var(--text-tertiary)', borderBottom: '1px solid var(--glass-border-subtle)', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '5px' }}>
+                <window.Icon name={isFishMod ? 'fish' : 'gem'} size={12} />
+                {isFishMod ? 'AUTO UP CÂU CÁ' : 'AUTO UP KIM CƯƠNG'}
               </div>
-              
               {isFishMod ? (
-                /* HIỆN CÂU CÁ, FARM, BÁN ĐÁ KHI CHỌN BẢN AUTO UP CÂU CÁ (ẨN KIM CƯƠNG) */
                 <>
-                  {/* Auto Fish Option */}
-                  <button
-                    type="button"
-                    className={`acc-menu-item ${isFishRunning ? 'danger' : ''}`}
-                    onClick={() => handleTriggerAutoAction('fish', isFishRunning ? 'stop' : 'start')}
-                  >
-                    <span className="acc-menu-icon">{isFishRunning ? '⏹️' : '🐟'}</span>
-                    <div className="acc-menu-text">
-                      <strong>{isFishRunning ? 'Dừng Auto Câu Cá' : 'Bật Auto Câu Cá'}</strong>
-                      <small>{isFishRunning ? 'Đang câu cá -> Nhấn để dừng' : 'Tự động quăng cần & giật cá'}</small>
-                    </div>
+                  <button className="dropdown-item-glass" onClick={() => handleTriggerAutoAction('fish', isFishRunning ? 'stop' : 'start')}>
+                    <window.Icon name={isFishRunning ? 'stop' : 'fish'} size={14} />
+                    {isFishRunning ? 'Dừng Auto Câu Cá' : 'Bật Auto Câu Cá'}
                   </button>
-
-                  {/* Auto Farm Option */}
-                  <button
-                    type="button"
-                    className={`acc-menu-item ${isFarmRunning ? 'danger' : ''}`}
-                    onClick={() => handleTriggerAutoAction('farm', isFarmRunning ? 'stop' : 'start')}
-                  >
-                    <span className="acc-menu-icon">{isFarmRunning ? '⏹️' : '🌾'}</span>
-                    <div className="acc-menu-text">
-                      <strong>{isFarmRunning ? 'Dừng Auto Farm' : 'Bật Auto Farm'}</strong>
-                      <small>{isFarmRunning ? 'Đang chạy -> Nhấn để dừng' : 'Chăm sóc, tưới, thu hoạch ngay'}</small>
-                    </div>
+                  <button className="dropdown-item-glass" onClick={() => handleTriggerAutoAction('farm', isFarmRunning ? 'stop' : 'start')}>
+                    <window.Icon name={isFarmRunning ? 'stop' : 'sprout'} size={14} />
+                    {isFarmRunning ? 'Dừng Auto Farm' : 'Bật Auto Farm'}
                   </button>
-
-                  {/* Auto Sell Ore Option */}
-                  <button
-                    type="button"
-                    className={`acc-menu-item ${isSellOreRunning ? 'danger' : ''}`}
-                    onClick={() => handleTriggerAutoAction('sell_ore', isSellOreRunning ? 'stop' : 'start')}
-                  >
-                    <span className="acc-menu-icon">{isSellOreRunning ? '⏹️' : '🪨'}</span>
-                    <div className="acc-menu-text">
-                      <strong>{isSellOreRunning ? 'Dừng Auto Bán Đá' : 'Bật Auto Bán Đá'}</strong>
-                      <small>{isSellOreRunning ? 'Đang bán đá -> Nhấn để dừng' : 'Tự bán đá & ngọc cho Thợ Kim Hoàn'}</small>
-                    </div>
+                  <button className="dropdown-item-glass" onClick={() => handleTriggerAutoAction('sell_ore', isSellOreRunning ? 'stop' : 'start')}>
+                    <window.Icon name={isSellOreRunning ? 'stop' : 'rock'} size={14} />
+                    {isSellOreRunning ? 'Dừng Bán Đá' : 'Bật Bán Đá'}
                   </button>
                 </>
               ) : (
-                /* HIỆN KIM CƯƠNG, FARM, BÁN ĐÁ KHI CHỌN BẢN AUTO UP KIM CƯƠNG (ẨN CÂU CÁ) */
                 <>
-                  {/* Auto Diamond Option */}
-                  <button
-                    type="button"
-                    className={`acc-menu-item ${isDiamondRunning ? 'danger' : ''}`}
-                    onClick={() => handleTriggerAutoAction('diamond', isDiamondRunning ? 'stop' : 'start')}
-                  >
-                    <span className="acc-menu-icon">{isDiamondRunning ? '⏹️' : '💎'}</span>
-                    <div className="acc-menu-text">
-                      <strong>{isDiamondRunning ? 'Dừng Auto Kim Cương' : 'Bật Auto Kim Cương'}</strong>
-                      <small>{isDiamondRunning ? 'Đang đào mỏ -> Nhấn để dừng' : 'Tự đào mỏ, bán đá, về farm'}</small>
-                    </div>
+                  <button className="dropdown-item-glass" onClick={() => handleTriggerAutoAction('diamond', isDiamondRunning ? 'stop' : 'start')}>
+                    <window.Icon name={isDiamondRunning ? 'stop' : 'gem'} size={14} />
+                    {isDiamondRunning ? 'Dừng Auto Kim Cương' : 'Bật Auto Kim Cương'}
                   </button>
-
-                  {/* Auto Farm Option */}
-                  <button
-                    type="button"
-                    className={`acc-menu-item ${isFarmRunning ? 'danger' : ''}`}
-                    onClick={() => handleTriggerAutoAction('farm', isFarmRunning ? 'stop' : 'start')}
-                  >
-                    <span className="acc-menu-icon">{isFarmRunning ? '⏹️' : '🌾'}</span>
-                    <div className="acc-menu-text">
-                      <strong>{isFarmRunning ? 'Dừng Auto Farm' : 'Bật Auto Farm'}</strong>
-                      <small>{isFarmRunning ? 'Đang chạy -> Nhấn để dừng' : 'Chăm sóc, tưới, thu hoạch ngay'}</small>
-                    </div>
+                  <button className="dropdown-item-glass" onClick={() => handleTriggerAutoAction('farm', isFarmRunning ? 'stop' : 'start')}>
+                    <window.Icon name={isFarmRunning ? 'stop' : 'sprout'} size={14} />
+                    {isFarmRunning ? 'Dừng Auto Farm' : 'Bật Auto Farm'}
                   </button>
-
-                  {/* Auto Sell Ore Option */}
-                  <button
-                    type="button"
-                    className={`acc-menu-item ${isSellOreRunning ? 'danger' : ''}`}
-                    onClick={() => handleTriggerAutoAction('sell_ore', isSellOreRunning ? 'stop' : 'start')}
-                  >
-                    <span className="acc-menu-icon">{isSellOreRunning ? '⏹️' : '🪨'}</span>
-                    <div className="acc-menu-text">
-                      <strong>{isSellOreRunning ? 'Dừng Auto Bán Đá' : 'Bật Auto Bán Đá'}</strong>
-                      <small>{isSellOreRunning ? 'Đang bán đá -> Nhấn để dừng' : 'Tự bán đá & ngọc cho Thợ Kim Hoàn'}</small>
-                    </div>
+                  <button className="dropdown-item-glass" onClick={() => handleTriggerAutoAction('sell_ore', isSellOreRunning ? 'stop' : 'start')}>
+                    <window.Icon name={isSellOreRunning ? 'stop' : 'rock'} size={14} />
+                    {isSellOreRunning ? 'Dừng Bán Đá' : 'Bật Bán Đá'}
                   </button>
                 </>
               )}
-
-              {/* Stop All Auto Option if running */}
               {autoState.isRunning && (
-                <button
-                  type="button"
-                  className="acc-menu-item danger"
-                  style={{ borderTop: '1px solid rgba(255,255,255,0.08)', marginTop: '4px' }}
-                  onClick={() => handleTriggerAutoAction('all', 'stop')}
-                >
-                  <span className="acc-menu-icon">🛑</span>
-                  <div className="acc-menu-text">
-                    <strong style={{ color: '#f87171' }}>Dừng Tất Cả Auto</strong>
-                    <small>Hủy bỏ mọi tác vụ bot đang chạy</small>
-                  </div>
+                <button className="dropdown-item-glass" style={{ color: 'var(--apple-red)' }} onClick={() => handleTriggerAutoAction('all', 'stop')}>
+                  <window.Icon name="stop" size={14} color="var(--apple-red)" /> Dừng Tất Cả Auto
                 </button>
               )}
             </div>
           )}
         </div>
 
-        {/* 2. Cài Đặt Mod Dropdown Menu Button */}
-        <div className="acc-dropdown-wrapper" ref={menuRef}>
+        {/* Mod Settings Dropdown */}
+        <div style={{ position: 'relative' }} ref={menuRef}>
           <button
             type="button"
-            className={`acc-setup-toggle-btn ${menuOpen ? 'active' : ''}`}
-            title="Chọn chức năng cài đặt (Up thuê, Farm, Kim cương, Câu cá, Bán đá...)"
+            className="btn btn-sm btn-secondary"
             onClick={() => setMenuOpen(!menuOpen)}
+            title="Cài đặt Mod"
+            style={{ gap: '3px' }}
           >
-            ⚙️ Cài Đặt Mod {menuOpen ? '▲' : '▼'}
+            <window.Icon name="settings" size={13} />
+            <window.Icon name="chevronDown" size={11} />
           </button>
 
           {menuOpen && (
-            <div className="acc-floating-menu menu-right">
-              <div className="acc-floating-header">Cấu Hình Mod ({account.username})</div>
-              <button
-                type="button"
-                className="acc-menu-item"
-                onClick={() => handleSelectFeature('upThue')}
-              >
-                <span className="acc-menu-icon">💰</span>
-                <div className="acc-menu-text">
-                  <strong>Cài Đặt Up Thuê</strong>
-                  <small>Xu cần up, số ngày up, reset</small>
-                </div>
+            <div className="dropdown-menu-glass">
+              <button className="dropdown-item-glass" onClick={() => handleSelectFeature('upThue')}>
+                <window.Icon name="coins" size={14} /> Cài Đặt Up Thuê
               </button>
-              <button
-                type="button"
-                className="acc-menu-item"
-                onClick={() => handleSelectFeature('farm')}
-              >
-                <span className="acc-menu-icon">🌾</span>
-                <div className="acc-menu-text">
-                  <strong>Cài Đặt Auto Farm</strong>
-                  <small>Tưới nước, bắt sâu, thu hoạch</small>
-                </div>
+              <button className="dropdown-item-glass" onClick={() => handleSelectFeature('farm')}>
+                <window.Icon name="sprout" size={14} /> Cài Đặt Auto Farm
               </button>
               {isFishMod ? (
-                <button
-                  type="button"
-                  className="acc-menu-item"
-                  onClick={() => handleSelectFeature('fish')}
-                >
-                  <span className="acc-menu-icon">🐟</span>
-                  <div className="acc-menu-text">
-                    <strong>Cài Đặt Auto Câu Cá</strong>
-                    <small>Tự câu, cần câu, bán cá, về farm</small>
-                  </div>
+                <button className="dropdown-item-glass" onClick={() => handleSelectFeature('fish')}>
+                  <window.Icon name="fish" size={14} /> Cài Đặt Auto Câu Cá
                 </button>
               ) : (
-                <button
-                  type="button"
-                  className="acc-menu-item"
-                  onClick={() => handleSelectFeature('diamond')}
-                >
-                  <span className="acc-menu-icon">💎</span>
-                  <div className="acc-menu-text">
-                    <strong>Cài Đặt Auto KC</strong>
-                    <small>Đào quặng, bán đá, về farm</small>
-                  </div>
+                <button className="dropdown-item-glass" onClick={() => handleSelectFeature('diamond')}>
+                  <window.Icon name="gem" size={14} /> Cài Đặt Auto Kim Cương
                 </button>
               )}
-              <button
-                type="button"
-                className="acc-menu-item"
-                onClick={() => handleSelectFeature('sellOre')}
-              >
-                <span className="acc-menu-icon">🪨</span>
-                <div className="acc-menu-text">
-                  <strong>Cài Đặt Auto Bán Đá</strong>
-                  <small>Thời gian bán, quãng nghỉ, khu bán, KCX/NHB</small>
-                </div>
+              <button className="dropdown-item-glass" onClick={() => handleSelectFeature('sellOre')}>
+                <window.Icon name="rock" size={14} /> Cài Đặt Bán Đá
               </button>
             </div>
           )}
         </div>
 
-        <button className="btn btn-sm btn-secondary" onClick={() => onOpenEditAccount(account)}>
-          ✏️ Sửa
-        </button>
-        <button className="btn btn-sm btn-danger" onClick={() => onDeleteAccount(account.id, account.username)}>
-          🗑️
-        </button>
+        {/* More Options Dropdown (Edit, Delete) */}
+        <div style={{ position: 'relative' }} ref={moreMenuRef}>
+          <button
+            type="button"
+            className="btn btn-sm btn-secondary btn-icon-only"
+            onClick={() => setMoreMenuOpen(!moreMenuOpen)}
+            title="Tùy chọn khác"
+          >
+            <window.Icon name="more" size={15} />
+          </button>
+
+          {moreMenuOpen && (
+            <div className="dropdown-menu-glass">
+              <button className="dropdown-item-glass" onClick={() => { setMoreMenuOpen(false); onOpenEditAccount(account); }}>
+                <window.Icon name="edit" size={14} /> Chỉnh Sửa Nick
+              </button>
+              <button className="dropdown-item-glass" style={{ color: 'var(--apple-red)' }} onClick={() => { setMoreMenuOpen(false); onDeleteAccount(account.id, account.username); }}>
+                <window.Icon name="trash" size={14} color="var(--apple-red)" /> Xóa Tài Khoản
+              </button>
+            </div>
+          )}
+        </div>
       </div>
     </div>
   );
