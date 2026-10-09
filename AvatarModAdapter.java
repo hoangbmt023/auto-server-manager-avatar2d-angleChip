@@ -688,30 +688,36 @@ public class AvatarModAdapter {
                             boolean isStatic = java.lang.reflect.Modifier.isStatic(f.getModifiers());
 
                             // Mảng tiền xu / lượng (int[])
-                            if (!isStatic && f.getName().equals(schema.playerCoinsArrayField)
-                                    && f.getType().equals(int[].class)) {
-                                int[] moneyArr = (int[]) f.get(playerObj);
-                                if (moneyArr != null && moneyArr.length > 0) {
-                                    stats.coins = moneyArr[0];
-                                    if (stats.coins > 0)
-                                        lastKnownCoins = stats.coins;
-                                    if (moneyArr.length > 1 && moneyArr[1] > 0) {
-                                        stats.gold = moneyArr[1];
-                                        lastKnownGold = stats.gold;
-                                    }
-                                    if (moneyArr.length > 2 && moneyArr[2] > 0) {
-                                        stats.gold = moneyArr[2];
-                                        lastKnownGold = stats.gold;
+                            if (!isStatic && (f.getName().equals(schema.playerCoinsArrayField) || f.getType().equals(int[].class))) {
+                                if (f.getType().equals(int[].class)) {
+                                    int[] moneyArr = (int[]) f.get(playerObj);
+                                    if (moneyArr != null && moneyArr.length > 0) {
+                                        stats.coins = moneyArr[0];
+                                        if (stats.coins > 0)
+                                            lastKnownCoins = stats.coins;
+                                        if (moneyArr.length > 1 && moneyArr[1] >= 0) {
+                                            stats.gold = moneyArr[1];
+                                            if (stats.gold > 0)
+                                                lastKnownGold = stats.gold;
+                                        }
+                                        if (moneyArr.length > 2 && moneyArr[2] >= 0) {
+                                            stats.lockedGold = moneyArr[2];
+                                            if (stats.lockedGold > 0)
+                                                lastKnownLockedGold = stats.lockedGold;
+                                        }
                                     }
                                 }
                             }
 
-                            // Lượng khóa (int)
-                            if (!isStatic && f.getName().equals(schema.playerLockedGoldField)
+                            // Lượng khóa (int) nếu nằm riêng field
+                            if (!isStatic && schema.playerLockedGoldField != null
+                                    && f.getName().equals(schema.playerLockedGoldField)
                                     && f.getType().equals(int.class)) {
-                                stats.lockedGold = f.getInt(playerObj);
-                                if (stats.lockedGold > 0)
+                                int lg = f.getInt(playerObj);
+                                if (lg > 0) {
+                                    stats.lockedGold = lg;
                                     lastKnownLockedGold = stats.lockedGold;
+                                }
                             }
 
                             // Tên nhân vật (String)
@@ -732,6 +738,25 @@ public class AvatarModAdapter {
                         }
                     }
                     pCls = pCls.getSuperclass();
+                }
+            }
+
+            // Fallback giữ giá trị tiền đã đọc được gần nhất nếu bot đang chuyển map/khu
+            if (stats.coins == 0 && lastKnownCoins > 0) {
+                stats.coins = lastKnownCoins;
+            }
+            if (stats.gold == 0 && lastKnownGold > 0) {
+                stats.gold = lastKnownGold;
+            }
+            if (stats.lockedGold == 0 && lastKnownLockedGold > 0) {
+                stats.lockedGold = lastKnownLockedGold;
+            }
+
+            // Fallback tên nhân vật từ tài khoản đăng nhập RMS nếu trong RAM chưa kịp nạp tên
+            if (stats.playerName.isEmpty()) {
+                String[] rmsCreds = readCredentialsFromRms(System.getProperty("avatar.appId"));
+                if (rmsCreds != null && rmsCreds[0] != null && !rmsCreds[0].isEmpty()) {
+                    stats.playerName = rmsCreds[0];
                 }
             }
         } catch (Throwable ignored) {
@@ -1567,11 +1592,31 @@ public class AvatarModAdapter {
                 Class<?> containerCls = cl.loadClass(containerName);
                 for (Field f : containerCls.getDeclaredFields()) {
                     if (java.lang.reflect.Modifier.isStatic(f.getModifiers())) {
-                        if (f.getType().getName().equals(schema.playerClassName)) {
-                            f.setAccessible(true);
+                        f.setAccessible(true);
+                        // 1. Kiểm tra chính xác theo tên lớp trong schema
+                        if (schema.playerClassName != null && f.getType().getName().equals(schema.playerClassName)) {
                             Object candidate = f.get(null);
                             if (candidate != null)
                                 return candidate;
+                        }
+                        // 2. Fallback kiểm tra bất kỳ class nhân vật nào kế thừa từ dF hoặc bp
+                        try {
+                            Class<?> dfCls = cl.loadClass("dF");
+                            if (dfCls.isAssignableFrom(f.getType())) {
+                                Object candidate = f.get(null);
+                                if (candidate != null)
+                                    return candidate;
+                            }
+                        } catch (Throwable ignored) {
+                        }
+                        try {
+                            Class<?> bpCls = cl.loadClass("bp");
+                            if (bpCls.isAssignableFrom(f.getType())) {
+                                Object candidate = f.get(null);
+                                if (candidate != null)
+                                    return candidate;
+                            }
+                        } catch (Throwable ignored) {
                         }
                     }
                 }

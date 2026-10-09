@@ -429,10 +429,10 @@ public class ModSchema {
         CHIP_MIX.alertDialogClass = "fA";
 
         CHIP_MIX.playerContainerClasses = new String[] { "main.AngelChip", "go" };
-        CHIP_MIX.playerClassName = "ef";
+        CHIP_MIX.playerClassName = "eh";
         CHIP_MIX.playerCoinsArrayField = "do";
         CHIP_MIX.playerLockedGoldField = "do";
-        CHIP_MIX.playerNameFields = new String[] { "if", "do" };
+        CHIP_MIX.playerNameFields = new String[] { "if", "do", "for", "int" };
 
         CHIP_MIX.upThueClassName = "aQ";
         CHIP_MIX.upThueSingletonMethod = "do";
