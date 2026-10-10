@@ -65,7 +65,6 @@ public class AvatarModAdapter {
                     : "";
 
             return "{\"coins\":" + coins + ",\"gold\":" + gold + ",\"lockedGold\":" + lockedGold +
-                    ",\"playerName\":\"" + (playerName != null ? playerName.replace("\"", "\\\"") : "") + "\"" +
                     ",\"targetCoins\":" + targetCoins + ",\"earnedCoins\":" + earnedCoins +
                     ",\"collectedHearts\":" + collectedHearts + ",\"kcx\":\"+" + kcx + "\",\"nhb\":\"+" + nhb +
                     "\",\"fishCaught\":" + fishCaught + ",\"sharkCaught\":" + sharkCaught + ",\"fishKcx\":\"+" + fishKcx
@@ -227,16 +226,22 @@ public class AvatarModAdapter {
                 setStaticField(loginCls, schema.loginServerNameField, String.class, serverName);
                 if (loginInstance != null) {
                     setField(loginInstance, schema.loginServerNameField, serverName, String.class);
+                    try {
+                        Method setServerNameM = loginCls.getMethod("do", String.class);
+                        setServerNameM.invoke(loginInstance, serverName);
+                    } catch (Throwable ignored) {
+                    }
                 }
             }
 
-            // Xử lý class phụ trợ gV nếu có
+            // Xử lý class phụ trợ gV / gX nếu có
             if (schema.loginExtraGvClass != null) {
                 try {
                     Class<?> gvCls = cl.loadClass(schema.loginExtraGvClass);
                     Method getGvMethod = gvCls.getMethod(schema.loginSingletonMethod);
                     Object gvInst = getGvMethod.invoke(null);
                     if (gvInst != null) {
+                        setField(gvInst, "do", serverId, int.class);
                         setField(gvInst, schema.loginServerIdField, serverId, int.class);
                     }
                 } catch (Throwable ignored) {
@@ -244,6 +249,12 @@ public class AvatarModAdapter {
             }
 
             if (loginInstance != null) {
+                try {
+                    Method tryMethod = loginCls.getMethod("try");
+                    tryMethod.invoke(loginInstance);
+                } catch (Throwable ignored) {
+                }
+
                 if (schema.loginHasConstServerId) {
                     setField(loginInstance, "case", true, boolean.class);
                     try {
@@ -395,7 +406,7 @@ public class AvatarModAdapter {
             for (Field f : containerCls.getDeclaredFields()) {
                 if (java.lang.reflect.Modifier.isStatic(f.getModifiers())) {
                     String fTypeName = f.getType().getSimpleName();
-                    if (fTypeName.equals(pointerType) || fTypeName.equals("bt") || fTypeName.equals("dJ")) {
+                    if (fTypeName.equals(pointerType) || fTypeName.equals("bt") || fTypeName.equals("dJ") || fTypeName.equals("dL")) {
                         f.setAccessible(true);
                         Object dObj = f.get(null);
                         // Khi dialog đóng (sau br.case() hoặc chưa mở), con trỏ này bằng null 100%!
@@ -481,7 +492,18 @@ public class AvatarModAdapter {
         // Chỉ chấp nhận Command / Button object chính thức của Avatar Mod:
         // "ei" trong Avatar Up Xu (build 34)
         // "fL" trong Avatar Fish (build 40)
-        if (!sName.equals("ei") && !sName.equals("fL")) {
+        // "fn" trong Avatar ChipMix (build 13)
+        ModSchema schema = getCurrentSchema();
+        boolean isBtnMatch = false;
+        if (schema != null && schema.buttonClasses != null) {
+            for (String bc : schema.buttonClasses) {
+                if (sName.equals(bc) || sName.equalsIgnoreCase(bc)) {
+                    isBtnMatch = true;
+                    break;
+                }
+            }
+        }
+        if (!isBtnMatch && !sName.equals("ei") && !sName.equals("fL") && !sName.equalsIgnoreCase("fn")) {
             return null;
         }
 
@@ -922,7 +944,7 @@ public class AvatarModAdapter {
             }
 
             // Kiểm tra trạng thái hoàn thành mục tiêu trực tiếp từ số liệu Mod trong RAM
-            if (stats.targetCoins > 0 && (stats.earnedCoins >= stats.targetCoins || stats.coins >= stats.targetCoins)) {
+            if (stats.targetCoins > 0 && stats.earnedCoins >= stats.targetCoins) {
                 stats.isTargetReached = true;
             } else if (stats.expiresAtTimestamp > 0 && System.currentTimeMillis() >= stats.expiresAtTimestamp) {
                 stats.isTargetReached = true;
@@ -1032,11 +1054,15 @@ public class AvatarModAdapter {
                 }
 
                 // 2. Kích hoạt hàm tính giờ của Mod:
-                String methodName;
-                if ("aC".equals(schema.farmClassName)) {
-                    methodName = "goto";
-                } else {
-                    methodName = isDiamond ? "byte" : "break";
+                String methodName = isDiamond ? schema.farmDiamondTimerMethod : schema.farmFishTimerMethod;
+                if (methodName == null || methodName.isEmpty()) {
+                    if ("aC".equals(schema.farmClassName)) {
+                        methodName = "goto";
+                    } else if ("bt".equals(schema.farmClassName)) {
+                        methodName = isDiamond ? "final" : "catch";
+                    } else {
+                        methodName = isDiamond ? "byte" : "break";
+                    }
                 }
 
                 Method farmTimerMethod = farmCls.getDeclaredMethod(methodName);
@@ -2307,7 +2333,12 @@ public class AvatarModAdapter {
             if (activeTask != null && "fish".equalsIgnoreCase(activeTask.autoType) && activeTask.taskInstance != null) {
                 if (backToFarm) {
                     long newIntervalMs = (long) farmIntervalMinutes * 60000L;
-                    setField(activeTask.taskInstance, "do", newIntervalMs, long.class);
+                    boolean isChipMix = (schema == ModSchema.CHIP_MIX || "Bản ChipMix Full (build13)".equals(schema.name));
+                    if (isChipMix) {
+                        setField(activeTask.taskInstance, "if", newIntervalMs, long.class);
+                    } else {
+                        setField(activeTask.taskInstance, "do", newIntervalMs, long.class);
+                    }
                     if (harvestOnTime) {
                         boolean updated = updateSmartCropTimer(cl, schema, false, true);
                         if (!updated) {
@@ -2389,55 +2420,21 @@ public class AvatarModAdapter {
             setStaticField(aQCls, schema.upDaysField, long.class, (long) upDays);
             setStaticField(aQCls, schema.startedTsField, long.class, System.currentTimeMillis());
 
-            // Lưu RMS thông qua schema nếu có
-            if (schema.upThueSaveRmsClass != null && !schema.upThueSaveRmsClass.isEmpty()) {
-                try {
-                    Class<?> saveCls = cl.loadClass(schema.upThueSaveRmsClass);
-                    Method saveMethod = saveCls.getMethod(schema.upThueSaveRmsMethod);
-                    saveMethod.invoke(null);
-                } catch (Throwable ignored) {
-                }
-            }
-
-            // Gọi các hàm lưu RMS trên aQ nếu có
-            for (String mName : new String[] { "save", "do", "if", "for", "byte", "try", "new" }) {
-                try {
-                    Method m = aQCls.getDeclaredMethod(mName);
-                    if (java.lang.reflect.Modifier.isStatic(m.getModifiers()) && m.getParameterCount() == 0
-                            && m.getReturnType().equals(void.class)) {
-                        m.setAccessible(true);
-                        m.invoke(null);
-                    }
-                } catch (Throwable ignored) {
-                }
-            }
-
-            // Cập nhật UI chuỗi ngày tháng thông qua schema
+            // Lưu RMS thông qua schema
             try {
-                Object aQInstance = null;
-                if (schema.upThueSingletonMethod != null && !schema.upThueSingletonMethod.isEmpty()) {
-                    try {
-                        Method aQDoMethod = aQCls.getMethod(schema.upThueSingletonMethod);
-                        aQInstance = aQDoMethod.invoke(null);
-                    } catch (Throwable ignored) {
-                    }
-                }
-                if (aQInstance == null) {
-                    for (Field f : aQCls.getDeclaredFields()) {
-                        if (java.lang.reflect.Modifier.isStatic(f.getModifiers()) && f.getType().equals(aQCls)) {
-                            f.setAccessible(true);
-                            aQInstance = f.get(null);
-                            if (aQInstance != null)
-                                break;
-                        }
-                    }
-                }
-                if (aQInstance != null && schema.upThueFormatDateMethod != null) {
-                    try {
-                        Method fmtMethod = aQCls.getMethod(schema.upThueFormatDateMethod);
-                        fmtMethod.invoke(aQInstance);
-                    } catch (Throwable ignored) {
-                    }
+                Class<?> saveCls = cl.loadClass(schema.upThueSaveRmsClass);
+                Method saveMethod = saveCls.getMethod(schema.upThueSaveRmsMethod);
+                saveMethod.invoke(null);
+            } catch (Throwable ignored) {
+            }
+
+            // Cập nhật UI thông qua schema
+            try {
+                Method aQDoMethod = aQCls.getMethod(schema.upThueSingletonMethod);
+                Object aQInstance = aQDoMethod.invoke(null);
+                if (aQInstance != null) {
+                    Method fmtMethod = aQCls.getMethod(schema.upThueFormatDateMethod);
+                    fmtMethod.invoke(aQInstance);
                 }
             } catch (Throwable ignored) {
             }
@@ -2465,58 +2462,20 @@ public class AvatarModAdapter {
             setStaticField(aQCls, schema.upDaysField, long.class, 0L);
             setStaticField(aQCls, schema.startedTsField, long.class, System.currentTimeMillis());
 
-            if (schema.upThueSaveRmsClass != null && !schema.upThueSaveRmsClass.isEmpty()) {
-                try {
-                    Class<?> saveCls = cl.loadClass(schema.upThueSaveRmsClass);
-                    Method resetMethod = saveCls.getMethod(schema.upThueResetRmsMethod);
-                    resetMethod.invoke(null);
-                } catch (Throwable ignored) {
-                }
-            }
-
-            // Gọi các hàm lưu RMS trên aQ nếu có
-            for (String mName : new String[] { "save", "do", "if", "for", "byte", "try", "new" }) {
-                try {
-                    Method m = aQCls.getDeclaredMethod(mName);
-                    if (java.lang.reflect.Modifier.isStatic(m.getModifiers()) && m.getParameterCount() == 0
-                            && m.getReturnType().equals(void.class)) {
-                        m.setAccessible(true);
-                        m.invoke(null);
-                    }
-                } catch (Throwable ignored) {
-                }
+            try {
+                Class<?> saveCls = cl.loadClass(schema.upThueSaveRmsClass);
+                Method resetMethod = saveCls.getMethod(schema.upThueResetRmsMethod);
+                resetMethod.invoke(null);
+            } catch (Throwable ignored) {
             }
 
             try {
-                Object aQInstance = null;
-                if (schema.upThueSingletonMethod != null && !schema.upThueSingletonMethod.isEmpty()) {
-                    try {
-                        Method aQDoMethod = aQCls.getMethod(schema.upThueSingletonMethod);
-                        aQInstance = aQDoMethod.invoke(null);
-                    } catch (Throwable ignored) {
-                    }
-                }
-                if (aQInstance == null) {
-                    for (Field f : aQCls.getDeclaredFields()) {
-                        if (java.lang.reflect.Modifier.isStatic(f.getModifiers()) && f.getType().equals(aQCls)) {
-                            f.setAccessible(true);
-                            aQInstance = f.get(null);
-                            if (aQInstance != null)
-                                break;
-                        }
-                    }
-                }
+                Method aQDoMethod = aQCls.getMethod(schema.upThueSingletonMethod);
+                Object aQInstance = aQDoMethod.invoke(null);
                 if (aQInstance != null) {
-                    if (schema.expiresAtStringField != null) {
-                        setField(aQInstance, schema.expiresAtStringField, "Vĩnh viễn", String.class);
-                    }
-                    if (schema.upThueFormatDateMethod != null) {
-                        try {
-                            Method fmtMethod = aQCls.getMethod(schema.upThueFormatDateMethod);
-                            fmtMethod.invoke(aQInstance);
-                        } catch (Throwable ignored) {
-                        }
-                    }
+                    setField(aQInstance, schema.expiresAtStringField, "Vĩnh viễn", String.class);
+                    Method fmtMethod = aQCls.getMethod(schema.upThueFormatDateMethod);
+                    fmtMethod.invoke(aQInstance);
                 }
             } catch (Throwable ignored) {
             }
@@ -2532,21 +2491,123 @@ public class AvatarModAdapter {
     // 5. ĐIỀU KHIỂN TIẾN TRÌNH AUTO (START / STOP / MONITOR VIA SCHEMA)
     // =========================================================================
 
+    public static void ensureTaskControllerRunning(ClassLoader cl, ModSchema schema) {
+        if (cl == null || schema == null || schema.taskControllerClassName == null)
+            return;
+        // CHỈ áp dụng cho bản CHIP_MIX (bX.class kế thừa Runnable)
+        if (schema != ModSchema.CHIP_MIX && !"Bản ChipMix Full (build13)".equals(schema.name)) {
+            return;
+        }
+        try {
+            Class<?> taskCtrlCls = cl.loadClass(schema.taskControllerClassName);
+            Object ctrlInst = null;
+            Field boolRunF = null;
+            Field threadF = null;
+
+            for (Field f : taskCtrlCls.getDeclaredFields()) {
+                if (java.lang.reflect.Modifier.isStatic(f.getModifiers())) {
+                    if (f.getType().equals(taskCtrlCls)) {
+                        f.setAccessible(true);
+                        ctrlInst = f.get(null);
+                    } else if (f.getType().equals(boolean.class)) {
+                        f.setAccessible(true);
+                        boolRunF = f;
+                    } else if (Thread.class.isAssignableFrom(f.getType())) {
+                        f.setAccessible(true);
+                        threadF = f;
+                    }
+                }
+            }
+
+            Thread curThread = null;
+            if (threadF != null) {
+                curThread = (Thread) threadF.get(null);
+            }
+
+            boolean isThreadAlive = curThread != null && curThread.isAlive();
+            if (!isThreadAlive) {
+                if (boolRunF != null) {
+                    boolRunF.setBoolean(null, false);
+                }
+                if (ctrlInst != null) {
+                    try {
+                        Method startM = taskCtrlCls.getMethod("for");
+                        startM.invoke(ctrlInst);
+                    } catch (Throwable ignored) {
+                    }
+                }
+            }
+        } catch (Throwable ignored) {
+        }
+    }
+
+    public static void initHcWatchdog(Object taskObj, ModSchema schema) {
+        if (taskObj == null || schema == null)
+            return;
+        // CHỈ áp dụng cho bản CHIP_MIX
+        if (schema != ModSchema.CHIP_MIX && !"Bản ChipMix Full (build13)".equals(schema.name)) {
+            return;
+        }
+        try {
+            Class<?> c = taskObj.getClass();
+            while (c != null && !c.equals(Object.class)) {
+                if (c.getSimpleName().equals("hc") || c.getName().endsWith(".hc")) {
+                    break;
+                }
+                c = c.getSuperclass();
+            }
+            if (c != null && !c.equals(Object.class)) {
+                // Đảm bảo hc.int:J là 100L (thời gian sleep giữa các vòng lặp bX.run()), tuyệt đối KHÔNG đặt System.currentTimeMillis()
+                try {
+                    Field intF = c.getDeclaredField("int");
+                    intF.setAccessible(true);
+                    intF.setLong(taskObj, 100L);
+                } catch (Throwable ignored) {
+                }
+
+                // Cập nhật watchdog try:J và new:J để không bị ngắt kết nối do quá hạn 180s / 300s
+                long now = System.currentTimeMillis();
+                try {
+                    Field tryF = c.getDeclaredField("try");
+                    tryF.setAccessible(true);
+                    tryF.setLong(taskObj, now);
+                } catch (Throwable ignored) {
+                }
+                try {
+                    Field newF = c.getDeclaredField("new");
+                    newF.setAccessible(true);
+                    newF.setLong(taskObj, now);
+                } catch (Throwable ignored) {
+                }
+            }
+
+            try {
+                Method superM = taskObj.getClass().getMethod("super");
+                superM.invoke(taskObj);
+            } catch (Throwable ignored) {
+            }
+        } catch (Throwable ignored) {
+        }
+    }
+
+    public static String lastConfiguredAutoType = null;
+
     public static boolean startAuto(String autoType) {
         ClassLoader cl = getClassLoader();
         if (cl == null)
             return false;
 
         AutoTaskInfo curTaskBefore = getActiveAutoTask();
-        boolean isSellOreSubTask = false;
-        if (("sell_ore".equalsIgnoreCase(autoType) || "banda".equalsIgnoreCase(autoType)
-                || "stone".equalsIgnoreCase(autoType) || "bd".equalsIgnoreCase(autoType))
-                && curTaskBefore != null
-                && ("diamond".equalsIgnoreCase(curTaskBefore.autoType) || "fish".equalsIgnoreCase(curTaskBefore.autoType))) {
-            isSellOreSubTask = true;
+        boolean isSubTask = false;
+        if (curTaskBefore != null && ("diamond".equalsIgnoreCase(curTaskBefore.autoType) || "fish".equalsIgnoreCase(curTaskBefore.autoType))) {
+            if ("farm".equalsIgnoreCase(autoType) || "nong_trai".equalsIgnoreCase(autoType)
+                    || "sell_ore".equalsIgnoreCase(autoType) || "banda".equalsIgnoreCase(autoType)
+                    || "stone".equalsIgnoreCase(autoType) || "bd".equalsIgnoreCase(autoType)) {
+                isSubTask = true;
+            }
         }
 
-        if (!isSellOreSubTask) {
+        if (!isSubTask) {
             stopAuto();
             try {
                 Thread.sleep(350);
@@ -2563,51 +2624,58 @@ public class AvatarModAdapter {
             Object taskObj = null;
 
             if ("farm".equalsIgnoreCase(autoType)) {
-                boolean triggeredViaCmd = false;
-                try {
-                    Method cmdMethod = taskCtrlCls.getMethod("do", String.class);
-                    Object res = cmdMethod.invoke(null, "af");
-                    triggeredViaCmd = (res instanceof Boolean) ? ((Boolean) res).booleanValue() : true;
-                } catch (Throwable ignored) {
-                }
-
-                if (!triggeredViaCmd) {
-                    if (schema.farmTraderTaskClassName != null && !schema.farmTraderTaskClassName.isEmpty()) {
-                        try {
-                            Class<?> farmCls = cl.loadClass(schema.farmClassName);
-                            Byte modeObj = (Byte) getStaticField(farmCls, schema.farmModeField, byte.class);
-                            byte mode = (modeObj != null) ? modeObj.byteValue() : 0;
-                            taskObj = (mode == 0) ? cl.loadClass(schema.farmTraderTaskClassName).newInstance()
-                                    : farmCls.newInstance();
-                        } catch (Throwable t) {
-                            taskObj = cl.loadClass(schema.farmTaskClassName).newInstance();
-                        }
-                    } else {
+                if (schema.farmTraderTaskClassName != null && !schema.farmTraderTaskClassName.isEmpty()) {
+                    try {
+                        Class<?> farmCls = cl.loadClass(schema.farmClassName);
+                        Byte modeObj = (Byte) getStaticField(farmCls, schema.farmModeField, byte.class);
+                        byte mode = (modeObj != null) ? modeObj.byteValue() : 0;
+                        taskObj = (mode == 0) ? cl.loadClass(schema.farmTraderTaskClassName).newInstance()
+                                : farmCls.newInstance();
+                    } catch (Throwable t) {
                         taskObj = cl.loadClass(schema.farmTaskClassName).newInstance();
                     }
-                    Method doMethod = taskCtrlCls.getMethod(schema.taskStartMethod, taskArgCls);
-                    doMethod.invoke(null, taskObj);
+                } else {
+                    taskObj = cl.loadClass(schema.farmTaskClassName).newInstance();
                 }
+                initHcWatchdog(taskObj, schema);
+
+                if (isSubTask && curTaskBefore != null && curTaskBefore.taskInstance != null) {
+                    try {
+                        Method subDoMethod = taskCtrlCls.getMethod(schema.taskStartMethod, taskArgCls, taskArgCls);
+                        subDoMethod.invoke(null, taskObj, curTaskBefore.taskInstance);
+                        ensureTaskControllerRunning(cl, schema);
+                        lastConfiguredAutoType = autoType;
+                        System.out.println("🌾 [BẬT AUTO FARM]: Tạm chuyển sang Auto Farm (từ " + curTaskBefore.friendlyName + ")!");
+                        System.out.println(
+                                "[AUTO_STATUS]: {\"isRunning\":true,\"autoType\":\"farm\",\"parentAutoType\":\"" + curTaskBefore.autoType + "\",\"subTask\":true,\"status\":\"running\",\"message\":\"Đang về chăm farm (từ " + curTaskBefore.friendlyName + ")...\"}");
+                        return true;
+                    } catch (Throwable ignored) {
+                    }
+                }
+
+                Method doMethod = taskCtrlCls.getMethod(schema.taskStartMethod, taskArgCls);
+                doMethod.invoke(null, taskObj);
+                ensureTaskControllerRunning(cl, schema);
+                lastConfiguredAutoType = autoType;
                 System.out.println("🌾 [BẬT AUTO FARM]: Đã kích hoạt Auto Farm [" + schema.name + "]!");
                 System.out.println(
                         "[AUTO_STATUS]: {\"isRunning\":true,\"autoType\":\"farm\",\"status\":\"running\",\"message\":\"Đang chạy Auto Farm...\"}");
                 return true;
             } else if ("diamond".equalsIgnoreCase(autoType) || "kc".equalsIgnoreCase(autoType)) {
-                // 1. Thử gọi lệnh chat native của Mod "kc" (giống hệt người chơi gõ phím 'kc'
-                // trong game)
-                boolean triggeredViaCmd = false;
-                try {
-                    Method cmdMethod = taskCtrlCls.getMethod("do", String.class);
-                    Object res = cmdMethod.invoke(null, "kc");
-                    triggeredViaCmd = (res instanceof Boolean) ? ((Boolean) res).booleanValue() : true;
-                } catch (Throwable ignored) {
-                }
-
                 Class<?> diamCls = cl.loadClass(schema.diamondClassName);
                 taskObj = null;
                 try {
-                    Method getInst = diamCls.getMethod(schema.diamondSingletonMethod);
-                    taskObj = getInst.invoke(null);
+                    String sMethod = (schema.diamondSingletonMethod != null && !schema.diamondSingletonMethod.isEmpty())
+                            ? schema.diamondSingletonMethod
+                            : "do";
+                    for (Method m : diamCls.getMethods()) {
+                        if (m.getName().equals(sMethod) && m.getParameterCount() == 0 &&
+                                java.lang.reflect.Modifier.isStatic(m.getModifiers()) &&
+                                diamCls.isAssignableFrom(m.getReturnType())) {
+                            taskObj = m.invoke(null);
+                            break;
+                        }
+                    }
                 } catch (Throwable ignored) {
                 }
                 if (taskObj == null) {
@@ -2618,36 +2686,20 @@ public class AvatarModAdapter {
                 }
 
                 if (taskObj != null) {
-                    // Khởi tạo phương thức void do() hoặc new() của task kim cương
-                    for (Method m : diamCls.getDeclaredMethods()) {
-                        if (m.getParameterCount() == 0 && m.getReturnType().equals(void.class) &&
-                                (m.getName().equals("do") || m.getName().equals("new"))) {
-                            try {
-                                m.setAccessible(true);
-                                m.invoke(taskObj);
-                                break;
-                            } catch (Throwable ignored) {
-                            }
-                        }
-                    }
-
-                    // QUAN TRỌNG: Cập nhật biến watchdog int:J (tránh mod hiểu nhầm bị đứng 10 phút
-                    // rồi gọi aQ.void() đăng xuất!)
+                    // 1. Khởi tạo trạng thái nội bộ của task kim cương (al.int() trong ChipMix)
                     try {
-                        Field intF = taskObj.getClass().getField("int");
-                        intF.setAccessible(true);
-                        intF.setLong(taskObj, System.currentTimeMillis());
-                    } catch (Throwable t) {
-                        try {
-                            Field intF = taskObj.getClass().getSuperclass().getDeclaredField("int");
-                            intF.setAccessible(true);
-                            intF.setLong(taskObj, System.currentTimeMillis());
-                        } catch (Throwable ignored) {
-                        }
+                        Method intM = diamCls.getMethod("int");
+                        intM.invoke(taskObj);
+                    } catch (Throwable ignored) {
                     }
 
-                    // Đặt thời gian hẹn giờ về farm (soXu = now + intervalMs) để không bị lập tức
-                    // nhảy về nông trại
+                    // 2. Đảm bảo worker thread Runnable (bX.run()) được khởi chạy trước khi cài đặt mốc thời gian
+                    ensureTaskControllerRunning(cl, schema);
+
+                    // 3. Khởi tạo watchdog của hc (đặt int:J = 100L tránh treo 54 năm, đặt try/new = now)
+                    initHcWatchdog(taskObj, schema);
+
+                    // 4. Đặt thời gian hẹn giờ về farm (soXu = now + intervalMs) để không bị lập tức nhảy về nông trại
                     long intervalMs = 60 * 60000L;
                     try {
                         Integer minsObj = (Integer) getStaticField(diamCls, schema.diamondIntervalField, int.class);
@@ -2686,23 +2738,15 @@ public class AvatarModAdapter {
                                     long.class);
                         }
                     } else {
-                        setField(taskObj, schema.diamondAbsTargetMsField, 0L, long.class);
+                        setField(taskObj, schema.diamondAbsTargetMsField, Long.MAX_VALUE, long.class);
                     }
 
-                    if (!triggeredViaCmd) {
-                        Method doMethod = taskCtrlCls.getMethod(schema.taskStartMethod, taskArgCls);
-                        doMethod.invoke(null, taskObj);
-                    }
-                }
+                    // 5. Kích hoạt task qua task controller
+                    Method doMethod = taskCtrlCls.getMethod(schema.taskStartMethod, taskArgCls);
+                    doMethod.invoke(null, taskObj);
 
-                // Đảm bảo thread worker của taskController đang chạy
-                try {
-                    Object ctrlInst = getStaticField(taskCtrlCls, "do", taskCtrlCls);
-                    if (ctrlInst != null) {
-                        Method startRunner = taskCtrlCls.getMethod("do");
-                        startRunner.invoke(ctrlInst);
-                    }
-                } catch (Throwable ignored) {
+                    // 6. Đảm bảo worker thread tiếp tục chạy
+                    ensureTaskControllerRunning(cl, schema);
                 }
 
                 System.out.println("💎 [BẬT AUTO KIM CƯƠNG]: Đã kích hoạt Auto Đào Kim Cương [" + schema.name + "]!");
@@ -2717,23 +2761,37 @@ public class AvatarModAdapter {
                         String sMethod = (schema.fishSingletonMethod != null && !schema.fishSingletonMethod.isEmpty())
                                 ? schema.fishSingletonMethod
                                 : "do";
-                        Method instM = fishCls.getMethod(sMethod);
-                        taskObj = instM.invoke(null);
+                        for (Method m : fishCls.getMethods()) {
+                            if (m.getName().equals(sMethod) && m.getParameterCount() == 0 &&
+                                    java.lang.reflect.Modifier.isStatic(m.getModifiers()) &&
+                                    fishCls.isAssignableFrom(m.getReturnType())) {
+                                taskObj = m.invoke(null);
+                                break;
+                            }
+                        }
                     } catch (Throwable ignored) {
+                    }
+                    if (taskObj == null) {
                         try {
                             taskObj = fishCls.newInstance();
                         } catch (Throwable ignored2) {
                         }
                     }
                     if (taskObj != null) {
-                        // Gọi hàm new() để bS khởi tạo Map ID và trạng thái câu cá
+                        // 1. Gọi hàm new() để bS khởi tạo Map ID và trạng thái câu cá
                         try {
                             Method newM = fishCls.getMethod("new");
                             newM.invoke(taskObj);
                         } catch (Throwable ignored) {
                         }
 
-                        // Khởi tạo thời gian về farm
+                        // 2. Đảm bảo background worker thread đang chạy trước khi cấu hình mốc thời gian
+                        ensureTaskControllerRunning(cl, schema);
+
+                        // 3. Khởi tạo watchdog của hc (đặt int:J = 100L tránh treo 54 năm, đặt try/new = now)
+                        initHcWatchdog(taskObj, schema);
+
+                        // 4. Khởi tạo thời gian về farm
                         long intervalMs = 30 * 60000L;
                         try {
                             Integer minsObj = (Integer) getStaticField(fishCls, schema.fishFarmIntervalField,
@@ -2761,7 +2819,13 @@ public class AvatarModAdapter {
                         } catch (Throwable ignored) {
                         }
 
-                        setField(taskObj, "do", intervalMs, long.class);
+                        boolean isChipMix = (schema == ModSchema.CHIP_MIX || "Bản ChipMix Full (build13)".equals(schema.name));
+                        if (isChipMix) {
+                            setField(taskObj, "if", intervalMs, long.class);
+                        } else {
+                            setField(taskObj, "do", intervalMs, long.class);
+                        }
+
                         if (backToFarmOn) {
                             if (harvestOnTimeOn) {
                                 boolean updated = updateSmartCropTimer(cl, schema, false, true);
@@ -2777,8 +2841,13 @@ public class AvatarModAdapter {
                             setField(taskObj, schema.fishTargetMsField, Long.MAX_VALUE, long.class);
                         }
 
+                        // 5. Kích hoạt task qua task controller
                         Method doMethod = taskCtrlCls.getMethod(schema.taskStartMethod, taskArgCls);
                         doMethod.invoke(null, taskObj);
+
+                        // 6. Đảm bảo worker thread tiếp tục chạy
+                        ensureTaskControllerRunning(cl, schema);
+
                         System.out.println("🎣 [BẬT AUTO FISH]: Đã kích hoạt Auto Câu Cá [" + schema.name
                                 + "] (Hẹn về farm: " + (intervalMs / 60000) + " phút)!");
                         System.out.println(
@@ -2797,10 +2866,14 @@ public class AvatarModAdapter {
                     Class<?> sellCls = cl.loadClass(schema.sellOreTaskClassName);
                     taskObj = sellCls.newInstance();
 
-                    if (isSellOreSubTask && curTaskBefore != null && curTaskBefore.taskInstance != null) {
+                    initHcWatchdog(taskObj, schema);
+
+                    if (isSubTask && curTaskBefore != null && curTaskBefore.taskInstance != null) {
                         try {
                             Method subDoMethod = taskCtrlCls.getMethod(schema.taskStartMethod, taskArgCls, taskArgCls);
                             subDoMethod.invoke(null, taskObj, curTaskBefore.taskInstance);
+                            ensureTaskControllerRunning(cl, schema);
+                            lastConfiguredAutoType = autoType;
                             System.out.println("🪨 [BẬT AUTO BÁN ĐÁ]: Tạm chuyển sang Auto Bán Đá (từ " + curTaskBefore.friendlyName + ")!");
                             System.out.println(
                                     "[AUTO_STATUS]: {\"isRunning\":true,\"autoType\":\"sell_ore\",\"parentAutoType\":\"" + curTaskBefore.autoType + "\",\"subTask\":true,\"status\":\"running\",\"message\":\"Đang đi bán đá (từ " + curTaskBefore.friendlyName + ")...\"}");
@@ -2811,6 +2884,8 @@ public class AvatarModAdapter {
 
                     Method doMethod = taskCtrlCls.getMethod(schema.taskStartMethod, taskArgCls);
                     doMethod.invoke(null, taskObj);
+                    ensureTaskControllerRunning(cl, schema);
+                    lastConfiguredAutoType = autoType;
                     System.out.println("🪨 [BẬT AUTO BÁN ĐÁ]: Đã kích hoạt Auto Bán Đá [" + schema.name + "]!");
                     System.out.println(
                             "[AUTO_STATUS]: {\"isRunning\":true,\"autoType\":\"sell_ore\",\"status\":\"running\",\"message\":\"Đang chạy Auto Bán Đá...\"}");
@@ -2849,12 +2924,44 @@ public class AvatarModAdapter {
     }
 
     public static void stopAuto() {
+        stopAuto(null);
+    }
+
+    public static void stopAuto(String targetType) {
         ClassLoader cl = getClassLoader();
         if (cl == null)
             return;
 
         ModSchema schema = getCurrentSchema();
+        AutoTaskInfo curTask = getActiveAutoTask();
 
+        // 1. Nếu đang có Subtask chạy (isSubTask == true) và người dùng yêu cầu dừng subtask:
+        boolean shouldReturnToParent = false;
+        if (curTask != null && curTask.isSubTask && curTask.parentAutoType != null) {
+            if (targetType == null || targetType.equalsIgnoreCase(curTask.autoType)
+                    || ("farm".equalsIgnoreCase(curTask.autoType) && "farm".equalsIgnoreCase(targetType))
+                    || ("sell_ore".equalsIgnoreCase(curTask.autoType)
+                            && ("sell_ore".equalsIgnoreCase(targetType) || "banda".equalsIgnoreCase(targetType)
+                                    || "stone".equalsIgnoreCase(targetType) || "bd".equalsIgnoreCase(targetType)))) {
+                shouldReturnToParent = true;
+            }
+        }
+
+        if (shouldReturnToParent && schema.taskReturnMethod != null && !schema.taskReturnMethod.isEmpty()) {
+            try {
+                Class<?> taskCtrlCls = cl.loadClass(schema.taskControllerClassName);
+                Method returnMethod = taskCtrlCls.getMethod(schema.taskReturnMethod);
+                returnMethod.invoke(null);
+                lastConfiguredAutoType = curTask.parentAutoType;
+                System.out.println("⏹️ [QUAY VỀ AUTO CHÍNH]: Đã dừng subtask (" + curTask.friendlyName + ") và quay về " + curTask.parentAutoType + "!");
+                System.out.println("[AUTO_STATUS]: {\"isRunning\":true,\"status\":\"running\",\"autoType\":\"" + curTask.parentAutoType + "\",\"subTask\":false,\"message\":\"Đang chạy tiếp " + curTask.parentAutoType + "...\"}");
+                return;
+            } catch (Throwable ignored) {
+            }
+        }
+
+        // 2. Dừng toàn bộ (Stop All)
+        lastConfiguredAutoType = null;
         try {
             Class<?> taskCtrlCls = cl.loadClass(schema.taskControllerClassName);
             Method stopMethod = taskCtrlCls.getMethod(schema.taskStopMethod);
@@ -2978,7 +3085,7 @@ public class AvatarModAdapter {
                                                 String pName = parentObj.getClass().getSimpleName();
                                                 if (pName.equals(schema.diamondTaskClassName)
                                                         || "AutoKimCuong".equals(pName) || "X".equals(pName)
-                                                        || "aj".equals(pName)) {
+                                                        || "aj".equals(pName) || "al".equals(pName) || "dy".equals(pName)) {
                                                     parentType = "diamond";
                                                     isSub = true;
                                                     break;
@@ -2989,7 +3096,8 @@ public class AvatarModAdapter {
                                                     break;
                                                 } else if (pName.equals(schema.farmTaskClassName)
                                                         || "AutoFarm".equals(pName) || "aC".equals(pName)
-                                                        || "bq".equals(pName)) {
+                                                        || "bq".equals(pName) || "bt".equals(pName) || "hp".equals(pName)
+                                                        || "hn".equals(pName)) {
                                                     parentType = "farm";
                                                     isSub = true;
                                                     break;

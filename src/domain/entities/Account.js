@@ -19,7 +19,8 @@ class Account {
     farmSettings = null,
     diamondSettings = null,
     fishSettings = null,
-    sellOreSettings = null
+    sellOreSettings = null,
+    ipSlot = 1
   }) {
     this.id = id || `acc_${Date.now()}_${Math.random().toString(36).substr(2, 4)}`;
     this.username = (username || '').trim();
@@ -29,6 +30,7 @@ class Account {
     this.fileId = fileId || 'file_1';
     this.proxyId = proxyId || null;
     this.note = (note || '').trim();
+    this.ipSlot = Math.max(1, parseInt(ipSlot || 1, 10));
     this.appId = appId || `avatar_${this.username || this.id}`;
     this.targetCoins = parseInt(targetCoins || 0, 10);
     this.upDays = parseInt(upDays || 0, 10);
@@ -107,6 +109,7 @@ class Account {
       fileId: this.fileId,
       proxyId: this.proxyId,
       note: this.note,
+      ipSlot: this.ipSlot,
       appId: this.appId,
       targetCoins: this.targetCoins,
       upDays: this.upDays,
@@ -127,6 +130,7 @@ class Account {
       fileId: this.fileId,
       proxyId: this.proxyId,
       note: this.note,
+      ipSlot: this.ipSlot,
       appId: this.appId,
       targetCoins: this.targetCoins,
       upDays: this.upDays,

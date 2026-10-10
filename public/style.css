@@ -329,23 +329,59 @@ body {
   border: 1px solid var(--glass-border-subtle);
   backdrop-filter: var(--blur-base);
   gap: 2px;
+  box-sizing: border-box;
 }
 
 .segmented-control .btn {
   border: none;
   background: transparent;
   box-shadow: none;
-  padding: 5px 12px;
+  padding: 5px 11px;
   font-size: 0.78rem;
   border-radius: var(--radius-pill);
   color: var(--text-secondary);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  white-space: nowrap;
+  transition: var(--transition-fast);
 }
 
-.segmented-control .btn.active,
 .segmented-control .btn:hover {
   background: var(--glass-bg-hover);
   color: var(--text-primary);
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+}
+
+.segmented-control .btn.active {
+  background: var(--glass-card);
+  color: var(--apple-blue);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+}
+
+/* Retain Danger & Success styles inside Segmented Control */
+.segmented-control .btn.btn-danger {
+  background: linear-gradient(180deg, rgba(255, 69, 58, 0.9) 0%, rgba(215, 45, 36, 0.98) 100%) !important;
+  color: #ffffff !important;
+  box-shadow: 0 2px 10px rgba(255, 69, 58, 0.4) !important;
+  font-weight: 600;
+}
+
+.segmented-control .btn.btn-danger:hover {
+  background: linear-gradient(180deg, rgba(255, 69, 58, 1) 0%, rgba(225, 50, 40, 1) 100%) !important;
+  box-shadow: 0 4px 14px rgba(255, 69, 58, 0.55) !important;
+}
+
+.segmented-control .btn.btn-success {
+  background: linear-gradient(180deg, rgba(48, 209, 88, 0.9) 0%, rgba(36, 175, 71, 0.98) 100%) !important;
+  color: #ffffff !important;
+  box-shadow: 0 2px 10px rgba(48, 209, 88, 0.4) !important;
+  font-weight: 600;
+}
+
+.segmented-control .btn.btn-success:hover {
+  background: linear-gradient(180deg, rgba(48, 209, 88, 1) 0%, rgba(40, 185, 76, 1) 100%) !important;
+  box-shadow: 0 4px 14px rgba(48, 209, 88, 0.55) !important;
 }
 
 /* ==========================================================================
@@ -353,20 +389,163 @@ body {
    ========================================================================== */
 
 .alert-banner {
-  background: rgba(255, 159, 10, 0.08);
-  border: 1px solid rgba(255, 159, 10, 0.25);
-  backdrop-filter: var(--blur-base);
+  background: linear-gradient(135deg, rgba(255, 159, 10, 0.12) 0%, rgba(255, 159, 10, 0.04) 100%);
+  border: 1px solid rgba(255, 159, 10, 0.35);
+  backdrop-filter: var(--blur-deep);
+  -webkit-backdrop-filter: var(--blur-deep);
   border-radius: var(--radius-md);
   padding: 14px 18px;
   display: flex;
   align-items: center;
-  gap: 14px;
-  box-shadow: var(--shadow-sm);
+  justify-content: space-between;
+  gap: 16px;
+  box-shadow: 0 8px 24px -4px rgba(255, 159, 10, 0.15), inset 0 1px 0 rgba(255, 255, 255, 0.1);
+  position: relative;
+  overflow: hidden;
+}
+
+.alert-banner::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  bottom: 0;
+  width: 4px;
+  background: var(--apple-orange);
+  border-radius: 4px 0 0 4px;
 }
 
 .alert-banner-danger {
-  background: rgba(255, 69, 58, 0.08);
-  border-color: rgba(255, 69, 58, 0.25);
+  background: linear-gradient(135deg, rgba(255, 69, 58, 0.14) 0%, rgba(255, 69, 58, 0.05) 100%);
+  border-color: rgba(255, 69, 58, 0.38);
+  box-shadow: 0 8px 24px -4px rgba(255, 69, 58, 0.2), inset 0 1px 0 rgba(255, 255, 255, 0.1);
+}
+
+.alert-banner-danger::before {
+  background: var(--apple-red);
+}
+
+.alert-banner-icon-wrap {
+  width: 42px;
+  height: 42px;
+  min-width: 42px;
+  border-radius: 12px;
+  background: rgba(255, 159, 10, 0.15);
+  border: 1px solid rgba(255, 159, 10, 0.3);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.alert-banner-danger .alert-banner-icon-wrap {
+  background: rgba(255, 69, 58, 0.18);
+  border-color: rgba(255, 69, 58, 0.35);
+}
+
+.alert-banner-content {
+  flex: 1 1 auto;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.alert-banner-header h4 {
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: var(--text-primary);
+  margin: 0;
+  line-height: 1.35;
+}
+
+.alert-banner-danger .alert-banner-header h4 {
+  color: #ff7b72;
+}
+
+.alert-banner-content p {
+  font-size: 0.84rem;
+  color: var(--text-secondary);
+  line-height: 1.45;
+  margin: 0;
+}
+
+.alert-banner-content p strong {
+  color: var(--text-primary);
+}
+
+.alert-banner-actions {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.alert-banner-compact {
+  padding: 10px 14px;
+  gap: 12px;
+  box-shadow: none;
+}
+
+.alert-banner-compact .alert-banner-icon-wrap {
+  width: 32px;
+  height: 32px;
+  min-width: 32px;
+  border-radius: 8px;
+}
+
+/* Responsive Alert Banner for Mobile & Tablet */
+@media (max-width: 768px) {
+  .alert-banner {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 14px;
+    padding: 14px 16px;
+  }
+
+  .alert-banner-top {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    width: 100%;
+  }
+
+  .alert-banner-actions {
+    width: 100%;
+    margin-top: 2px;
+  }
+
+  .alert-banner-actions .btn {
+    width: 100%;
+    justify-content: center;
+  }
+}
+
+/* ☀️ Light Theme Alert Banner Enhancements */
+[data-theme="light"] .alert-banner {
+  background: linear-gradient(135deg, rgba(255, 149, 0, 0.12) 0%, rgba(255, 149, 0, 0.04) 100%);
+  border-color: rgba(255, 149, 0, 0.35);
+  box-shadow: 0 8px 24px -4px rgba(255, 149, 0, 0.12), inset 0 1px 0 rgba(255, 255, 255, 0.8);
+}
+
+[data-theme="light"] .alert-banner-danger {
+  background: linear-gradient(135deg, rgba(255, 59, 48, 0.12) 0%, rgba(255, 59, 48, 0.04) 100%);
+  border-color: rgba(255, 59, 48, 0.35);
+  box-shadow: 0 8px 24px -4px rgba(255, 59, 48, 0.12), inset 0 1px 0 rgba(255, 255, 255, 0.8);
+}
+
+[data-theme="light"] .alert-banner-danger .alert-banner-header h4 {
+  color: #d70015;
+}
+
+[data-theme="light"] .alert-banner-icon-wrap {
+  background: rgba(255, 149, 0, 0.15);
+  border-color: rgba(255, 149, 0, 0.3);
+}
+
+[data-theme="light"] .alert-banner-danger .alert-banner-icon-wrap {
+  background: rgba(255, 59, 48, 0.15);
+  border-color: rgba(255, 59, 48, 0.3);
 }
 
 .progress-container {

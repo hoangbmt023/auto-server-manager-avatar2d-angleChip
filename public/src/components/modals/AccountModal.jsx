@@ -131,6 +131,7 @@ window.AccountModal = function AccountModal({
   files = [],
   proxies = [],
   activeFileId,
+  defaultIpSlot = 1,
   onClose,
   onSaved
 }) {
@@ -141,28 +142,42 @@ window.AccountModal = function AccountModal({
   const [password, setPassword] = useAccModalState('');
   const [serverId, setServerId] = useAccModalState(account?.serverId !== undefined ? String(account.serverId) : '0');
   const [note, setNote] = useAccModalState(account?.note || '');
+  const [ipSlot, setIpSlot] = useAccModalState(account?.ipSlot !== undefined ? String(account.ipSlot) : String(defaultIpSlot || 1));
+
+  const selectedFile = files.find(f => f.id === fileId) || files.find(f => f.id === activeFileId);
+  const totalIps = selectedFile ? Math.max(1, Math.ceil((selectedFile.maxAccounts || 6) / 6)) : 1;
+  const ipOptions = [];
+  for (let i = 1; i <= totalIps; i++) {
+    const slotStats = selectedFile?.ipSlots?.find(s => s.slot === i);
+    ipOptions.push({
+      value: String(i),
+      label: `Tab IP ${i}`,
+      sub: slotStats ? `HM: ${slotStats.hmCount}/3 • DK: ${slotStats.dkCount}/3 (${slotStats.total}/6 nick)` : 'Tối đa 6 nick'
+    });
+  }
 
   const fileOptions = files.map(f => ({
     value: f.id,
     label: f.name,
-    badge: `${f.totalAccounts || 0}/6 nick`
+    badge: `${f.totalAccounts || 0}/${f.maxAccounts || 6} nick (${f.totalIps || Math.max(1, Math.ceil((f.maxAccounts || 6)/6))} IP)`
   }));
 
   const serverOptions = [
-    { value: '0', label: 'Server 1: Hoàn Mỹ', sub: 'Tối đa 3 nick/server' },
-    { value: '1', label: 'Server 2: Diệu Kỳ', sub: 'Tối đa 3 nick/server' }
+    { value: '0', label: 'Server 1: Hoàn Mỹ', sub: 'Tối đa 3 nick/server mỗi IP' },
+    { value: '1', label: 'Server 2: Diệu Kỳ', sub: 'Tối đa 3 nick/server mỗi IP' }
   ];
 
   const proxyOptions = [
     {
       value: '',
-      label: 'Không dùng Proxy (Direct IP)',
-      sub: 'Sử dụng trực tiếp IP Server VPS'
+      label: 'Tab IP Mặc định (Direct IP VPS)',
+      sub: 'Dùng trực tiếp IP VPS • Tối đa 3 HM + 3 DK trên toàn hệ thống',
+      badge: 'IP Server'
     },
     ...proxies.map(p => ({
       value: p.id,
-      label: p.name,
-      sub: `${(p.type || 'SOCKS').toUpperCase()} • ${p.host}:${p.port}`,
+      label: `Tab Proxy: ${p.name}`,
+      sub: `${(p.type || 'SOCKS').toUpperCase()} • ${p.host}:${p.port} (Tối đa 3 HM + 3 DK)`,
       badge: `Online: ${p.onlineCount || 0}/6`,
       disabled: Boolean(p.isExpired),
       isExpired: Boolean(p.isExpired)
@@ -193,6 +208,7 @@ window.AccountModal = function AccountModal({
       password,
       serverId: sId,
       serverName: sId === 0 ? 'Hoàn Mỹ' : 'Diệu Kỳ',
+      ipSlot: parseInt(ipSlot, 10) || 1,
       note: note.trim()
     };
 
@@ -232,26 +248,45 @@ window.AccountModal = function AccountModal({
           const currentSelectedProxy = proxies.find(p => p.id === proxyId);
           if (!currentSelectedProxy || !currentSelectedProxy.isExpired) return null;
           return (
-            <div className="alert-banner alert-banner-danger" style={{ padding: '10px 14px' }}>
-              <window.Icon name="shield" size={18} color="var(--apple-red)" />
-              <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>
-                <strong style={{ color: 'var(--apple-red)' }}>Proxy đã hết hạn:</strong> Proxy <b>{currentSelectedProxy.name}</b> đã bị lỗi xác thực. Vui lòng đổi sang proxy khác.
+            <div className="alert-banner alert-banner-danger alert-banner-compact">
+              <div className="alert-banner-icon-wrap">
+                <window.Icon name="shield" size={16} color="var(--apple-red)" />
+              </div>
+              <div className="alert-banner-content">
+                <p style={{ margin: 0, fontSize: '0.82rem' }}>
+                  <strong style={{ color: 'var(--apple-red)' }}>Proxy đã hết hạn:</strong> Proxy <b>{currentSelectedProxy.name}</b> đã bị lỗi xác thực. Vui lòng đổi sang proxy khác.
+                </p>
               </div>
             </div>
           );
         })()}
 
-        <div className="form-group">
-          <label style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-            <window.Icon name="folder" size={14} color="var(--apple-blue)" />
-            <span>Thuộc File / Profile (Tối đa 6 nick):</span>
-          </label>
-          <CustomSelect
-            value={fileId}
-            onChange={setFileId}
-            options={fileOptions}
-            placeholder="Chọn File / Profile..."
-          />
+        <div className="form-row">
+          <div className="form-group">
+            <label style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+              <window.Icon name="folder" size={14} color="var(--apple-blue)" />
+              <span>Thuộc File / Profile:</span>
+            </label>
+            <CustomSelect
+              value={fileId}
+              onChange={setFileId}
+              options={fileOptions}
+              placeholder="Chọn File / Profile..."
+            />
+          </div>
+
+          <div className="form-group">
+            <label style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+              <window.Icon name="globe" size={14} color="var(--apple-purple)" />
+              <span>Tab IP / Proxy Mạng (Tối đa 6 nick/IP):</span>
+            </label>
+            <CustomSelect
+              value={proxyId}
+              onChange={setProxyId}
+              options={proxyOptions}
+              placeholder="Chọn Tab IP / Proxy..."
+            />
+          </div>
         </div>
 
         <div className="form-row">
@@ -300,14 +335,15 @@ window.AccountModal = function AccountModal({
 
           <div className="form-group">
             <label style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-              <window.Icon name="globe" size={14} color="var(--apple-blue)" />
-              <span>Gán Proxy Kết Nối:</span>
+              <window.Icon name="edit" size={14} color="var(--apple-blue)" />
+              <span>Ghi chú mô tả:</span>
             </label>
-            <CustomSelect
-              value={proxyId}
-              onChange={setProxyId}
-              options={proxyOptions}
-              placeholder="Không dùng Proxy (Direct IP)"
+            <input
+              type="text"
+              className="form-control"
+              placeholder="VD: Nick câu cá farm chính"
+              value={note}
+              onChange={e => setNote(e.target.value)}
             />
           </div>
         </div>

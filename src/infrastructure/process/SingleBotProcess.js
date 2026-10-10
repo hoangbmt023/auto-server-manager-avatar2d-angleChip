@@ -120,6 +120,13 @@ class SingleBotProcess extends EventEmitter {
     const safeAppId = `avatar_${this.account.username || this.account.id}_${this.fileProfile ? this.fileProfile.id : 'def'}`;
     args.push(`-Davatar.appId=${safeAppId}`);
 
+    const autoToStart = (this.autoState && this.autoState.isRunning && this.autoState.autoType) 
+      ? this.autoState.autoType 
+      : (this.account && (this.account.lastAutoType || this.account.defaultAutoType));
+    if (autoToStart) {
+      args.push(`-Davatar.autoStartType=${autoToStart}`);
+    }
+
     // Proxy configuration (Account-specific Proxy from Proxy Pool, File Profile Proxy, or Global Proxy)
     let proxy = null;
     if (this.account.proxyId && Array.isArray(this.globalConfig.proxies)) {
@@ -675,14 +682,27 @@ class SingleBotProcess extends EventEmitter {
     };
   }
 
+  getFriendlyName(type) {
+    if (type === 'diamond' || type === 'kc') return 'Auto Kim Cương';
+    if (type === 'fish' || type === 'cc') return 'Auto Câu Cá';
+    if (type === 'farm') return 'Auto Farm';
+    if (type === 'sell_ore' || type === 'banda' || type === 'stone' || type === 'bd') return 'Auto Bán Đá';
+    if (type === 'tai_xiu') return 'Auto Tài Xỉu';
+    if (type === 'baby') return 'Auto Chăm Em Bé';
+    if (type === 'event' || type === 'sk') return 'Auto Sự Kiện';
+    return 'Auto';
+  }
+
   triggerAuto(autoType = 'farm', action = 'start') {
     if (this.child && this.child.stdin && !this.child.stdin.destroyed) {
       try {
         if (action === 'start') {
-          // Nếu đang có tiến trình auto khác chạy, gửi lệnh dừng trước để chuyển đổi tuần tự (trừ khi chuyển sang bán đá từ KC/Fish)
-          const isDiamondOrFishRunning = this.autoState && this.autoState.isRunning && (this.autoState.autoType === 'diamond' || this.autoState.autoType === 'kc' || this.autoState.autoType === 'fish');
-          const isTargetSellOre = (autoType === 'sell_ore' || autoType === 'banda' || autoType === 'stone');
-          if (this.autoState && this.autoState.isRunning && !(isDiamondOrFishRunning && isTargetSellOre)) {
+          // Kiểm tra xem có phải bật Subtask (Farm / Bán Đá) khi Auto lớn (KC / Câu Cá) đang chạy không
+          const isParentRunning = this.autoState && this.autoState.isRunning && (this.autoState.autoType === 'diamond' || this.autoState.autoType === 'kc' || this.autoState.autoType === 'fish');
+          const isTargetSubTask = (autoType === 'farm' || autoType === 'sell_ore' || autoType === 'banda' || autoType === 'stone' || autoType === 'bd');
+
+          // Chỉ gửi STOP_AUTO nếu chuyển giữa các task độc lập, KHÔNG gửi STOP_AUTO khi lồng subtask vào task lớn!
+          if (this.autoState && this.autoState.isRunning && !(isParentRunning && isTargetSubTask)) {
             this.child.stdin.write('STOP_AUTO\n');
           }
 
@@ -701,22 +721,46 @@ class SingleBotProcess extends EventEmitter {
           }
           this.child.stdin.write(`START_AUTO ${autoType}\n`);
           
-          let friendlyName = 'Auto Farm';
-          if (autoType === 'diamond' || autoType === 'kc') friendlyName = 'Auto Kim Cương';
-          else if (autoType === 'fish') friendlyName = 'Auto Câu Cá';
-          else if (autoType === 'sell_ore' || autoType === 'banda' || autoType === 'stone') friendlyName = 'Auto Bán Đá';
+          const friendlyName = this.getFriendlyName(autoType);
 
-          this.autoState = {
-            isRunning: true,
-            autoType,
-            status: 'running',
-            message: `Đang chạy ${friendlyName}...`
-          };
+          if (isParentRunning && isTargetSubTask) {
+            this.autoState = {
+              ...this.autoState,
+              subTask: autoType,
+              status: 'running',
+              message: `Đang tạm chuyển sang ${friendlyName} (từ ${this.getFriendlyName(this.autoState.autoType)})...`
+            };
+          } else {
+            this.account.lastAutoType = autoType;
+            this.autoState = {
+              isRunning: true,
+              autoType,
+              subTask: null,
+              status: 'running',
+              message: `Đang chạy ${friendlyName}...`
+            };
+          }
         } else {
-          this.child.stdin.write('STOP_AUTO\n');
+          // action === 'stop'
+          this.child.stdin.write(`STOP_AUTO ${autoType}\n`);
+
+          // Nếu chỉ dừng subtask khi auto lớn đang chạy -> quay lại auto lớn, không tắt tiến trình auto!
+          if (this.autoState && this.autoState.isRunning && this.autoState.subTask &&
+              (this.autoState.subTask === autoType || (autoType === 'farm' && this.autoState.subTask === 'farm') ||
+               ((autoType === 'sell_ore' || autoType === 'banda' || autoType === 'stone' || autoType === 'bd') &&
+                (this.autoState.subTask === 'sell_ore' || this.autoState.subTask === 'banda' || this.autoState.subTask === 'stone' || this.autoState.subTask === 'bd')))) {
+            this.autoState.subTask = null;
+            this.autoState.message = `Đang tiếp tục chạy ${this.getFriendlyName(this.autoState.autoType)}...`;
+            this.emit('auto-status', { accountId: this.account.id, autoState: this.autoState });
+            return true;
+          }
+
+          // Dừng toàn bộ
+          this.account.lastAutoType = null;
           this.autoState = {
             isRunning: false,
             autoType: null,
+            subTask: null,
             status: 'stopped',
             message: 'Đã dừng Auto'
           };
@@ -725,6 +769,7 @@ class SingleBotProcess extends EventEmitter {
             this.autoState = {
               isRunning: false,
               autoType: null,
+              subTask: null,
               status: 'idle',
               message: ''
             };

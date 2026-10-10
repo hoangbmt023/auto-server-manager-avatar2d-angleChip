@@ -2,7 +2,14 @@
  * ServerLimitBanner Component (Presentation Layer)
  * Porsche & Apple Precision Capacity Monitor (Inside Sidebar)
  */
-window.ServerLimitBanner = function ServerLimitBanner({ runningHm, runningDk, runningTotal }) {
+window.ServerLimitBanner = function ServerLimitBanner({
+  runningHm = 0,
+  runningDk = 0,
+  runningTotal = 0,
+  maxHm = 3,
+  maxDk = 3,
+  maxTotal = 6
+}) {
   return (
     <div className="server-limit-banner">
       <div className="limit-stat-item">
@@ -11,7 +18,7 @@ window.ServerLimitBanner = function ServerLimitBanner({ runningHm, runningDk, ru
           <span>Server 1 (Hoàn Mỹ):</span>
         </div>
         <span className={`limit-val ${runningHm > 0 ? 'limit-active' : ''}`}>
-          {runningHm}/3
+          {runningHm}/{maxHm}
         </span>
       </div>
 
@@ -21,7 +28,7 @@ window.ServerLimitBanner = function ServerLimitBanner({ runningHm, runningDk, ru
           <span>Server 2 (Diệu Kỳ):</span>
         </div>
         <span className={`limit-val ${runningDk > 0 ? 'limit-active' : ''}`}>
-          {runningDk}/3
+          {runningDk}/{maxDk}
         </span>
       </div>
 
@@ -31,7 +38,7 @@ window.ServerLimitBanner = function ServerLimitBanner({ runningHm, runningDk, ru
           <strong style={{ fontSize: '0.78rem', color: 'var(--text-primary)' }}>Tổng Treo Online:</strong>
         </div>
         <span className={`limit-val ${runningTotal > 0 ? 'limit-active' : ''}`}>
-          {runningTotal}/6 nick
+          {runningTotal}/{maxTotal} nick
         </span>
       </div>
     </div>

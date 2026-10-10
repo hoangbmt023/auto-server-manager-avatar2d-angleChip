@@ -50,9 +50,13 @@ class AccountService {
     const targetFileId = account.fileId || config.activeFileId || 'file_1';
     account.fileId = targetFileId;
 
-    // Validate account limits within the file
+    // Validate account limits within the file and IP/Proxy
+    const targetFile = (config.botFiles || []).find(f => f.id === targetFileId);
+    const maxAccounts = targetFile ? (targetFile.maxAccounts || 6) : 6;
     const accountsInFile = config.accounts.filter(a => a.fileId === targetFileId);
-    ServerLimitRule.validateAccountAddition(accountsInFile, account.serverId, data.id || null);
+    const proxyObj = account.proxyId ? (config.proxies || []).find(p => p.id === account.proxyId) : null;
+    const proxyName = proxyObj ? proxyObj.name : '';
+    ServerLimitRule.validateAccountAddition(accountsInFile, account.serverId, data.id || null, account.proxyId || null, maxAccounts, proxyName);
 
     const existingIndex = config.accounts.findIndex(a => a.id === account.id);
     if (existingIndex !== -1) {

@@ -94,13 +94,13 @@ class MultiBotManager extends EventEmitter {
       return { success: true, message: `Tài khoản [${account.username}] đang chạy rồi.` };
     }
 
-    // Check limits for running bots in this file
-    const currentlyRunningInFile = this.getRunningBotsInFile(fileId).filter(a => a.id !== accountId);
-    ServerLimitRule.validateCanRun(currentlyRunningInFile, account);
+    // Check limits for running bots system-wide on this IP / Proxy and in this file
+    const allRunning = this.getRunningAccounts().filter(a => a.id !== accountId);
+    const proxy = account.proxyId ? (config.proxies || []).find(p => p.id === account.proxyId) : null;
+    ServerLimitRule.validateCanRun(allRunning, account, proxy, fileProfile?.maxAccounts || 6);
 
     // Check limits for running bots on the same proxy (Max 6 online per proxy) & Real-time Health Check
-    if (account.proxyId) {
-      const proxy = (config.proxies || []).find(p => p.id === account.proxyId);
+    if (account.proxyId && proxy) {
       if (proxy) {
         if (proxy.isExpired) {
           throw new Error(`❌ Proxy [${proxy.name || proxy.host}] gán cho nick [${account.username}] ĐÃ BỊ ĐÁNH DẤU HẾT HẠN! Vui lòng đổi proxy khác.`);

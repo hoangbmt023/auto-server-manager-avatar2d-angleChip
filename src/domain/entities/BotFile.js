@@ -9,11 +9,13 @@ class BotFile {
     gameJar = 'avatar_fish_build40.jar',
     modType = null,
     appId = null,
-    proxy = {}
+    proxy = {},
+    maxAccounts = 6
   }) {
     this.id = id || `file_${Date.now()}`;
     this.name = (name || '').trim();
     this.gameJar = gameJar || 'avatar_fish_build40.jar';
+    this.maxAccounts = Math.max(6, parseInt(maxAccounts || 6, 10));
     if (modType === 'chipmix' || modType === 'fish' || modType === 'upxu') {
       this.modType = modType;
     } else {
@@ -44,6 +46,9 @@ class BotFile {
   }
 
   toPublicJson(stats = {}) {
+    const totalIps = Math.max(1, Math.ceil(this.maxAccounts / 6));
+    const maxPerServer = totalIps * 3;
+
     return {
       id: this.id,
       name: this.name,
@@ -51,14 +56,16 @@ class BotFile {
       modType: this.modType,
       appId: this.appId,
       proxy: this.proxy,
+      maxAccounts: this.maxAccounts,
+      totalIps: totalIps,
       totalAccounts: stats.totalAccounts || 0,
       hmCount: stats.hmCount || 0,
       dkCount: stats.dkCount || 0,
       runningCount: stats.runningCount || 0,
       runningHmCount: stats.runningHmCount || 0,
       runningDkCount: stats.runningDkCount || 0,
-      maxTotal: 6,
-      maxPerServer: 3
+      maxTotal: this.maxAccounts,
+      maxPerServer: maxPerServer
     };
   }
 
@@ -69,7 +76,8 @@ class BotFile {
       gameJar: this.gameJar,
       modType: this.modType,
       appId: this.appId,
-      proxy: this.proxy
+      proxy: this.proxy,
+      maxAccounts: this.maxAccounts
     };
   }
 }

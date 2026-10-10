@@ -225,7 +225,11 @@ window.AccountCard = function AccountCard({
   const isSellOreSubTaskActive = subTask === 'sell_ore' || subTask === 'banda' || subTask === 'stone';
 
   return (
-    <div className={`account-card-item ${cardStyleClass}`}>
+    <div
+      id={`acc-card-${account.id}`}
+      data-username={account.username}
+      className={`account-card-item ${cardStyleClass}`}
+    >
       {/* 1. Header Row */}
       <div className="acc-header">
         <div className="acc-user-info">
@@ -259,11 +263,18 @@ window.AccountCard = function AccountCard({
                 </span>
               )}
             </div>
-            <div style={{ fontSize: '0.72rem', color: 'var(--text-tertiary)', marginTop: '2px', display: 'flex', gap: '6px', alignItems: 'center' }}>
+            <div style={{ fontSize: '0.72rem', color: 'var(--text-tertiary)', marginTop: '2px', display: 'flex', gap: '6px', alignItems: 'center', flexWrap: 'wrap' }}>
               <span>{serverName}</span>
               <span>•</span>
-              <span title={proxyLabel} style={{ display: 'inline-flex', alignItems: 'center', gap: '3px' }}>
-                <window.Icon name={proxyObj ? 'shield' : 'globe'} size={11} /> {proxyObj ? (proxyObj.name || 'Proxy') : 'Direct IP'}
+              <span style={{
+                color: proxyObj ? 'var(--apple-purple)' : 'var(--apple-blue)',
+                fontWeight: 600,
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '3px'
+              }}>
+                <window.Icon name={proxyObj ? 'shield' : 'globe'} size={11} />
+                {proxyObj ? `Tab ${proxyObj.name}` : 'Tab IP Mặc định'}
               </span>
             </div>
           </div>
