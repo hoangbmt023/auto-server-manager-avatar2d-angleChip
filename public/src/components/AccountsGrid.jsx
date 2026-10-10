@@ -7,6 +7,7 @@ window.AccountsGrid = function AccountsGrid({
   proxies = [],
   files = [],
   activeFile = null,
+  activeIpSlot = 'all',
   onStartAccount,
   onStopAccount,
   onOpenEditAccount,
@@ -14,6 +15,15 @@ window.AccountsGrid = function AccountsGrid({
   onOpenSetup,
   onTriggerAuto
 }) {
+  const isAllIps = activeIpSlot === 'all';
+  const totalIps = 1 + (proxies || []).length;
+  const maxPerServer = isAllIps ? (totalIps * 3) : 3;
+
+  const activeProxy = (proxies || []).find(p => p.id === activeIpSlot);
+  const currentTabName = isAllIps
+    ? 'File này'
+    : (activeIpSlot === 'direct' ? 'Tab IP Mặc định' : `Tab Proxy [${activeProxy ? activeProxy.name : activeIpSlot}]`);
+
   const hmAccounts = accounts.filter(a => (a.serverId === 0 || a.serverId === undefined || a.serverId === null));
   const dkAccounts = accounts.filter(a => a.serverId === 1);
 
@@ -38,10 +48,10 @@ window.AccountsGrid = function AccountsGrid({
           <window.Icon name="users" size={24} color="var(--text-tertiary)" />
         </div>
         <p style={{ fontSize: '0.98rem', color: 'var(--text-primary)', fontWeight: 600, margin: 0 }}>
-          Chưa có tài khoản nào trong File này
+          {isAllIps ? 'Chưa có tài khoản nào trong File này' : `Chưa có tài khoản nào trong ${currentTabName}`}
         </p>
-        <p style={{ fontSize: '0.82rem', color: 'var(--text-secondary)', maxWidth: '420px', margin: 0 }}>
-          Mỗi File hỗ trợ tối đa 6 tài khoản (3 nick Hoàn Mỹ + 3 nick Diệu Kỳ). Hãy nhấn nút <strong>Thêm Tài Khoản</strong> ở cột bên trái để bắt đầu.
+        <p style={{ fontSize: '0.82rem', color: 'var(--text-secondary)', maxWidth: '460px', margin: 0 }}>
+          Mỗi IP hỗ trợ tối đa 6 tài khoản (3 nick Hoàn Mỹ + 3 nick Diệu Kỳ). Hãy nhấn nút <strong>Thêm Tài Khoản</strong> ở cột bên trái để gán vào IP này.
         </p>
       </div>
     );
@@ -55,7 +65,7 @@ window.AccountsGrid = function AccountsGrid({
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
             <window.Icon name="server" size={16} color="var(--apple-blue)" />
             <strong style={{ fontSize: '0.92rem', color: 'var(--text-primary)', fontWeight: 600 }}>Server 1: Hoàn Mỹ</strong>
-            <span style={{ fontSize: '0.76rem', color: 'var(--text-tertiary)' }}>({hmAccounts.length}/3 nick)</span>
+            <span style={{ fontSize: '0.76rem', color: 'var(--text-tertiary)' }}>({hmAccounts.length}/{maxPerServer} nick)</span>
           </div>
 
           <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
@@ -64,22 +74,22 @@ window.AccountsGrid = function AccountsGrid({
               borderRadius: '999px',
               fontSize: '0.72rem',
               fontWeight: 600,
-              background: hmOnline >= 3 ? 'rgba(255, 69, 58, 0.12)' : (hmOnline > 0 ? 'rgba(48, 209, 88, 0.12)' : 'var(--glass-bg)'),
-              color: hmOnline >= 3 ? 'var(--apple-red)' : (hmOnline > 0 ? 'var(--apple-green)' : 'var(--text-tertiary)'),
+              background: hmOnline >= maxPerServer ? 'rgba(255, 69, 58, 0.12)' : (hmOnline > 0 ? 'rgba(48, 209, 88, 0.12)' : 'var(--glass-bg)'),
+              color: hmOnline >= maxPerServer ? 'var(--apple-red)' : (hmOnline > 0 ? 'var(--apple-green)' : 'var(--text-tertiary)'),
               border: '1px solid',
-              borderColor: hmOnline >= 3 ? 'rgba(255, 69, 58, 0.3)' : (hmOnline > 0 ? 'rgba(48, 209, 88, 0.3)' : 'var(--glass-border-subtle)'),
+              borderColor: hmOnline >= maxPerServer ? 'rgba(255, 69, 58, 0.3)' : (hmOnline > 0 ? 'rgba(48, 209, 88, 0.3)' : 'var(--glass-border-subtle)'),
               display: 'inline-flex',
               alignItems: 'center',
               gap: '4px'
             }}>
-              <window.Icon name="activity" size={11} /> {hmOnline} / 3 Online
+              <window.Icon name="activity" size={11} /> {hmOnline} / {maxPerServer} Online
             </span>
           </div>
         </div>
 
         {hmAccounts.length === 0 ? (
           <div style={{ padding: '16px 20px', color: 'var(--text-tertiary)', fontSize: '0.82rem', background: 'var(--glass-matrix-bg)', borderRadius: 'var(--radius-sm)', fontStyle: 'italic' }}>
-            Chưa có tài khoản nào thuộc Server Hoàn Mỹ trong File này.
+            Chưa có tài khoản nào thuộc Server Hoàn Mỹ trong {currentTabName}.
           </div>
         ) : (
           <div className="accounts-grid">
@@ -108,7 +118,7 @@ window.AccountsGrid = function AccountsGrid({
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
             <window.Icon name="server" size={16} color="var(--apple-purple)" />
             <strong style={{ fontSize: '0.92rem', color: 'var(--apple-purple)', fontWeight: 600 }}>Server 2: Diệu Kỳ</strong>
-            <span style={{ fontSize: '0.76rem', color: 'var(--text-tertiary)' }}>({dkAccounts.length}/3 nick)</span>
+            <span style={{ fontSize: '0.76rem', color: 'var(--text-tertiary)' }}>({dkAccounts.length}/{maxPerServer} nick)</span>
           </div>
 
           <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
@@ -117,22 +127,22 @@ window.AccountsGrid = function AccountsGrid({
               borderRadius: '999px',
               fontSize: '0.72rem',
               fontWeight: 600,
-              background: dkOnline >= 3 ? 'rgba(255, 69, 58, 0.12)' : (dkOnline > 0 ? 'rgba(48, 209, 88, 0.12)' : 'var(--glass-bg)'),
-              color: dkOnline >= 3 ? 'var(--apple-red)' : (dkOnline > 0 ? 'var(--apple-green)' : 'var(--text-tertiary)'),
+              background: dkOnline >= maxPerServer ? 'rgba(255, 69, 58, 0.12)' : (dkOnline > 0 ? 'rgba(48, 209, 88, 0.12)' : 'var(--glass-bg)'),
+              color: dkOnline >= maxPerServer ? 'var(--apple-red)' : (dkOnline > 0 ? 'var(--apple-green)' : 'var(--text-tertiary)'),
               border: '1px solid',
-              borderColor: dkOnline >= 3 ? 'rgba(255, 69, 58, 0.3)' : (dkOnline > 0 ? 'rgba(48, 209, 88, 0.3)' : 'var(--glass-border-subtle)'),
+              borderColor: dkOnline >= maxPerServer ? 'rgba(255, 69, 58, 0.3)' : (dkOnline > 0 ? 'rgba(48, 209, 88, 0.3)' : 'var(--glass-border-subtle)'),
               display: 'inline-flex',
               alignItems: 'center',
               gap: '4px'
             }}>
-              <window.Icon name="activity" size={11} /> {dkOnline} / 3 Online
+              <window.Icon name="activity" size={11} /> {dkOnline} / {maxPerServer} Online
             </span>
           </div>
         </div>
 
         {dkAccounts.length === 0 ? (
           <div style={{ padding: '16px 20px', color: 'var(--text-tertiary)', fontSize: '0.82rem', background: 'var(--glass-matrix-bg)', borderRadius: 'var(--radius-sm)', fontStyle: 'italic' }}>
-            Chưa có tài khoản nào thuộc Server Diệu Kỳ trong File này.
+            Chưa có tài khoản nào thuộc Server Diệu Kỳ trong {currentTabName}.
           </div>
         ) : (
           <div className="accounts-grid">

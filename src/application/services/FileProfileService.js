@@ -25,15 +25,34 @@ class FileProfileService {
       const runningHmCount = runningAccs.filter(a => parseInt(a.serverId, 10) === 0).length;
       const runningDkCount = runningAccs.filter(a => parseInt(a.serverId, 10) === 1).length;
 
+      const totalIps = Math.max(1, Math.ceil((f.maxAccounts || 6) / 6));
+      const ipSlots = [];
+      for (let i = 1; i <= totalIps; i++) {
+        const inSlot = accsInFile.filter(a => Math.max(1, parseInt(a.ipSlot || 1, 10)) === i);
+        const slotHm = inSlot.filter(a => parseInt(a.serverId, 10) === 0).length;
+        const slotDk = inSlot.filter(a => parseInt(a.serverId, 10) === 1).length;
+        const slotRunning = inSlot.filter(a => runningStatuses.instances[a.id] && runningStatuses.instances[a.id].running).length;
+        ipSlots.push({
+          slot: i,
+          total: inSlot.length,
+          hmCount: slotHm,
+          dkCount: slotDk,
+          runningCount: slotRunning
+        });
+      }
+
       const entity = new BotFile(f);
-      return entity.toPublicJson({
-        totalAccounts: accsInFile.length,
-        hmCount,
-        dkCount,
-        runningCount: runningAccs.length,
-        runningHmCount,
-        runningDkCount
-      });
+      return {
+        ...entity.toPublicJson({
+          totalAccounts: accsInFile.length,
+          hmCount,
+          dkCount,
+          runningCount: runningAccs.length,
+          runningHmCount,
+          runningDkCount
+        }),
+        ipSlots
+      };
     });
   }
 

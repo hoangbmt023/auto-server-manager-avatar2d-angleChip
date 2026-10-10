@@ -17,8 +17,14 @@ function FileFormModal({
 }) {
   const isEditing = Boolean(file);
   const [name, setName] = useFileModalState(file?.name || '');
-  const [gameJar, setGameJar] = useFileModalState(file?.gameJar || (availableJars[0] || 'avatar_fish_build40.jar'));
-  const [modType, setModType] = useFileModalState(file?.modType || ((file?.gameJar && file.gameJar.toLowerCase().includes('fish')) ? 'fish' : 'upxu'));
+  const [gameJar, setGameJar] = useFileModalState(file?.gameJar || (availableJars[0] || 'Avatar_ChipMix_Full_build13.jar'));
+  const [modType, setModType] = useFileModalState(
+    file?.modType || (
+      (file?.gameJar && (file.gameJar.toLowerCase().includes('chip') || file.gameJar.toLowerCase().includes('mix'))) ? 'chipmix' :
+      (file?.gameJar && file.gameJar.toLowerCase().includes('fish')) ? 'fish' : 'upxu'
+    )
+  );
+  const [maxAccounts, setMaxAccounts] = useFileModalState(file?.maxAccounts || 6);
   const [uploadStatus, setUploadStatus] = useFileModalState('');
   const [loading, setLoading] = useFileModalState(false);
   const [error, setError] = useFileModalState('');
@@ -38,7 +44,10 @@ function FileFormModal({
       if (data.success) {
         setUploadStatus(`Đã tải lên: ${data.filename}`);
         setGameJar(data.filename);
-        if (data.filename.toLowerCase().includes('fish')) {
+        const nameLower = data.filename.toLowerCase();
+        if (nameLower.includes('chip') || nameLower.includes('mix')) {
+          setModType('chipmix');
+        } else if (nameLower.includes('fish')) {
           setModType('fish');
         }
         if (fetchJars) fetchJars();
@@ -63,7 +72,8 @@ function FileFormModal({
       id: file ? file.id : undefined,
       name: name.trim(),
       gameJar,
-      modType
+      modType,
+      maxAccounts: Math.max(6, parseInt(maxAccounts || 6, 10))
     };
 
     setLoading(true);
@@ -84,6 +94,8 @@ function FileFormModal({
       setLoading(false);
     }
   };
+
+  const calculatedIps = Math.max(1, Math.ceil(parseInt(maxAccounts || 6, 10) / 6));
 
   return (
     <window.ModalBase
@@ -123,8 +135,56 @@ function FileFormModal({
         </div>
 
         <div className="form-group">
+          <label>Số tài khoản tối đa trong File (Số nick):</label>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+            <input
+              type="number"
+              className="form-control"
+              min="6"
+              step="6"
+              value={maxAccounts}
+              onChange={e => setMaxAccounts(e.target.value)}
+              style={{ width: '120px' }}
+            />
+            <div style={{ fontSize: '0.82rem', color: 'var(--text-secondary)' }}>
+              = <strong style={{ color: 'var(--apple-blue)' }}>{calculatedIps} Tab IP</strong>
+              {' '}(Tối đa <strong style={{ color: 'var(--apple-blue)' }}>{calculatedIps * 3} Hoàn Mỹ</strong> + <strong style={{ color: 'var(--apple-purple)' }}>{calculatedIps * 3} Diệu Kỳ</strong>)
+            </div>
+          </div>
+          <small style={{ color: 'var(--text-tertiary)', display: 'block', marginTop: '4px' }}>
+            * Mỗi IP quản lý tối đa 6 tài khoản (3 Hoàn Mỹ + 3 Diệu Kỳ). Ví dụ: 12 nick sẽ có 2 Tab IP.
+          </small>
+        </div>
+
+        <div className="form-group">
           <label>Loại Bản Mod (Chế độ tự động):</label>
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px', marginTop: '4px' }}>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(170px, 1fr))', gap: '10px', marginTop: '4px' }}>
+            <label style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '10px',
+              padding: '12px 14px',
+              borderRadius: 'var(--radius-sm)',
+              border: '1px solid',
+              borderColor: modType === 'chipmix' ? 'var(--apple-green)' : 'var(--glass-border-subtle)',
+              background: modType === 'chipmix' ? 'rgba(52, 211, 153, 0.12)' : 'var(--glass-matrix-bg)',
+              cursor: 'pointer',
+              transition: 'var(--transition-fast)'
+            }}>
+              <input
+                type="radio"
+                name="modType"
+                value="chipmix"
+                checked={modType === 'chipmix'}
+                onChange={() => setModType('chipmix')}
+                style={{ accentColor: 'var(--apple-green)' }}
+              />
+              <div>
+                <strong style={{ color: 'var(--apple-green)', display: 'block', fontSize: '0.86rem' }}>ChipMix Full</strong>
+                <span style={{ fontSize: '0.72rem', color: 'var(--text-secondary)' }}>Full Câu Cá, KC & Farm</span>
+              </div>
+            </label>
+
             <label style={{
               display: 'flex',
               alignItems: 'center',
@@ -373,9 +433,9 @@ window.FileModal = function FileModal({
                       <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', display: 'flex', gap: '10px', flexWrap: 'wrap', alignItems: 'center' }}>
                         <span>JAR: <strong style={{ color: 'var(--text-primary)' }}>{f.gameJar}</strong></span>
                         <span>•</span>
-                        <span>Số lượng: <strong style={{ color: 'var(--text-primary)' }}>{f.totalAccounts || 0}/6 nick</strong></span>
+                        <span>Số lượng: <strong style={{ color: 'var(--text-primary)' }}>{f.totalAccounts || 0}/{f.maxAccounts || 6} nick ({f.totalIps || Math.max(1, Math.ceil((f.maxAccounts || 6)/6))} IP)</strong></span>
                         <span>•</span>
-                        <span>HM: {hmOnline}/3 | DK: {dkOnline}/3</span>
+                        <span>HM: {f.hmCount || 0}/{f.maxPerServer || (Math.max(1, Math.ceil((f.maxAccounts || 6)/6))*3)} | DK: {f.dkCount || 0}/{f.maxPerServer || (Math.max(1, Math.ceil((f.maxAccounts || 6)/6))*3)}</span>
                       </div>
                     </div>
 

@@ -183,6 +183,9 @@ public class AvatarHeadlessLauncher {
             System.out.println("-------------------------------------------------");
         }
 
+        final String initialAutoStartType = System.getProperty("avatar.autoStartType");
+        final String[] persistentAutoHolder = new String[] { (initialAutoStartType != null && !initialAutoStartType.isEmpty()) ? initialAutoStartType : null };
+
         // 1. Thread nhận lệnh điều khiển thời gian thực từ Node.js (SETUP, RESET_DATA, START_AUTO, STOP_AUTO, ...)
         Thread stdinThread = new Thread(new Runnable() {
             @Override
@@ -212,9 +215,20 @@ public class AvatarHeadlessLauncher {
                         } else if (cmdLine.startsWith("START_AUTO")) {
                             String[] parts = cmdLine.split("\\s+");
                             String autoType = parts.length > 1 ? parts[1] : "farm";
+                            // Ghi nhớ auto chính để tự động bật lại sau khi reconnect/khởi động lại
+                            if ("diamond".equalsIgnoreCase(autoType) || "kc".equalsIgnoreCase(autoType)
+                                    || "fish".equalsIgnoreCase(autoType) || "cc".equalsIgnoreCase(autoType)
+                                    || "farm".equalsIgnoreCase(autoType)) {
+                                persistentAutoHolder[0] = autoType;
+                            }
                             AvatarModAdapter.startAuto(autoType);
-                        } else if (cmdLine.equals("STOP_AUTO") || cmdLine.startsWith("STOP_AUTO")) {
-                            AvatarModAdapter.stopAuto();
+                        } else if (cmdLine.startsWith("STOP_AUTO")) {
+                            String[] parts = cmdLine.split("\\s+");
+                            String targetType = parts.length > 1 ? parts[1] : null;
+                            if (targetType == null || targetType.equalsIgnoreCase(persistentAutoHolder[0])) {
+                                persistentAutoHolder[0] = null;
+                            }
+                            AvatarModAdapter.stopAuto(targetType);
                         } else if (cmdLine.equals("RESET_DATA") || cmdLine.equals("RESET")) {
                             AvatarModAdapter.resetUpThueData();
                         }
@@ -335,8 +349,16 @@ public class AvatarHeadlessLauncher {
                                 continue;
                             }
 
-                            // 3. Popup có chữ Thoát lúc khởi động -> Bấm Thoát, kiểm tra xem file có mất/hỏng không
-                            if (!isCurrentlyOnline && lower.contains("thoát") && !lower.contains("đối thủ") && !lower.contains("bỏ cuộc") && !lower.contains("để sau")) {
+                            // 2.5. Phát hiện hộp thoại xác nhận "Bạn có muốn thoát? (Có, Không)"
+                            if (lower.contains("muốn thoát") || lower.contains("bạn có muốn thoát")) {
+                                System.out.println("💬 [TỪ CHỐI THOÁT GAME]: Hộp thoại xác nhận \"" + currentDialog + "\" -> Đã tự động đóng/chọn Không để tiếp tục treo game!");
+                                AvatarModAdapter.dismissCurrentDialog();
+                                continue;
+                            }
+
+                            // 3. Popup lỗi có nút Thoát lúc khởi động -> Bấm Thoát, kiểm tra xem file có mất/hỏng không
+                            // CHỈ bắt khi thực sự có nút Thoát trong ngoặc đơn (Thoát) hoặc (Exit), và không phải câu hỏi "muốn thoát"
+                            if (!isCurrentlyOnline && !lower.contains("muốn thoát") && (currentDialog.contains("(Thoát)") || currentDialog.contains("(Exit)") || lower.contains("ứng dụng sai")) && !lower.contains("đối thủ") && !lower.contains("bỏ cuộc") && !lower.contains("để sau")) {
                                 System.err.println("⚠️ [PHÁT HIỆN POPUP CÓ NÚT THOÁT]: \"" + currentDialog + "\" -> Bấm Thoát & Kiểm tra file game...");
                                 AvatarModAdapter.dismissCurrentDialog();
                                 checkAndRestoreGameJar(activeJarPath);
@@ -434,6 +456,21 @@ public class AvatarHeadlessLauncher {
                             if (!isCurrentlyOnline) {
                                 isCurrentlyOnline = true;
                                 System.out.println("[ACCOUNT_STATUS]: {\"state\":\"online\",\"message\":\"Đang Treo Online\",\"isError\":false,\"isMaintenance\":false}");
+
+                                // Tự động khôi phục Auto đã chạy trước đó sau khi đăng nhập / kết nối lại thành công
+                                if (persistentAutoHolder[0] != null && !persistentAutoHolder[0].trim().isEmpty()) {
+                                    final String toRestore = persistentAutoHolder[0];
+                                    new Thread(new Runnable() {
+                                        @Override
+                                        public void run() {
+                                            try {
+                                                Thread.sleep(3500); // Chờ 3.5 giây cho map và dữ liệu nhân vật nạp ổn định
+                                                System.out.println("🔄 [TỰ ĐỘNG KHÔI PHỤC AUTO]: Đang kích hoạt lại " + toRestore + " sau khi kết nối lại thành công...");
+                                                AvatarModAdapter.startAuto(toRestore);
+                                            } catch (Throwable ignored) {}
+                                        }
+                                    }).start();
+                                }
                             }
 
                             if (!initialSetupApplied) {

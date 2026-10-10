@@ -225,7 +225,11 @@ window.AccountCard = function AccountCard({
   const isSellOreSubTaskActive = subTask === 'sell_ore' || subTask === 'banda' || subTask === 'stone';
 
   return (
-    <div className={`account-card-item ${cardStyleClass}`}>
+    <div
+      id={`acc-card-${account.id}`}
+      data-username={account.username}
+      className={`account-card-item ${cardStyleClass}`}
+    >
       {/* 1. Header Row */}
       <div className="acc-header">
         <div className="acc-user-info">
@@ -259,11 +263,18 @@ window.AccountCard = function AccountCard({
                 </span>
               )}
             </div>
-            <div style={{ fontSize: '0.72rem', color: 'var(--text-tertiary)', marginTop: '2px', display: 'flex', gap: '6px', alignItems: 'center' }}>
+            <div style={{ fontSize: '0.72rem', color: 'var(--text-tertiary)', marginTop: '2px', display: 'flex', gap: '6px', alignItems: 'center', flexWrap: 'wrap' }}>
               <span>{serverName}</span>
               <span>•</span>
-              <span title={proxyLabel} style={{ display: 'inline-flex', alignItems: 'center', gap: '3px' }}>
-                <window.Icon name={proxyObj ? 'shield' : 'globe'} size={11} /> {proxyObj ? (proxyObj.name || 'Proxy') : 'Direct IP'}
+              <span style={{
+                color: proxyObj ? 'var(--apple-purple)' : 'var(--apple-blue)',
+                fontWeight: 600,
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '3px'
+              }}>
+                <window.Icon name={proxyObj ? 'shield' : 'globe'} size={11} />
+                {proxyObj ? `Tab ${proxyObj.name}` : 'Tab IP Mặc định'}
               </span>
             </div>
           </div>
@@ -404,10 +415,29 @@ window.AccountCard = function AccountCard({
           {autoMenuOpen && (
             <div className="dropdown-menu-glass">
               <div style={{ padding: '6px 10px', fontSize: '0.7rem', color: 'var(--text-tertiary)', borderBottom: '1px solid var(--glass-border-subtle)', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '5px' }}>
-                <window.Icon name={isFishMod ? 'fish' : 'gem'} size={12} />
-                {isFishMod ? 'AUTO UP CÂU CÁ' : 'AUTO UP KIM CƯƠNG'}
+                <window.Icon name={modType === 'chipmix' ? 'zap' : isFishMod ? 'fish' : 'gem'} size={12} />
+                {modType === 'chipmix' ? 'CHIPMIX FULL AUTO' : isFishMod ? 'AUTO UP CÂU CÁ' : 'AUTO UP KIM CƯƠNG'}
               </div>
-              {isFishMod ? (
+              {modType === 'chipmix' ? (
+                <>
+                  <button className="dropdown-item-glass" onClick={() => handleTriggerAutoAction('fish', isFishRunning ? 'stop' : 'start')}>
+                    <window.Icon name={isFishRunning ? 'stop' : 'fish'} size={14} />
+                    {isFishRunning ? 'Dừng Auto Câu Cá' : 'Bật Auto Câu Cá'}
+                  </button>
+                  <button className="dropdown-item-glass" onClick={() => handleTriggerAutoAction('diamond', isDiamondRunning ? 'stop' : 'start')}>
+                    <window.Icon name={isDiamondRunning ? 'stop' : 'gem'} size={14} />
+                    {isDiamondRunning ? 'Dừng Auto Kim Cương' : 'Bật Auto Kim Cương'}
+                  </button>
+                  <button className="dropdown-item-glass" onClick={() => handleTriggerAutoAction('farm', isFarmRunning ? 'stop' : 'start')}>
+                    <window.Icon name={isFarmRunning ? 'stop' : 'sprout'} size={14} />
+                    {isFarmRunning ? 'Dừng Auto Farm' : 'Bật Auto Farm'}
+                  </button>
+                  <button className="dropdown-item-glass" onClick={() => handleTriggerAutoAction('sell_ore', isSellOreRunning ? 'stop' : 'start')}>
+                    <window.Icon name={isSellOreRunning ? 'stop' : 'rock'} size={14} />
+                    {isSellOreRunning ? 'Dừng Bán Đá' : 'Bật Bán Đá'}
+                  </button>
+                </>
+              ) : isFishMod ? (
                 <>
                   <button className="dropdown-item-glass" onClick={() => handleTriggerAutoAction('fish', isFishRunning ? 'stop' : 'start')}>
                     <window.Icon name={isFishRunning ? 'stop' : 'fish'} size={14} />
@@ -468,7 +498,16 @@ window.AccountCard = function AccountCard({
               <button className="dropdown-item-glass" onClick={() => handleSelectFeature('farm')}>
                 <window.Icon name="sprout" size={14} /> Cài Đặt Auto Farm
               </button>
-              {isFishMod ? (
+              {modType === 'chipmix' ? (
+                <>
+                  <button className="dropdown-item-glass" onClick={() => handleSelectFeature('fish')}>
+                    <window.Icon name="fish" size={14} /> Cài Đặt Auto Câu Cá
+                  </button>
+                  <button className="dropdown-item-glass" onClick={() => handleSelectFeature('diamond')}>
+                    <window.Icon name="gem" size={14} /> Cài Đặt Auto Kim Cương
+                  </button>
+                </>
+              ) : isFishMod ? (
                 <button className="dropdown-item-glass" onClick={() => handleSelectFeature('fish')}>
                   <window.Icon name="fish" size={14} /> Cài Đặt Auto Câu Cá
                 </button>
