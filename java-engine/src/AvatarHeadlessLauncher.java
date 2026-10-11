@@ -216,10 +216,8 @@ public class AvatarHeadlessLauncher {
                             String[] parts = cmdLine.split("\\s+");
                             String autoType = parts.length > 1 ? parts[1] : "farm";
                             // Ghi nhớ auto chính để tự động bật lại sau khi reconnect/khởi động lại
-                            if ("diamond".equalsIgnoreCase(autoType) || "kc".equalsIgnoreCase(autoType)
-                                    || "fish".equalsIgnoreCase(autoType) || "cc".equalsIgnoreCase(autoType)
-                                    || "farm".equalsIgnoreCase(autoType)) {
-                                persistentAutoHolder[0] = autoType;
+                            if (autoType != null && !autoType.trim().isEmpty()) {
+                                persistentAutoHolder[0] = autoType.trim();
                             }
                             AvatarModAdapter.startAuto(autoType);
                         } else if (cmdLine.startsWith("STOP_AUTO")) {

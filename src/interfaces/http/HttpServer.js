@@ -16,6 +16,13 @@ const FileController = require('./controllers/FileController');
 const ProxyController = require('./controllers/ProxyController');
 const SystemController = require('./controllers/SystemController');
 
+const Router = require('./Router');
+const createBotRoutes = require('./routes/botRoutes');
+const createAccountRoutes = require('./routes/accountRoutes');
+const createFileRoutes = require('./routes/fileRoutes');
+const createProxyRoutes = require('./routes/proxyRoutes');
+const createSystemRoutes = require('./routes/systemRoutes');
+
 const MIME_TYPES = {
   '.html': 'text/html; charset=utf-8',
   '.css': 'text/css; charset=utf-8',
@@ -31,6 +38,10 @@ const MIME_TYPES = {
   '.jar': 'application/java-archive'
 };
 
+/**
+ * HttpServer (Interface Adapters Layer)
+ * Manages HTTP server lifecycle, middleware authentication, declarative routing and static asset serving.
+ */
 class HttpServer {
   constructor() {
     this.configRepo = new ConfigRepository();
@@ -48,6 +59,25 @@ class HttpServer {
 
     this.publicDir = path.resolve(__dirname, '../../../public');
     this.server = null;
+    this.router = this.initRouter();
+  }
+
+  initRouter() {
+    const router = new Router();
+    const subRouters = [
+      createBotRoutes(this.botController),
+      createAccountRoutes(this.accountController),
+      createFileRoutes(this.fileController),
+      createProxyRoutes(this.proxyController),
+      createSystemRoutes(this.systemController)
+    ];
+
+    for (const sub of subRouters) {
+      for (const route of sub.routes) {
+        router.routes.push(route);
+      }
+    }
+    return router;
   }
 
   sendJson(res, statusCode, data) {
@@ -68,9 +98,7 @@ class HttpServer {
       let body = '';
       req.on('data', chunk => {
         body += chunk.toString('utf8');
-        if (body.length > 2 * 1024 * 1024) { // 2MB limit
-          reject(new Error('Payload too large'));
-        }
+        if (body.length > 2 * 1024 * 1024) reject(new Error('Payload too large'));
       });
       req.on('end', () => {
         if (!body.trim()) return resolve({});
@@ -106,7 +134,48 @@ class HttpServer {
     return false;
   }
 
+  serveStaticFile(pathname, res) {
+    let relativePath = pathname === '/' ? 'index.html' : pathname.replace(/^\//, '');
+    const filePath = path.join(this.publicDir, relativePath);
+
+    if (!filePath.startsWith(this.publicDir)) {
+      res.writeHead(403);
+      return res.end('Forbidden');
+    }
+
+    fs.stat(filePath, (err, stats) => {
+      if (err || !stats.isFile()) {
+        const indexPath = path.join(this.publicDir, 'index.html');
+        fs.readFile(indexPath, (err2, content) => {
+          if (err2) {
+            res.writeHead(404);
+            return res.end('Not Found');
+          }
+          res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
+          res.end(content);
+        });
+        return;
+      }
+
+      const ext = path.extname(filePath).toLowerCase();
+      const contentType = MIME_TYPES[ext] || 'application/octet-stream';
+      fs.readFile(filePath, (err3, content) => {
+        if (err3) {
+          res.writeHead(500);
+          return res.end('Internal Server Error');
+        }
+        res.writeHead(200, { 'Content-Type': contentType });
+        res.end(content);
+      });
+    });
+  }
+
   initServer() {
+    const helpers = {
+      sendJson: this.sendJson.bind(this),
+      parseJsonBody: this.parseJsonBody.bind(this)
+    };
+
     this.server = http.createServer(async (req, res) => {
       const parsedUrl = url.parse(req.url, true);
       const pathname = parsedUrl.pathname;
@@ -144,143 +213,15 @@ class HttpServer {
       if (pathname.startsWith('/api/')) {
         if (!this.checkAuth(req, res)) return;
 
-        // Bot Management APIs
-        if (pathname === '/api/status' && req.method === 'GET') {
-          return this.botController.getStatus(req, res, this.sendJson.bind(this));
+        const handled = await this.router.handle(req, res, parsedUrl, helpers);
+        if (!handled) {
+          this.sendJson(res, 404, { success: false, message: 'API endpoint not found' });
         }
-        if (pathname === '/api/start' && req.method === 'POST') {
-          return this.botController.startAll(req, res, this.sendJson.bind(this));
-        }
-        if (pathname === '/api/stop' && req.method === 'POST') {
-          return this.botController.stopAll(req, res, this.sendJson.bind(this));
-        }
-        if (pathname === '/api/restart' && req.method === 'POST') {
-          return this.botController.restartAll(req, res, this.sendJson.bind(this));
-        }
-        if ((pathname === '/api/bot/start-account' || pathname === '/api/accounts/switch') && req.method === 'POST') {
-          return this.botController.startAccount(req, res, this.sendJson.bind(this), this.parseJsonBody.bind(this));
-        }
-        if (pathname === '/api/bot/stop-account' && req.method === 'POST') {
-          return this.botController.stopAccount(req, res, this.sendJson.bind(this), this.parseJsonBody.bind(this));
-        }
-        if (pathname === '/api/bot/auto' && req.method === 'POST') {
-          return this.botController.triggerAuto(req, res, this.sendJson.bind(this), this.parseJsonBody.bind(this));
-        }
-        if (pathname === '/api/logs' && req.method === 'GET') {
-          return this.botController.getLogs(req, res, this.sendJson.bind(this));
-        }
-        if (pathname === '/api/clear-logs' && req.method === 'POST') {
-          return this.botController.clearLogs(req, res, this.sendJson.bind(this));
-        }
-
-        // Accounts APIs
-        if (pathname === '/api/accounts' && req.method === 'GET') {
-          return this.accountController.getAccounts(req, res, this.sendJson.bind(this));
-        }
-        if (pathname === '/api/accounts' && req.method === 'POST') {
-          return this.accountController.saveAccount(req, res, this.sendJson.bind(this), this.parseJsonBody.bind(this));
-        }
-        if (pathname.startsWith('/api/accounts/delete') && req.method === 'POST') {
-          return this.accountController.deleteAccount(req, res, this.sendJson.bind(this), this.parseJsonBody.bind(this));
-        }
-        if (pathname === '/api/accounts/switch-server' && req.method === 'POST') {
-          return this.accountController.switchServer(req, res, this.sendJson.bind(this), this.parseJsonBody.bind(this));
-        }
-        if (pathname === '/api/accounts/setup' && req.method === 'POST') {
-          return this.accountController.updateSetup(req, res, this.sendJson.bind(this), this.parseJsonBody.bind(this));
-        }
-        if (pathname === '/api/accounts/reset-data' && req.method === 'POST') {
-          return this.accountController.resetData(req, res, this.sendJson.bind(this), this.parseJsonBody.bind(this));
-        }
-
-        // Files & JAR Profiles APIs
-        if (pathname === '/api/files' && req.method === 'GET') {
-          return this.fileController.getFiles(req, res, this.sendJson.bind(this));
-        }
-        if (pathname === '/api/files' && req.method === 'POST') {
-          return this.fileController.saveFile(req, res, this.sendJson.bind(this), this.parseJsonBody.bind(this));
-        }
-        if (pathname === '/api/files/delete' && req.method === 'POST') {
-          return this.fileController.deleteFile(req, res, this.sendJson.bind(this), this.parseJsonBody.bind(this));
-        }
-        if (pathname === '/api/files/switch' && req.method === 'POST') {
-          return this.fileController.switchFile(req, res, this.sendJson.bind(this), this.parseJsonBody.bind(this));
-        }
-        if (pathname === '/api/available-jars' && req.method === 'GET') {
-          return this.fileController.getAvailableJars(req, res, this.sendJson.bind(this));
-        }
-        if (pathname === '/api/upload-jar' && req.method === 'POST') {
-          return this.fileController.uploadJar(req, res, this.sendJson.bind(this));
-        }
-
-        // Proxies Management APIs
-        if (pathname === '/api/proxies' && req.method === 'GET') {
-          return this.proxyController.getProxies(req, res, this.sendJson.bind(this));
-        }
-        if (pathname === '/api/proxies' && req.method === 'POST') {
-          return this.proxyController.saveProxy(req, res, this.sendJson.bind(this), this.parseJsonBody.bind(this));
-        }
-        if (pathname === '/api/proxies/delete' && req.method === 'POST') {
-          return this.proxyController.deleteProxy(req, res, this.sendJson.bind(this), this.parseJsonBody.bind(this));
-        }
-        if (pathname === '/api/proxies/test' && req.method === 'POST') {
-          return this.proxyController.testProxy(req, res, this.sendJson.bind(this), this.parseJsonBody.bind(this));
-        }
-        if (pathname === '/api/proxies/test-all' && req.method === 'POST') {
-          return this.proxyController.testAllProxies(req, res, this.sendJson.bind(this));
-        }
-
-        // System & JRE APIs
-        if (pathname === '/api/config' && req.method === 'GET') {
-          return this.systemController.getConfig(req, res, this.sendJson.bind(this));
-        }
-        if (pathname === '/api/config' && req.method === 'POST') {
-          return this.systemController.saveConfig(req, res, this.sendJson.bind(this), this.parseJsonBody.bind(this));
-        }
-        if (pathname === '/api/jre/install' && req.method === 'POST') {
-          return this.systemController.installJre(req, res, this.sendJson.bind(this));
-        }
-        if (pathname === '/api/jre/progress' && req.method === 'GET') {
-          return this.systemController.getJreProgress(req, res, this.sendJson.bind(this));
-        }
-
-        return this.sendJson(res, 404, { success: false, message: 'API endpoint not found' });
+        return;
       }
 
       // Static Files Serving
-      let relativePath = pathname === '/' ? 'index.html' : pathname.replace(/^\//, '');
-      const filePath = path.join(this.publicDir, relativePath);
-
-      if (!filePath.startsWith(this.publicDir)) {
-        res.writeHead(403);
-        return res.end('Forbidden');
-      }
-
-      fs.stat(filePath, (err, stats) => {
-        if (err || !stats.isFile()) {
-          const indexPath = path.join(this.publicDir, 'index.html');
-          fs.readFile(indexPath, (err2, content) => {
-            if (err2) {
-              res.writeHead(404);
-              return res.end('Not Found');
-            }
-            res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
-            res.end(content);
-          });
-          return;
-        }
-
-        const ext = path.extname(filePath).toLowerCase();
-        const contentType = MIME_TYPES[ext] || 'application/octet-stream';
-        fs.readFile(filePath, (err3, content) => {
-          if (err3) {
-            res.writeHead(500);
-            return res.end('Internal Server Error');
-          }
-          res.writeHead(200, { 'Content-Type': contentType });
-          res.end(content);
-        });
-      });
+      this.serveStaticFile(pathname, res);
     });
   }
 
@@ -299,7 +240,6 @@ class HttpServer {
       console.log(`📁 Nền tảng hệ thống     : ${process.platform} (${process.arch})`);
       console.log('=======================================================');
 
-      // Resume previously running bots if any
       this.multiBotManager.resumePreviousRunningBots();
     });
 

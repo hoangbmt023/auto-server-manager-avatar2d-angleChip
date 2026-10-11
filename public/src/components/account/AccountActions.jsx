@@ -14,7 +14,8 @@ window.AccountActions = function AccountActions({
   onOpenEditAccount,
   onDeleteAccount,
   onOpenSetup,
-  onTriggerAuto
+  onTriggerAuto,
+  onInspectRms
 }) {
   const [menuOpen, setMenuOpen] = React.useState(false);
   const [autoMenuOpen, setAutoMenuOpen] = React.useState(false);
@@ -46,7 +47,7 @@ window.AccountActions = function AccountActions({
 
   const handleTriggerAutoAction = (autoType, action) => {
     setAutoMenuOpen(false);
-    if (onTriggerAuto) onTriggerAuto(account.id, account.username, autoType, action);
+    if (onTriggerAuto) onTriggerAuto(account.id, autoType, action);
   };
 
   const isAutoRunning = Boolean(autoState.isRunning || (stats.isAutoRunning && stats.autoType));
@@ -216,6 +217,10 @@ window.AccountActions = function AccountActions({
 
         {moreMenuOpen && (
           <div className="dropdown-menu-glass">
+            <button className="dropdown-item-glass" onClick={() => { setMoreMenuOpen(false); onInspectRms && onInspectRms(account); }}>
+              <window.Icon name="search" size={14} color="var(--apple-blue)" /> Kiểm Tra RMS Game
+            </button>
+            <div style={{ height: '1px', background: 'var(--glass-border-subtle)', margin: '4px 0' }} />
             <button className="dropdown-item-glass" onClick={() => { setMoreMenuOpen(false); onOpenEditAccount && onOpenEditAccount(account); }}>
               <window.Icon name="edit" size={14} /> Chỉnh Sửa Nick
             </button>

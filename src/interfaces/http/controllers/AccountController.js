@@ -141,6 +141,74 @@ class AccountController {
       return sendJson(res, 400, { success: false, message: err.message });
     }
   }
+
+  async randomTestRms(req, res, sendJson, parseJsonBody) {
+    try {
+      const body = await parseJsonBody(req);
+      if (!body.id) {
+        return sendJson(res, 400, { success: false, message: 'Thiếu ID tài khoản!' });
+      }
+      const result = this.accountService.randomTestRms(body.id, body.rounds || 1);
+      return sendJson(res, 200, result);
+    } catch (err) {
+      return sendJson(res, 400, { success: false, message: err.message });
+    }
+  }
+
+  async restoreOriginalRms(req, res, sendJson, parseJsonBody) {
+    try {
+      const body = await parseJsonBody(req);
+      if (!body.id) {
+        return sendJson(res, 400, { success: false, message: 'Thiếu ID tài khoản!' });
+      }
+      const result = this.accountService.restoreOriginalRms(body.id);
+      return sendJson(res, 200, result);
+    } catch (err) {
+      return sendJson(res, 400, { success: false, message: err.message });
+    }
+  }
+
+  async inspectRms(req, res, sendJson) {
+    try {
+      const url = new URL(req.url, 'http://localhost');
+      const id = url.searchParams.get('id');
+      if (!id) {
+        return sendJson(res, 400, { success: false, message: 'Thiếu ID tài khoản!' });
+      }
+      const result = this.accountService.inspectRms(id);
+      return sendJson(res, 200, { success: true, ...result });
+    } catch (err) {
+      return sendJson(res, 400, { success: false, message: err.message });
+    }
+  }
+
+  async auditRms(req, res, sendJson) {
+    try {
+      const url = new URL(req.url, 'http://localhost');
+      const id = url.searchParams.get('id');
+      if (!id) {
+        return sendJson(res, 400, { success: false, message: 'Thiếu ID tài khoản!' });
+      }
+      const result = this.accountService.auditRms(id);
+      return sendJson(res, 200, { success: true, ...result });
+    } catch (err) {
+      return sendJson(res, 400, { success: false, message: err.message });
+    }
+  }
+
+  async fixRms(req, res, sendJson, parseJsonBody) {
+    try {
+      const body = await parseJsonBody(req);
+      if (!body.id) {
+        return sendJson(res, 400, { success: false, message: 'Thiếu ID tài khoản!' });
+      }
+      const result = this.accountService.fixAndSyncRms(body.id);
+      this.broadcastChange();
+      return sendJson(res, 200, result);
+    } catch (err) {
+      return sendJson(res, 400, { success: false, message: err.message });
+    }
+  }
 }
 
 module.exports = AccountController;

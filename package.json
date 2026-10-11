@@ -7,9 +7,16 @@
     "start": "node server.js",
     "dev": "node -e \"process.env.NODE_ENV='development'; require('./server');\"",
     "prod": "node -e \"process.env.NODE_ENV='production'; require('./server');\"",
-    "build:java": "javac --release 8 -encoding UTF-8 -cp \"jars/emulator/AngelChipEmulator_V2Proxy.jar;.\" ModSchema.java AvatarModAdapter.java AvatarHeadlessLauncher.java"
+    "build:java": "javac --release 8 -encoding UTF-8 -d java-engine/bin -cp \"jars/emulator/AngelChipEmulator_V2Proxy.jar;java-engine/bin\" java-engine/src/*.java",
+    "audit:rms": "node -e \"const ConfigRepo = require('./src/infrastructure/persistence/ConfigRepository'); const RmsAuditService = require('./src/application/services/RmsAuditService'); const auditor = new RmsAuditService(new ConfigRepo()); console.log(JSON.stringify(auditor.auditAllAccounts(), null, 2));\""
   },
-  "keywords": ["avatar", "angelchip", "cpanel", "emulator", "bot"],
+  "keywords": [
+    "avatar",
+    "angelchip",
+    "cpanel",
+    "emulator",
+    "bot"
+  ],
   "author": "Antigravity",
   "license": "MIT"
 }

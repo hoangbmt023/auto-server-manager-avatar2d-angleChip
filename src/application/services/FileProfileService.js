@@ -1,13 +1,15 @@
 const BotFile = require('../../domain/entities/BotFile');
+const JsonBotFileRepository = require('../../infrastructure/persistence/JsonBotFileRepository');
 
 /**
  * FileProfileService (Application Layer)
  * Manages Bot Profiles/Files and their JAR configurations.
  */
 class FileProfileService {
-  constructor(configRepo, multiBotManager) {
+  constructor(configRepo, multiBotManager, fileRepo = null) {
     this.configRepo = configRepo;
     this.multiBotManager = multiBotManager;
+    this.fileRepo = fileRepo || new JsonBotFileRepository(configRepo);
   }
 
   getFiles() {

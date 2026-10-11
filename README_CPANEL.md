@@ -17,23 +17,34 @@
 
 ---
 
-## 📦 CẤU TRÚC THƯ MỤC
+## 📦 CẤU TRÚC THƯ MỤC CHUẨN KIẾN TRÚC
 
 ```text
-test-cpanel-avatar/
-├── AngelChipEmulator_V2Proxy.jar   (File giả lập AngelChip)
-├── avatar_fish_build40.jar         (File game Avatar mod auto câu cá)
-├── app.js                          (File khởi động cho cPanel Node.js)
-├── server.js                       (Server chính xử lý API & Web Dashboard)
+cpanel-avatar-bot-manager/
+├── app.js                          (Entrypoint khởi động cho cPanel Node.js)
+├── server.js                       (Server Bootstrap nạp HTTP Server)
 ├── config.json                     (Cấu hình bot, proxy, RMS, mật khẩu)
-├── package.json                    (Thông tin ứng dụng Node.js)
-├── public/                         (Giao diện Web Dashboard)
+├── package.json                    (Thông tin ứng dụng Node.js & script build Java)
+├── jars/                           (Thư mục chứa JAR giả lập & JAR game mod)
+│   ├── emulator/
+│   │   └── AngelChipEmulator_V2Proxy.jar
+│   └── games/
+│       ├── avatar_upxu_build34.jar
+│       ├── avatar_fish_build40.jar
+│       └── Avatar_ChipMix_Full_build13.jar
+├── java-engine/                    (Module Java Engine Native)
+│   ├── src/                        (Mã nguồn Java Headless Launcher & Schemas)
+│   └── bin/                        (Bytecode .class đã biên dịch)
+├── src/                            (Backend Clean Architecture - Node.js Core)
+│   ├── domain/                     (Entities, Repositories, Rules)
+│   ├── application/                (Services, Use Cases)
+│   ├── infrastructure/             (Process, Persistence, Network, Logging)
+│   └── interfaces/                 (HTTP Server, Controllers, Declarative Routes)
+├── public/                         (Frontend React Clean Architecture)
 │   ├── index.html
 │   ├── style.css
-│   └── app.js
-└── utils/                          (Bộ quản lý tiến trình bot & Java)
-    ├── botProcess.js
-    └── jreManager.js
+│   └── src/                        (Contexts, Hooks, Components, Pages)
+└── utils/                          (Tương thích ngược & bootstrap)
 ```
 
 ---

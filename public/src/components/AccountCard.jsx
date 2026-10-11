@@ -17,7 +17,8 @@ window.AccountCard = function AccountCard({
   onOpenEditAccount,
   onDeleteAccount,
   onOpenSetup,
-  onTriggerAuto
+  onTriggerAuto,
+  onInspectRms
 }) {
   const isRunning = Boolean(account.isRunning);
   const serverName = account.serverName || (account.serverId === 0 ? 'Hoàn Mỹ' : 'Diệu Kỳ');
@@ -152,6 +153,7 @@ window.AccountCard = function AccountCard({
         onDeleteAccount={onDeleteAccount}
         onOpenSetup={onOpenSetup}
         onTriggerAuto={onTriggerAuto}
+        onInspectRms={onInspectRms}
       />
     </div>
   );

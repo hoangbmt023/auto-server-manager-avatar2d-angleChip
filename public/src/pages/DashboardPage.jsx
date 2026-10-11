@@ -84,8 +84,14 @@ window.DashboardPage = function DashboardPage() {
   const [searchQuery, setSearchQuery] = React.useState('');
   const [searchOpen, setSearchOpen] = React.useState(false);
   const [ipDropdownOpen, setIpDropdownOpen] = React.useState(false);
+  const [rmsModal, setRmsModal] = React.useState({ open: false, account: null });
   const searchWrapperRef = React.useRef(null);
   const ipDropdownRef = React.useRef(null);
+
+
+  const handleInspectRms = (account) => {
+    setRmsModal({ open: true, account });
+  };
 
   // Close dropdowns on outside click
   React.useEffect(() => {
@@ -536,6 +542,7 @@ window.DashboardPage = function DashboardPage() {
               onDeleteAccount={handleDeleteAccount}
               onOpenSetup={openSetupModal}
               onTriggerAuto={handleTriggerAuto}
+              onInspectRms={handleInspectRms}
             />
           </div>
         </section>
@@ -610,6 +617,14 @@ window.DashboardPage = function DashboardPage() {
           initialFeature={setupModal.activeTab}
           onClose={() => setSetupModal({ open: false, account: null, activeTab: 'upThue' })}
           onAccountUpdated={fetchAccounts}
+        />
+      )}
+
+      {rmsModal.open && (
+        <window.RmsInspectorModal
+          isOpen={rmsModal.open}
+          account={accounts.find(a => a.id === rmsModal.account?.id) || rmsModal.account}
+          onClose={() => setRmsModal({ open: false, account: null })}
         />
       )}
     </div>

@@ -1,15 +1,17 @@
 const Account = require('../../domain/entities/Account');
 const ServerLimitRule = require('../../domain/rules/ServerLimitRule');
 const RmsWriter = require('../../infrastructure/storage/RmsWriter');
+const JsonAccountRepository = require('../../infrastructure/persistence/JsonAccountRepository');
 
 /**
  * AccountService (Application Layer)
  * Manages Account CRUD and business logic validation.
  */
 class AccountService {
-  constructor(configRepo, multiBotManager) {
+  constructor(configRepo, multiBotManager, accountRepo = null) {
     this.configRepo = configRepo;
     this.multiBotManager = multiBotManager;
+    this.accountRepo = accountRepo || new JsonAccountRepository(configRepo);
   }
 
   getAccounts(fileId = null) {
@@ -256,6 +258,105 @@ class AccountService {
     }
 
     return { success: true, message: `Đã reset dữ liệu up thuê cho tài khoản [${targetAcc.username}].` };
+  }
+
+  randomTestRms(accountId, rounds = 1) {
+    const config = this.configRepo.get();
+    const targetAcc = (config.accounts || []).find(a => a.id === accountId);
+    if (!targetAcc) {
+      throw new Error(`Không tìm thấy tài khoản với ID [${accountId}]!`);
+    }
+
+    const RmsAuditService = require('./RmsAuditService');
+    const auditor = new RmsAuditService(this.configRepo);
+    return auditor.randomTestAccount(targetAcc, rounds);
+  }
+
+  restoreOriginalRms(accountId) {
+    const config = this.configRepo.get();
+    const targetAcc = (config.accounts || []).find(a => a.id === accountId);
+    if (!targetAcc) {
+      throw new Error(`Không tìm thấy tài khoản với ID [${accountId}]!`);
+    }
+
+    const RmsAuditService = require('./RmsAuditService');
+    const auditor = new RmsAuditService(this.configRepo);
+    return auditor.restoreOriginalAccount(targetAcc);
+  }
+
+  inspectRms(accountId) {
+    const config = this.configRepo.get();
+    const targetAcc = (config.accounts || []).find(a => a.id === accountId);
+    if (!targetAcc) {
+      throw new Error(`Không tìm thấy tài khoản với ID [${accountId}]!`);
+    }
+
+    const targetFileId = targetAcc.fileId || config.activeFileId || 'file_1';
+    const targetFile = (config.botFiles || []).find(f => f.id === targetFileId);
+
+    const rmsInfo = RmsWriter.inspectRms(targetAcc, targetFileId);
+
+    return {
+      account: {
+        id: targetAcc.id,
+        username: targetAcc.username,
+        serverId: targetAcc.serverId,
+        fileId: targetFileId,
+        fileName: targetFile?.name || targetFileId,
+        gameJar: targetFile?.gameJar || config.gameJar || 'avatar_upxu_build34.jar',
+        modType: targetFile?.modType || 'upxu',
+        webSettings: {
+          farmSettings: targetAcc.farmSettings || {},
+          diamondSettings: targetAcc.diamondSettings || {},
+          fishSettings: targetAcc.fishSettings || {},
+          sellOreSettings: targetAcc.sellOreSettings || {},
+          targetCoins: targetAcc.targetCoins || 0,
+          upDays: targetAcc.upDays || 0
+        }
+      },
+      rms: rmsInfo
+    };
+  }
+
+  auditRms(accountId) {
+    const config = this.configRepo.get();
+    const targetAcc = (config.accounts || []).find(a => a.id === accountId);
+    if (!targetAcc) {
+      throw new Error(`Không tìm thấy tài khoản với ID [${accountId}]!`);
+    }
+    const RmsAuditService = require('./RmsAuditService');
+    const auditor = new RmsAuditService(this.configRepo);
+    return auditor.auditAccount(targetAcc);
+  }
+
+  fixAndSyncRms(accountId) {
+    const config = this.configRepo.get();
+    const targetAcc = (config.accounts || []).find(a => a.id === accountId);
+    if (!targetAcc) {
+      throw new Error(`Không tìm thấy tài khoản với ID [${accountId}]!`);
+    }
+
+    const targetFileId = targetAcc.fileId || config.activeFileId || 'file_1';
+    RmsWriter.writeUpThueRms(targetAcc, { targetCoins: targetAcc.targetCoins, upDays: targetAcc.upDays }, targetFileId);
+    if (targetAcc.farmSettings) RmsWriter.writeFarmRms(targetAcc, targetAcc.farmSettings, targetFileId);
+    if (targetAcc.diamondSettings) RmsWriter.writeDiamondRms(targetAcc, targetAcc.diamondSettings, targetFileId);
+    if (targetAcc.fishSettings) RmsWriter.writeFishRms(targetAcc, targetAcc.fishSettings, targetFileId);
+    if (targetAcc.sellOreSettings) RmsWriter.writeSellOreRms(targetAcc, targetAcc.sellOreSettings, targetFileId);
+
+    if (targetAcc.farmSettings) this.multiBotManager.applyFarmSettingsToBot(accountId, targetAcc.farmSettings);
+    if (targetAcc.diamondSettings) this.multiBotManager.applyDiamondSettingsToBot(accountId, targetAcc.diamondSettings);
+    if (targetAcc.fishSettings) this.multiBotManager.applyFishSettingsToBot(accountId, targetAcc.fishSettings);
+    if (targetAcc.sellOreSettings) this.multiBotManager.applySellOreSettingsToBot(accountId, targetAcc.sellOreSettings);
+
+    const RmsAuditService = require('./RmsAuditService');
+    const auditor = new RmsAuditService(this.configRepo);
+    const auditReport = auditor.auditAccount(targetAcc);
+
+    return {
+      success: true,
+      message: `Đã tự động sửa và đồng bộ toàn bộ file RMS cho [${targetAcc.username}]!`,
+      audit: auditReport
+    };
   }
 }
 
