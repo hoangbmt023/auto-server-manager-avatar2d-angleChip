@@ -68,18 +68,17 @@ window.SettingsModal = function SettingsModal({ config, theme = 'dark', setTheme
         </>
       }
     >
-      <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+      <form onSubmit={handleSubmit} className="modal-form-stack">
         {/* Theme Selector */}
-        <div className="form-group" style={{ background: 'var(--glass-matrix-bg)', padding: '12px 14px', borderRadius: 'var(--radius-sm)', border: '1px solid var(--glass-border-subtle)' }}>
+        <div className="form-group farm-section-card" style={{ marginBottom: 0 }}>
           <label style={{ marginBottom: '8px', display: 'flex', alignItems: 'center', gap: '6px' }}>
             <window.Icon name="sun" size={14} color="var(--apple-blue)" />
             <span>Chế Độ Giao Diện (Theme):</span>
           </label>
-          <div className="segmented-control" style={{ width: '100%', display: 'flex' }}>
+          <div className="segmented-control" style={{ width: '100%' }}>
             <button
               type="button"
               className={`btn ${selectedTheme === 'dark' ? 'active btn-primary' : ''}`}
-              style={{ flex: 1, gap: '6px' }}
               onClick={() => handleThemeChange('dark')}
             >
               <window.Icon name="moon" size={14} /> Chế Độ Tối (Dark)
@@ -87,7 +86,6 @@ window.SettingsModal = function SettingsModal({ config, theme = 'dark', setTheme
             <button
               type="button"
               className={`btn ${selectedTheme === 'light' ? 'active btn-primary' : ''}`}
-              style={{ flex: 1, gap: '6px' }}
               onClick={() => handleThemeChange('light')}
             >
               <window.Icon name="sun" size={14} /> Chế Độ Sáng (Light)
@@ -140,7 +138,7 @@ window.SettingsModal = function SettingsModal({ config, theme = 'dark', setTheme
           </div>
         </div>
 
-        <div className="form-row" style={{ marginTop: '2px' }}>
+        <div className="form-row">
           <div className="checkbox-group" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
             <input
               type="checkbox"

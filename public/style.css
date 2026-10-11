@@ -279,6 +279,18 @@ body {
   border-color: var(--glass-border-focus);
 }
 
+[data-theme="light"] .btn-secondary {
+  background: rgba(0, 0, 0, 0.04);
+  color: var(--text-primary);
+  border: 1px solid rgba(0, 0, 0, 0.12);
+}
+
+[data-theme="light"] .btn-secondary:hover {
+  background: rgba(10, 132, 255, 0.08);
+  border-color: rgba(10, 132, 255, 0.4);
+  color: var(--apple-blue);
+}
+
 /* Outline Capsule */
 .btn-outline {
   background: transparent;

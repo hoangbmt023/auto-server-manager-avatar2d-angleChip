@@ -100,7 +100,7 @@ window.SellOreSetupModal = function SellOreSetupModal({
       size="md"
       onClose={onClose}
       footer={
-        <div style={{ display: 'flex', justifyContent: 'space-between', width: '100%', alignItems: 'center' }}>
+        <div className="modal-actions-between">
           <button type="button" className="btn btn-secondary" onClick={onClose}>
             Đóng
           </button>
@@ -109,7 +109,6 @@ window.SellOreSetupModal = function SellOreSetupModal({
             className="btn btn-primary"
             disabled={isSubmitting}
             onClick={handleSaveSellOre}
-            style={{ gap: '6px' }}
           >
             <window.Icon name="check" size={14} />
             {isSubmitting ? 'Đang lưu...' : 'Lưu Cài Đặt Bán Đá'}
@@ -119,15 +118,15 @@ window.SellOreSetupModal = function SellOreSetupModal({
     >
       {/* Feedback Alert */}
       {feedback && (
-        <div className={`alert alert-${feedback.type === 'error' ? 'danger' : 'success'}`} style={{ marginBottom: '14px' }}>
+        <div className={`alert alert-${feedback.type === 'error' ? 'danger' : 'success'}`}>
           {feedback.msg}
         </div>
       )}
 
-      <form onSubmit={handleSaveSellOre} style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+      <form onSubmit={handleSaveSellOre} className="modal-form-stack">
         {/* Toolbar: Copy from other */}
         {otherAccounts.length > 0 && (
-          <div className="farm-copy-bar" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 14px', background: 'rgba(255, 149, 0, 0.08)', borderRadius: 'var(--radius-sm)', border: '1px dashed rgba(255, 149, 0, 0.3)', gap: '10px', flexWrap: 'wrap' }}>
+          <div className="farm-copy-bar">
             <div style={{ fontSize: '0.82rem', color: 'var(--apple-orange)', display: 'flex', alignItems: 'center', gap: '6px' }}>
               <window.Icon name="copy" size={14} />
               <strong>Sao Chép Cài Đặt Từ Nick Khác:</strong>
@@ -150,7 +149,6 @@ window.SellOreSetupModal = function SellOreSetupModal({
                 className="btn btn-sm btn-secondary"
                 onClick={handleCopyFromOther}
                 title="Sao chép cài đặt"
-                style={{ gap: '4px' }}
               >
                 <window.Icon name="download" size={12} /> Sao Chép
               </button>
@@ -159,11 +157,11 @@ window.SellOreSetupModal = function SellOreSetupModal({
         )}
 
         {/* Section 1: Thời Gian & Quãng Nghỉ */}
-        <div className="farm-section-card" style={{ background: 'var(--glass-matrix-bg)', border: '1px solid var(--glass-border-subtle)', borderRadius: 'var(--radius-md)', padding: '14px 16px' }}>
-          <div className="farm-sec-header" style={{ fontSize: '0.88rem', fontWeight: 600, color: 'var(--apple-orange)', display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '12px' }}>
+        <div className="farm-section-card">
+          <div className="farm-sec-header">
             <window.Icon name="clock" size={14} /> 1. Thời Gian Bán & Quãng Nghỉ
           </div>
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '14px' }}>
+          <div className="form-grid-2col">
             <div className="form-group" style={{ margin: 0 }}>
               <label>Thời gian bán (phút):</label>
               <input
@@ -175,7 +173,7 @@ window.SellOreSetupModal = function SellOreSetupModal({
                 onFocus={(e) => { if (e.target.value === '0') e.target.select(); }}
                 onChange={(e) => setSellOreState({ ...sellOreState, sellIntervalMinutes: e.target.value })}
               />
-              <small style={{ color: 'var(--text-muted)', fontSize: '0.74rem', marginTop: '2px', display: 'block' }}>
+              <small className="form-helper-text">
                 Mặc định: 15 phút
               </small>
             </div>
@@ -192,7 +190,7 @@ window.SellOreSetupModal = function SellOreSetupModal({
                 onFocus={(e) => { if (e.target.value === '0') e.target.select(); }}
                 onChange={(e) => setSellOreState({ ...sellOreState, delayMs: e.target.value })}
               />
-              <small style={{ color: 'var(--text-muted)', fontSize: '0.74rem', marginTop: '2px', display: 'block' }}>
+              <small className="form-helper-text">
                 Mặc định: 100ms
               </small>
             </div>
@@ -200,11 +198,11 @@ window.SellOreSetupModal = function SellOreSetupModal({
         </div>
 
         {/* Section 2: Khu Vực Bán Đá */}
-        <div className="farm-section-card" style={{ background: 'var(--glass-matrix-bg)', border: '1px solid var(--glass-border-subtle)', borderRadius: 'var(--radius-md)', padding: '14px 16px' }}>
-          <div className="farm-sec-header" style={{ fontSize: '0.88rem', fontWeight: 600, color: 'var(--apple-orange)', display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '12px' }}>
+        <div className="farm-section-card">
+          <div className="farm-sec-header">
             <window.Icon name="map-pin" size={14} /> 2. Khu Vực Bán Đá (Thợ Kim Hoàn)
           </div>
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '14px' }}>
+          <div className="form-grid-2col">
             <div className="form-group" style={{ margin: 0 }}>
               <label>Khu bán từ khu:</label>
               <input
@@ -216,7 +214,7 @@ window.SellOreSetupModal = function SellOreSetupModal({
                 onFocus={(e) => { if (e.target.value === '0') e.target.select(); }}
                 onChange={(e) => setSellOreState({ ...sellOreState, zoneFrom: e.target.value })}
               />
-              <small style={{ color: 'var(--text-muted)', fontSize: '0.74rem', marginTop: '2px', display: 'block' }}>
+              <small className="form-helper-text">
                 Mặc định: Khu 20
               </small>
             </div>
@@ -232,7 +230,7 @@ window.SellOreSetupModal = function SellOreSetupModal({
                 onFocus={(e) => { if (e.target.value === '0') e.target.select(); }}
                 onChange={(e) => setSellOreState({ ...sellOreState, zoneTo: e.target.value })}
               />
-              <small style={{ color: 'var(--text-muted)', fontSize: '0.74rem', marginTop: '2px', display: 'block' }}>
+              <small className="form-helper-text">
                 Mặc định: Khu 79
               </small>
             </div>
@@ -240,11 +238,11 @@ window.SellOreSetupModal = function SellOreSetupModal({
         </div>
 
         {/* Section 3: Tùy Chọn Bán & Reset Time */}
-        <div className="farm-section-card" style={{ background: 'var(--glass-matrix-bg)', border: '1px solid var(--glass-border-subtle)', borderRadius: 'var(--radius-md)', padding: '14px 16px' }}>
-          <div className="farm-sec-header" style={{ fontSize: '0.88rem', fontWeight: 600, color: 'var(--apple-orange)', display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '12px' }}>
+        <div className="farm-section-card">
+          <div className="farm-sec-header">
             <window.Icon name="zap" size={14} /> 3. Tùy Chọn Bán & Reset Thời Gian
           </div>
-          <div className="farm-checkboxes-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: '10px' }}>
+          <div className="farm-checkboxes-grid">
             <label className="farm-checkbox-item">
               <input
                 type="checkbox"

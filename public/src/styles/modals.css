@@ -536,6 +536,132 @@ select.form-control option:disabled {
   font-weight: 600;
 }
 
+/* 11. Modal Common Utility Classes & Form Layouts */
+.modal-form-stack {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.modal-actions-end {
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  gap: 10px;
+  margin-top: 8px;
+}
+
+.modal-actions-between {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  width: 100%;
+}
+
+.form-grid-2col {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 14px;
+}
+
+.form-helper-text {
+  color: var(--text-muted);
+  font-size: 0.74rem;
+  margin-top: 3px;
+  display: block;
+}
+
+.form-helper-blue {
+  color: var(--apple-blue);
+  font-size: 0.75rem;
+  margin-top: 4px;
+  display: block;
+  font-weight: 500;
+}
+
+.farm-section-card {
+  background: var(--glass-matrix-bg);
+  border: 1px solid var(--glass-border-subtle);
+  border-radius: var(--radius-md);
+  padding: 14px 16px;
+  margin-bottom: 12px;
+}
+
+.farm-sec-header {
+  font-size: 0.88rem;
+  font-weight: 600;
+  color: var(--apple-orange);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 12px;
+}
+
+.farm-sec-header.teal {
+  color: var(--apple-teal);
+}
+
+.farm-sec-header.purple {
+  color: var(--apple-purple);
+}
+
+.farm-sec-header.green {
+  color: var(--apple-green);
+}
+
+.farm-sec-header.blue {
+  color: var(--apple-blue);
+}
+
+.farm-copy-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 14px;
+  background: rgba(255, 149, 0, 0.08);
+  border-radius: var(--radius-sm);
+  border: 1px dashed rgba(255, 149, 0, 0.3);
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-bottom: 14px;
+}
+
+.farm-copy-bar.teal {
+  background: rgba(100, 210, 255, 0.08);
+  border-color: rgba(100, 210, 255, 0.3);
+}
+
+.farm-copy-bar.purple {
+  background: rgba(191, 90, 242, 0.08);
+  border-color: rgba(191, 90, 242, 0.3);
+}
+
+.farm-copy-bar.green {
+  background: rgba(48, 209, 88, 0.08);
+  border-color: rgba(48, 209, 88, 0.3);
+}
+
+.farm-checkboxes-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: 10px;
+}
+
+.danger-callout-box {
+  background: rgba(255, 69, 58, 0.08);
+  padding: 14px 16px;
+  border-radius: var(--radius-sm);
+  border: 1px solid rgba(255, 69, 58, 0.25);
+}
+
+.danger-callout-title {
+  color: var(--apple-red);
+  display: block;
+  margin-bottom: 4px;
+  font-size: 0.88rem;
+  font-weight: 600;
+}
+
 /* Mobile Responsiveness */
 @media screen and (max-width: 768px) {
   .modal-overlay,

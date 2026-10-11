@@ -23,18 +23,18 @@ window.OtherSetupModal = function OtherSetupModal({
       size="sm"
       onClose={onClose}
       footer={
-        <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px', width: '100%' }}>
+        <div className="modal-actions-end">
           <button type="button" className="btn btn-secondary" onClick={onClose}>
             Đóng
           </button>
-          <button type="button" className="btn btn-primary" onClick={handleSave} style={{ gap: '6px' }}>
+          <button type="button" className="btn btn-primary" onClick={handleSave}>
             <window.Icon name="check" size={14} /> Hoàn Tất
           </button>
         </div>
       }
     >
-      <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-        <div style={{ padding: '12px 14px', background: 'var(--glass-matrix-bg)', borderRadius: 'var(--radius-sm)', border: '1px solid var(--glass-border-subtle)' }}>
+      <div className="modal-form-stack">
+        <div className="farm-section-card" style={{ marginBottom: 0 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px' }}>
             <window.Icon name="heart" size={16} color="var(--apple-red)" />
             <strong style={{ fontSize: '0.88rem', color: 'var(--text-primary)' }}>Tương Tác & Nhận Tim</strong>
@@ -44,7 +44,7 @@ window.OtherSetupModal = function OtherSetupModal({
           </p>
         </div>
 
-        <div style={{ padding: '12px 14px', background: 'var(--glass-matrix-bg)', borderRadius: 'var(--radius-sm)', border: '1px solid var(--glass-border-subtle)' }}>
+        <div className="farm-section-card" style={{ marginBottom: 0 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px' }}>
             <window.Icon name="shield" size={16} color="var(--apple-green)" />
             <strong style={{ fontSize: '0.88rem', color: 'var(--text-primary)' }}>Chống Mất Kết Nối (Anti-Disconnect)</strong>
