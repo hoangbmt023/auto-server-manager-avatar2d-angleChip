@@ -1,14 +1,16 @@
 const ProxyChecker = require('../../infrastructure/network/ProxyChecker');
+const JsonProxyRepository = require('../../infrastructure/persistence/JsonProxyRepository');
 
 /**
  * ProxyService (Application Layer)
  * Manages CRUD operations and Live/Expired Health Checks for the Proxy pool in config.json.
  */
 class ProxyService {
-  constructor(configRepo, multiBotManager, sseEventBus = null) {
+  constructor(configRepo, multiBotManager, sseEventBus = null, proxyRepo = null) {
     this.configRepo = configRepo;
     this.multiBotManager = multiBotManager;
     this.sseEventBus = sseEventBus || (multiBotManager ? multiBotManager.sseEventBus : null);
+    this.proxyRepo = proxyRepo || new JsonProxyRepository(configRepo);
   }
 
   getProxies() {

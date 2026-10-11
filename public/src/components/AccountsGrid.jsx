@@ -13,7 +13,8 @@ window.AccountsGrid = function AccountsGrid({
   onOpenEditAccount,
   onDeleteAccount,
   onOpenSetup,
-  onTriggerAuto
+  onTriggerAuto,
+  onInspectRms
 }) {
   const isAllIps = activeIpSlot === 'all';
   const totalIps = 1 + (proxies || []).length;
@@ -106,6 +107,7 @@ window.AccountsGrid = function AccountsGrid({
                 onDeleteAccount={onDeleteAccount}
                 onOpenSetup={onOpenSetup}
                 onTriggerAuto={onTriggerAuto}
+                onInspectRms={onInspectRms}
               />
             ))}
           </div>
@@ -159,6 +161,7 @@ window.AccountsGrid = function AccountsGrid({
                 onDeleteAccount={onDeleteAccount}
                 onOpenSetup={onOpenSetup}
                 onTriggerAuto={onTriggerAuto}
+                onInspectRms={onInspectRms}
               />
             ))}
           </div>

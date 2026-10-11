@@ -28,6 +28,26 @@ class RmsWriter {
     return Buffer.concat([header, payload]);
   }
 
+  static getModType(account, fileId = 'file_1') {
+    try {
+      const ConfigRepository = require('../persistence/ConfigRepository');
+      const configRepo = new ConfigRepository();
+      const config = configRepo.get();
+      const fId = account.fileId || fileId || config.activeFileId;
+      const file = (config.botFiles || []).find(f => f.id === fId);
+      if (file) {
+        if (file.modType) return file.modType.toLowerCase();
+        if (file.gameJar) {
+          const j = file.gameJar.toLowerCase();
+          if (j.includes('chipmix')) return 'chipmix';
+          if (j.includes('fish')) return 'fish';
+          if (j.includes('upxu')) return 'upxu';
+        }
+      }
+    } catch (e) {}
+    return 'upxu';
+  }
+
   static getSuiteDirs(account, fileId = 'file_1') {
     const fId = account.fileId || fileId || 'file_1';
     const cleanUser = String(account.username || account.id).replace(/[^a-zA-Z0-9_-]/g, '_');
@@ -35,7 +55,6 @@ class RmsWriter {
 
     dirs.add(path.join(process.cwd(), '.microemulator', `suite-avatar_${cleanUser}_${fId}`));
     dirs.add(path.join(process.cwd(), '.microemulator', `suite-avatar_${cleanUser}`));
-    dirs.add(path.join(process.cwd(), '.microemulator', 'suite-avatar_main'));
     if (account.appId) {
       dirs.add(path.join(process.cwd(), '.microemulator', `suite-${account.appId.replace(/[^a-zA-Z0-9_-]/g, '_')}`));
     }
@@ -168,14 +187,16 @@ class RmsWriter {
         payload.writeInt8(autoFarm, offset++);
         payload.writeInt32BE(Math.max(1, parseInt(diamondSettings.farmIntervalMinutes, 10) || 60), offset);
         offset += 4;
-        payload.writeInt8(autoFarm && diamondSettings.harvestOnTime !== false ? 1 : 0, offset++);
+        payload.writeInt8(diamondSettings.harvestOnTime !== false ? 1 : 0, offset++);
         payload.writeInt8(parseInt(diamondSettings.priorityOrder, 10) >= 0 ? parseInt(diamondSettings.priorityOrder, 10) : 6, offset++);
 
         const dBuf1 = this.buildRecordStore('DiamondSettings', payload);
         const dBuf2 = this.buildRecordStore('chip_DiamondSettings', payload);
+        const dBuf3 = this.buildRecordStore('chipDiamondSettings', payload);
 
         fs.writeFileSync(path.join(suiteDir, 'DiamondSettings.rs'), dBuf1);
         fs.writeFileSync(path.join(suiteDir, 'chip_DiamondSettings.rs'), dBuf2);
+        fs.writeFileSync(path.join(suiteDir, 'chipDiamondSettings.rs'), dBuf3);
       }
     } catch (err) {
       console.error(`[RmsWriter] Lỗi ghi RMS Kim Cương cho ${account.username}:`, err.message);
@@ -295,7 +316,7 @@ class RmsWriter {
       const backToFarm = fishSettings.backToFarm !== false ? 1 : 0;
       const farmIntervalMinutes = Math.max(1, parseInt(fishSettings.farmIntervalMinutes, 10) || 30);
       const sellKcxThreshold = Math.max(1, parseInt(fishSettings.sellKcxThreshold, 10) || 5);
-      const harvestOnTime = (backToFarm && fishSettings.harvestOnTime !== false) ? 1 : 0;
+      const harvestOnTime = fishSettings.harvestOnTime !== false ? 1 : 0;
 
       const encUtf = (str) => {
         const b = Buffer.from(str, 'utf-8');
@@ -366,16 +387,28 @@ class RmsWriter {
       const resetTimeOnKcx = sellOreSettings.resetTimeOnKcx ? 1 : 0;
       const resetTimeOnNhb = sellOreSettings.resetTimeOnNhb !== false ? 1 : 0;
 
+      const modType = this.getModType(account, fileId);
+
       const payload = Buffer.alloc(20);
       let off = 0;
       payload.writeInt32BE(sellIntervalMinutes, off); off += 4;
       payload.writeInt32BE(delayMs, off); off += 4;
       payload.writeInt32BE(zoneFrom, off); off += 4;
       payload.writeInt32BE(zoneTo, off); off += 4;
-      payload.writeInt8(resetTimeOnNhb, off++);
-      payload.writeInt8(resetTimeOnKcx, off++);
-      payload.writeInt8(dropNhbIfFailed, off++);
-      payload.writeInt8(dropKcxIfFailed, off++);
+
+      if (modType === 'chipmix') {
+        // Bản ChipMix build 13 (class d): thứ tự byte [dropKcx, dropNhb, resetKcx, resetNhb]
+        payload.writeInt8(dropKcxIfFailed, off++);
+        payload.writeInt8(dropNhbIfFailed, off++);
+        payload.writeInt8(resetTimeOnKcx, off++);
+        payload.writeInt8(resetTimeOnNhb, off++);
+      } else {
+        // Bản Up Xu build 34 (class al) & Fish: thứ tự byte [resetKcx, resetNhb, dropKcx, dropNhb]
+        payload.writeInt8(resetTimeOnKcx, off++);
+        payload.writeInt8(resetTimeOnNhb, off++);
+        payload.writeInt8(dropKcxIfFailed, off++);
+        payload.writeInt8(dropNhbIfFailed, off++);
+      }
 
       for (const suiteDir of suiteDirs) {
         if (!fs.existsSync(suiteDir)) {
@@ -391,6 +424,285 @@ class RmsWriter {
     } catch (err) {
       console.error(`[RmsWriter] Lỗi ghi RMS Bán Đá cho ${account.username}:`, err.message);
     }
+  }
+
+  /**
+   * Inspects and decodes raw binary RMS files on disk for a given account
+   */
+  static inspectRms(account, fileId = 'file_1') {
+    const fId = account.fileId || fileId || 'file_1';
+    const cleanUser = String(account.username || account.id).replace(/[^a-zA-Z0-9_-]/g, '_');
+    const safeAppId = `avatar_${cleanUser}_${fId}`;
+    const primaryDir = path.join(process.cwd(), '.microemulator', `suite-${safeAppId}`);
+
+    const candidateDirs = [
+      primaryDir,
+      path.join(process.cwd(), '.microemulator', `suite-avatar_${cleanUser}`)
+    ];
+
+    let targetDir = null;
+    for (const dir of candidateDirs) {
+      if (fs.existsSync(dir)) {
+        targetDir = dir;
+        break;
+      }
+    }
+
+    if (!targetDir) {
+      return {
+        exists: false,
+        dirPath: primaryDir,
+        safeAppId,
+        files: [],
+        decoded: null,
+        message: 'Chưa tìm thấy thư mục lưu trữ RMS trên ổ cứng (.microemulator)'
+      };
+    }
+
+    const files = [];
+    try {
+      const fileNames = fs.readdirSync(targetDir);
+      for (const fn of fileNames) {
+        if (fn.endsWith('.rs')) {
+          const fp = path.join(targetDir, fn);
+          const st = fs.statSync(fp);
+          files.push({
+            name: fn,
+            size: st.size,
+            updatedAt: st.mtime.toISOString(),
+            updatedAtFormatted: new Date(st.mtime).toLocaleString('vi-VN')
+          });
+        }
+      }
+    } catch (e) {}
+
+    const parsePayload = (fileName) => {
+      const p = path.join(targetDir, fileName);
+      if (!fs.existsSync(p)) return null;
+      try {
+        const buf = fs.readFileSync(p);
+        if (buf.length < 26) return null;
+        const nameLen = buf.readUInt16BE(0);
+        const payloadOffset = 2 + nameLen + 4 + 8 + 4 + 4 + 4;
+        if (buf.length < payloadOffset) return null;
+        return { buf, offset: payloadOffset };
+      } catch (e) {
+        return null;
+      }
+    };
+
+    // 1. Decode Farm Settings
+    let farm = null;
+    const farmRaw = parsePayload('chipFarmSettings.rs') || parsePayload('chip_chipFarmSettings.rs');
+    if (farmRaw) {
+      try {
+        const { buf } = farmRaw;
+        let off = farmRaw.offset;
+        const mode = buf.readInt8(off++);
+        const dishLen = buf.readUInt16BE(off); off += 2;
+        const dishes = buf.toString('utf8', off, off + dishLen); off += dishLen;
+        const seedLen = buf.readUInt16BE(off); off += 2;
+        const seeds = buf.toString('utf8', off, off + seedLen); off += seedLen;
+        const replaceSeedThreshold = buf.readInt32BE(off); off += 4;
+        const fish = buf.readInt8(off++);
+        const animal = buf.readInt8(off++);
+        const dailyAttendance = Boolean(buf.readInt8(off++));
+        const harvestHearts = Boolean(buf.readInt8(off++));
+        const prodLen = buf.readUInt16BE(off); off += 2;
+        const sellProducts = buf.toString('utf8', off, off + prodLen); off += prodLen;
+        const sellThreshold = buf.readInt32BE(off); off += 4;
+        const upgradeStarfruit = Boolean(buf.readInt8(off++));
+        const maxStarfruitLevel = buf.readInt32BE(off); off += 4;
+        const sellQuantity = buf.readInt32BE(off); off += 4;
+
+        let feedBaby = false;
+        let buyMilkWithGold = false;
+        let upgradeBaby = false;
+        let hatchDragon = false;
+        let trainDragon = false;
+        let deliverOrders = false;
+        let noBuyWithGold = true;
+        if (off + 7 <= buf.length) {
+          feedBaby = Boolean(buf.readInt8(off++));
+          buyMilkWithGold = Boolean(buf.readInt8(off++));
+          upgradeBaby = Boolean(buf.readInt8(off++));
+          hatchDragon = Boolean(buf.readInt8(off++));
+          trainDragon = Boolean(buf.readInt8(off++));
+          deliverOrders = Boolean(buf.readInt8(off++));
+          noBuyWithGold = Boolean(buf.readInt8(off++));
+        }
+
+        farm = {
+          mode,
+          backupDishes: dishes,
+          backupSeeds: seeds,
+          replaceSeedThreshold,
+          fish,
+          animal,
+          dailyAttendance,
+          harvestHearts,
+          sellProducts,
+          sellThreshold,
+          upgradeStarfruit,
+          maxStarfruitLevel,
+          sellQuantity,
+          feedBaby,
+          buyMilkWithGold,
+          upgradeBaby,
+          hatchDragon,
+          trainDragon,
+          deliverOrders,
+          noBuyWithGold
+        };
+      } catch (e) {}
+    }
+
+    // 2. Decode Diamond Settings
+    let diamond = null;
+    const diamRaw = parsePayload('chipDiamondSettings.rs') || parsePayload('DiamondSettings.rs') || parsePayload('chip_DiamondSettings.rs');
+    if (diamRaw) {
+      try {
+        const { buf } = diamRaw;
+        let off = diamRaw.offset;
+        const sellOreOnFull = Boolean(buf.readInt8(off++));
+        const autoDropKcx = Boolean(buf.readInt8(off++));
+        const autoDropNhb = Boolean(buf.readInt8(off++));
+        const autoFarm = Boolean(buf.readInt8(off++));
+        const farmIntervalMinutes = buf.readInt32BE(off); off += 4;
+        const harvestOnTime = Boolean(buf.readInt8(off++));
+        const priorityOrder = buf.readInt8(off++);
+
+        diamond = {
+          sellOreOnFull,
+          autoDropKcx,
+          autoDropNhb,
+          autoFarm,
+          farmIntervalMinutes,
+          harvestOnTime,
+          priorityOrder
+        };
+      } catch (e) {}
+    }
+
+    // 3. Decode Fish Settings
+    let fish = null;
+    const fishRaw = parsePayload('chip_fish_settings.rs') || parsePayload('_fish_settings.rs') || parsePayload('chip__fish_settings.rs') || parsePayload('chipFish.rs') || parsePayload('Fish.rs');
+    if (fishRaw) {
+      try {
+        const { buf } = fishRaw;
+        let off = fishRaw.offset;
+        const mapType = buf.readInt8(off++);
+        const sellFishType = buf.readInt8(off++);
+        const autoBuyTicket = Boolean(buf.readInt8(off++));
+        const sellKcx = Boolean(buf.readInt8(off++));
+        const excLen = buf.readUInt16BE(off); off += 2;
+        const excludeFish = buf.toString('utf8', off, off + excLen); off += excLen;
+        const rodType = buf.readInt8(off++);
+        const backToFarm = Boolean(buf.readInt8(off++));
+        const farmIntervalMinutes = buf.readInt32BE(off); off += 4;
+        const sellKcxThreshold = buf.readInt32BE(off); off += 4;
+        const harvestOnTime = Boolean(buf.readInt8(off++));
+
+        fish = {
+          mapType,
+          sellFishType,
+          autoBuyTicket,
+          sellKcx,
+          excludeFish,
+          rodType,
+          backToFarm,
+          farmIntervalMinutes,
+          sellKcxThreshold,
+          harvestOnTime
+        };
+      } catch (e) {}
+    }
+
+    // 4. Decode Sell Ore Settings
+    let sellOre = null;
+    const modType = this.getModType(account, fId);
+    const oreRaw = parsePayload('JewelSettings.rs') || parsePayload('chip_JewelSettings.rs') || parsePayload('chipJewelSettings.rs');
+    if (oreRaw) {
+      try {
+        const { buf } = oreRaw;
+        let off = oreRaw.offset;
+        const sellIntervalMinutes = buf.readInt32BE(off); off += 4;
+        const delayMs = buf.readInt32BE(off); off += 4;
+        const zoneFrom = buf.readInt32BE(off); off += 4;
+        const zoneTo = buf.readInt32BE(off); off += 4;
+
+        let resetTimeOnKcx = false;
+        let resetTimeOnNhb = false;
+        let dropKcxIfFailed = false;
+        let dropNhbIfFailed = false;
+
+        if (modType === 'chipmix') {
+          // ChipMix: [dropKcx, dropNhb, resetKcx, resetNhb]
+          dropKcxIfFailed = Boolean(buf.readInt8(off++));
+          dropNhbIfFailed = Boolean(buf.readInt8(off++));
+          resetTimeOnKcx = Boolean(buf.readInt8(off++));
+          resetTimeOnNhb = Boolean(buf.readInt8(off++));
+        } else {
+          // Up Xu & Fish: [resetKcx, resetNhb, dropKcx, dropNhb]
+          resetTimeOnKcx = Boolean(buf.readInt8(off++));
+          resetTimeOnNhb = Boolean(buf.readInt8(off++));
+          dropKcxIfFailed = Boolean(buf.readInt8(off++));
+          dropNhbIfFailed = Boolean(buf.readInt8(off++));
+        }
+
+        sellOre = {
+          sellIntervalMinutes,
+          delayMs,
+          zoneFrom,
+          zoneTo,
+          resetTimeOnNhb,
+          resetTimeOnKcx,
+          dropNhbIfFailed,
+          dropKcxIfFailed
+        };
+      } catch (e) {}
+    }
+
+    // 5. Decode Up Thue Data
+    let upThue = null;
+    const upThueRaw = parsePayload(`chip_${cleanUser}Data.rs`) || parsePayload('chip_Data.rs');
+    if (upThueRaw) {
+      try {
+        const { buf } = upThueRaw;
+        let off = upThueRaw.offset;
+        const xuBanDau = buf.readInt32BE(off); off += 4;
+        const startedTs = Number(buf.readBigInt64BE(off)); off += 8;
+        const upDays = buf.readInt32BE(off); off += 4;
+        const targetCoins = buf.readInt32BE(off); off += 4;
+        const lastUpdateTs = Number(buf.readBigInt64BE(off)); off += 8;
+
+        upThue = {
+          xuBanDau,
+          startedTs,
+          startedDate: new Date(startedTs).toLocaleString('vi-VN'),
+          upDays,
+          targetCoins,
+          lastUpdateTs
+        };
+      } catch (e) {}
+    }
+
+    const hasLoginRms = fs.existsSync(path.join(targetDir, '2.5.8avlogin.rs'));
+
+    return {
+      exists: true,
+      dirPath: targetDir,
+      safeAppId,
+      hasLoginRms,
+      files,
+      decoded: {
+        farm,
+        diamond,
+        fish,
+        sellOre,
+        upThue
+      }
+    };
   }
 }
 

@@ -3,6 +3,7 @@ const path = require('path');
 const fs = require('fs');
 const EventEmitter = require('events');
 const ProxyChecker = require('../network/ProxyChecker');
+const BotIpcProtocol = require('./BotIpcProtocol');
 
 /**
  * SingleBotProcess (Infrastructure Layer)
@@ -120,11 +121,19 @@ class SingleBotProcess extends EventEmitter {
     const safeAppId = `avatar_${this.account.username || this.account.id}_${this.fileProfile ? this.fileProfile.id : 'def'}`;
     args.push(`-Davatar.appId=${safeAppId}`);
 
-    const autoToStart = (this.autoState && this.autoState.isRunning && this.autoState.autoType) 
-      ? this.autoState.autoType 
+    const autoToStart = (this.autoState && this.autoState.isRunning && this.autoState.autoType)
+      ? this.autoState.autoType
       : (this.account && (this.account.lastAutoType || this.account.defaultAutoType));
     if (autoToStart) {
       args.push(`-Davatar.autoStartType=${autoToStart}`);
+      if (!this.autoState || !this.autoState.isRunning) {
+        this.autoState = {
+          isRunning: true,
+          autoType: autoToStart,
+          status: 'running',
+          message: `Khôi phục ${this.getFriendlyName(autoToStart)}...`
+        };
+      }
     }
 
     // Proxy configuration (Account-specific Proxy from Proxy Pool, File Profile Proxy, or Global Proxy)
@@ -177,8 +186,9 @@ class SingleBotProcess extends EventEmitter {
     // Emulator JAR & Classpath
     const emulatorName = this.globalConfig.emulatorJar || 'AngelChipEmulator_V2Proxy.jar';
     const emulatorJar = this.resolveJar(emulatorName);
+    const javaEngineBin = path.resolve(this.workspaceRoot, 'java-engine/bin');
     const cpSeparator = process.platform === 'win32' ? ';' : ':';
-    args.push('-cp', `${emulatorJar}${cpSeparator}${this.workspaceRoot}`);
+    args.push('-cp', `${emulatorJar}${cpSeparator}${javaEngineBin}${cpSeparator}${this.workspaceRoot}`);
     args.push('AvatarHeadlessLauncher');
 
     // Headless args
@@ -295,264 +305,98 @@ class SingleBotProcess extends EventEmitter {
 
   processLogOutput(rawText, streamType) {
     const lines = rawText.split('\n');
-    for (let line of lines) {
-      line = line.trimEnd();
+    for (const rawLine of lines) {
+      const line = rawLine.trimEnd();
       if (!line) continue;
 
-      if (line.includes('[ACCOUNT_STATUS]:')) {
-        try {
-          const jsonPart = line.substring(line.indexOf('[ACCOUNT_STATUS]:') + 17).trim();
-          const parsed = JSON.parse(jsonPart);
-          this.accountState = {
-            ...this.accountState,
-            ...parsed
-          };
-          this.emit('account-status', { accountId: this.account.id, state: this.accountState });
+      const parsed = BotIpcProtocol.parseLine(line, streamType, {
+        username: this.account.username,
+        accountState: this.accountState,
+        autoState: this.autoState,
+        playerStats: this.playerStats,
+        proxyId: this.account.proxyId
+      });
 
-          // If target is reached / completed, mark as manual stop to prevent reconnect and stop gracefully
-          if (parsed.isTargetReached || parsed.isCompleted || parsed.state === 'target_reached') {
-            this.isManualStop = true;
-            this.accountState = {
-              state: 'target_reached',
-              message: parsed.message || 'Đã đạt yêu cầu up xu theo cài đặt!',
-              isCompleted: true,
-              isError: false,
-              isMaintenance: false
-            };
-            this.emit('account-status', { accountId: this.account.id, state: this.accountState });
-            this.emitLog('success', `🏆 [${this.account.username}] 🎉 HOÀN THÀNH MỤC TIÊU: ${parsed.message || 'Đã đạt yêu cầu up xu theo cài đặt!'}`);
-            setTimeout(() => {
-              this.stop();
-            }, 1000);
-          }
-          continue;
-        } catch (e) {}
+      if (parsed.accountStatusUpdate) {
+        this.accountState = {
+          ...this.accountState,
+          ...parsed.accountStatusUpdate
+        };
+        this.emit('account-status', { accountId: this.account.id, state: this.accountState });
       }
 
-      if (line.includes('[AUTO_STATUS]:')) {
-        try {
-          const jsonPart = line.substring(line.indexOf('[AUTO_STATUS]:') + 14).trim();
-          const parsed = JSON.parse(jsonPart);
-
-          let primaryType = parsed.autoType;
-          let subTask = parsed.subTask ? parsed.autoType : null;
-          if (parsed.parentAutoType) {
-            primaryType = parsed.parentAutoType;
-            subTask = parsed.autoType;
-          }
-
-          this.autoState = {
-            ...this.autoState,
-            ...parsed,
-            autoType: primaryType,
-            subTask: subTask
-          };
-          this.emit('auto-status', { accountId: this.account.id, autoState: this.autoState });
-
-          if (!this.autoState.isRunning && (this.autoState.status === 'finished' || this.autoState.finished)) {
-            if (this.autoResetTimer) clearTimeout(this.autoResetTimer);
-            this.autoResetTimer = setTimeout(() => {
-              this.autoState = {
-                isRunning: false,
-                autoType: null,
-                subTask: null,
-                status: 'idle',
-                message: ''
-              };
-              this.emit('auto-status', { accountId: this.account.id, autoState: this.autoState });
-            }, 5000);
-          }
-          continue;
-        } catch (e) {}
+      if (parsed.isTargetReached) {
+        this.isManualStop = true;
+        this.accountState = {
+          state: 'target_reached',
+          message: parsed.accountStatusUpdate && parsed.accountStatusUpdate.message ? parsed.accountStatusUpdate.message : 'Đã đạt yêu cầu up xu theo cài đặt!',
+          isCompleted: true,
+          isError: false,
+          isMaintenance: false
+        };
+        this.emit('account-status', { accountId: this.account.id, state: this.accountState });
+        this.emitLog('success', `🏆 [${this.account.username}] 🎉 HOÀN THÀNH MỤC TIÊU: ${this.accountState.message}`);
+        setTimeout(() => this.stop(), 1000);
       }
 
-      if ((line.includes('Đã chăm sóc xong') || line.includes('Đã xong việc') || line.includes('Nông trại bạn đã được chăm sóc')) &&
-          (!this.autoState || this.autoState.autoType === 'farm')) {
+      if (parsed.autoStatusUpdate) {
         this.autoState = {
-          isRunning: false,
-          autoType: 'farm',
-          subTask: null,
-          status: 'finished',
-          finished: true,
-          message: 'Đã farm xong!'
+          ...this.autoState,
+          ...parsed.autoStatusUpdate
         };
         this.emit('auto-status', { accountId: this.account.id, autoState: this.autoState });
 
-        if (this.autoResetTimer) clearTimeout(this.autoResetTimer);
-        this.autoResetTimer = setTimeout(() => {
-          this.autoState = {
-            isRunning: false,
-            autoType: null,
-            subTask: null,
-            status: 'idle',
-            message: ''
-          };
-          this.emit('auto-status', { accountId: this.account.id, autoState: this.autoState });
-        }, 5000);
-      }
-
-      if (line.includes('[PLAYER_STATS]:')) {
-        try {
-          const jsonPart = line.substring(line.indexOf('[PLAYER_STATS]:') + 15).trim();
-          const parsed = JSON.parse(jsonPart);
-          if (parsed.farmingTime !== undefined && parsed.farmingCountdown === undefined) {
-            parsed.farmingCountdown = parsed.farmingTime;
-          } else if (parsed.farmingCountdown !== undefined && parsed.farmingTime === undefined) {
-            parsed.farmingTime = parsed.farmingCountdown;
-          }
-          if (parsed.coins === 0 && this.playerStats.coins > 0) {
-            delete parsed.coins;
-            delete parsed.gold;
-            delete parsed.lockedGold;
-          }
-          // Giữ countdown hiện tại nếu Java tạm thời trả về '--:--' do đang load map/reconnect trong chốc lát
-          if ((!parsed.farmingCountdown || parsed.farmingCountdown === '--:--') &&
-              (this.playerStats.farmingCountdown && this.playerStats.farmingCountdown !== '--:--') &&
-              this.autoState && this.autoState.isRunning &&
-              (this.autoState.autoType === 'diamond' || this.autoState.autoType === 'kc' || this.autoState.autoType === 'fish')) {
-            delete parsed.farmingCountdown;
-            delete parsed.farmingTime;
-          }
-          this.playerStats = {
-            ...this.playerStats,
-            ...parsed
-          };
-
-          // Synchronize autoState directly from live in-game active auto task
-          if (parsed.isAutoRunning !== undefined) {
-            if (parsed.isAutoRunning && parsed.autoType) {
-              let primaryType = parsed.autoType;
-              let subTask = null;
-
-              // Nếu đang chạy auto kim cương / câu cá mà tạm về farm hoặc bán đá / baby, giữ nguyên primary autoType
-              if ((parsed.autoType === 'farm' || parsed.autoType === 'sell_ore' || parsed.autoType === 'banda' || parsed.autoType === 'stone' || parsed.autoType === 'baby') &&
-                  this.autoState && (this.autoState.autoType === 'diamond' || this.autoState.autoType === 'fish' || this.autoState.autoType === 'kc')) {
-                primaryType = this.autoState.autoType;
-                subTask = parsed.autoType;
-              }
-
-              let friendly = 'Auto';
-              if (primaryType === 'fish') friendly = 'Auto Câu Cá';
-              else if (primaryType === 'diamond' || primaryType === 'kc') friendly = 'Auto Kim Cương';
-              else if (primaryType === 'farm') friendly = 'Auto Farm';
-              else if (primaryType === 'sell_ore' || primaryType === 'banda') friendly = 'Auto Bán Đá';
-              else if (primaryType === 'tai_xiu') friendly = 'Auto Tài Xỉu';
-              else if (primaryType === 'baby') friendly = 'Auto Chăm Em Bé';
-
-              let statusMsg = `Đang chạy ${friendly}...`;
-              if (subTask === 'farm') {
-                statusMsg = `Đang về chăm farm (từ ${friendly})...`;
-              } else if (subTask === 'sell_ore' || subTask === 'banda' || subTask === 'stone') {
-                statusMsg = `Đang bán đá (từ ${friendly})...`;
-              } else if (subTask === 'baby') {
-                statusMsg = `Đang chăm em bé (từ ${friendly})...`;
-              }
-
-              this.autoState = {
-                isRunning: true,
-                autoType: primaryType,
-                subTask: subTask,
-                status: 'running',
-                message: statusMsg
-              };
-              this.emit('auto-status', { accountId: this.account.id, autoState: this.autoState });
-            } else if (!parsed.isAutoRunning && this.autoState && this.autoState.isRunning) {
-              this.autoState = {
-                isRunning: false,
-                autoType: null,
-                subTask: null,
-                status: 'idle',
-                message: ''
-              };
-              this.emit('auto-status', { accountId: this.account.id, autoState: this.autoState });
-            }
-          }
-
-          // If coins detected, confirm online state if not in permanent error
-          if (this.playerStats.coins > 0 && !this.accountState.isError && this.accountState.state !== 'online') {
-            this.accountState = {
-              state: 'online',
-              message: 'Đang Treo Online',
-              isError: false,
-              isMaintenance: false
+        if (!this.autoState.isRunning && (this.autoState.status === 'finished' || this.autoState.finished)) {
+          if (this.autoResetTimer) clearTimeout(this.autoResetTimer);
+          this.autoResetTimer = setTimeout(() => {
+            this.autoState = {
+              isRunning: false,
+              autoType: null,
+              subTask: null,
+              status: 'idle',
+              message: ''
             };
-            this.emit('account-status', { accountId: this.account.id, state: this.accountState });
-          }
-          this.emit('stats', { accountId: this.account.id, stats: this.playerStats });
-        } catch (e) {}
-        continue; // Always skip raw PLAYER_STATS from terminal logs
-      }
-
-      let type = streamType === 'stderr' ? 'error' : 'stdout';
-      if (line.includes('✅') || line.includes('THÀNH CÔNG')) type = 'success';
-      else if (line.includes('❌') || line.includes('LỖI')) {
-        type = 'error';
-        if (line.includes('LỖI XÁC THỰC') || line.includes('MẬT KHẨU')) {
-          this.accountState = {
-            state: 'auth_error',
-            message: 'Sai tài khoản hoặc mật khẩu!',
-            isError: true,
-            isMaintenance: false
-          };
+            this.emit('auto-status', { accountId: this.account.id, autoState: this.autoState });
+          }, 5000);
         }
       }
 
-      // Check for proxy authentication failure, network disconnect, or expired proxy
-      if (this.account.proxyId) {
-        const lower = line.toLowerCase();
-        if (
-          lower.includes('socks: authentication failed') ||
-          lower.includes('407 proxy authentication') ||
-          lower.includes('proxy authentication required') ||
-          lower.includes('[proxy auth err]') ||
-          lower.includes('malformed reply from socks') ||
-          lower.includes('lỗi xác thực proxy')
-        ) {
-          type = 'error';
-          this.accountState = {
-            state: 'proxy_expired',
-            message: 'Proxy đã hết hạn hoặc sai xác thực!',
-            isError: true,
-            isMaintenance: false
-          };
-          this.emit('proxy-expired', {
-            proxyId: this.account.proxyId,
-            reason: 'Proxy từ chối xác thực (Hết hạn hoặc sai User/Pass)'
-          });
-          this.emit('account-status', { accountId: this.account.id, state: this.accountState });
-        } else if (line.includes('MẤT KẾT NỐI') || line.includes('[LOGIN ERR]') || line.includes('ConnectException') || line.includes('SocketTimeoutException')) {
-          this.triggerProxyHealthCheck('Mất kết nối mạng / Socket Timeout qua Proxy');
-        } else if (line.includes('2. Bắt đầu kết nối & đăng nhập') || line.includes('Đang kết nối tới Server')) {
-          if (this.loginWatchdogTimer) clearTimeout(this.loginWatchdogTimer);
-          this.loginWatchdogTimer = setTimeout(() => {
-            if (this.accountState.state !== 'online' && (!this.playerStats || this.playerStats.coins <= 0)) {
-              this.triggerProxyHealthCheck('Quá thời gian chờ kết nối game (Login Timeout qua Proxy)');
-            }
-          }, 18000);
-        }
+      if (parsed.statsUpdate) {
+        this.playerStats = {
+          ...this.playerStats,
+          ...parsed.statsUpdate
+        };
+        this.emit('stats', { accountId: this.account.id, stats: this.playerStats });
       }
 
-      if (this.playerStats.coins > 0 || line.includes('Đang Treo Online') || line.includes('BẮT ĐẦU CHẠY')) {
+      if (parsed.proxyExpiredReason) {
+        this.emit('proxy-expired', {
+          proxyId: this.account.proxyId,
+          reason: parsed.proxyExpiredReason
+        });
+      }
+
+      if (parsed.shouldCheckProxyHealth) {
+        this.triggerProxyHealthCheck('Mất kết nối mạng / Socket Timeout qua Proxy');
+      }
+
+      if (parsed.loginWatchdogAction === 'clear') {
         if (this.loginWatchdogTimer) {
           clearTimeout(this.loginWatchdogTimer);
           this.loginWatchdogTimer = null;
         }
+      } else if (parsed.loginWatchdogAction === 'reset') {
+        if (this.loginWatchdogTimer) clearTimeout(this.loginWatchdogTimer);
+        this.loginWatchdogTimer = setTimeout(() => {
+          if (this.accountState.state !== 'online' && (!this.playerStats || this.playerStats.coins <= 0)) {
+            this.triggerProxyHealthCheck('Quá thời gian chờ kết nối game (Login Timeout qua Proxy)');
+          }
+        }, 18000);
       }
-      else if (line.includes('⚠️') || line.includes('CẢNH BÁO') || line.includes('MẤT KẾT NỐI')) type = 'warn';
-      else if (line.includes('🛠️') || line.includes('BẢO TRÌ')) {
-        type = 'warn';
-        this.accountState = {
-          state: 'maintenance',
-          message: 'Server đang bảo trì',
-          isError: false,
-          isMaintenance: true
-        };
-      }
-      else if (line.includes('🚀') || line.includes('QUY TRÌNH') || line.includes('Đang kết nối')) type = 'info';
 
-      // Prepend username tag if not present
-      const formatted = line.includes(`[${this.account.username}]`) ? line : `[${this.account.username}] ${line}`;
-      this.emitLog(type, formatted);
+      if (parsed.formattedText && !parsed.handledSpecialPacket) {
+        this.emitLog(parsed.logType, parsed.formattedText);
+      }
     }
   }
 
@@ -640,7 +484,7 @@ class SingleBotProcess extends EventEmitter {
     } catch (e) {
       try {
         this.child.kill('SIGKILL');
-      } catch (err) {}
+      } catch (err) { }
     }
 
     this.child = null;
@@ -696,15 +540,16 @@ class SingleBotProcess extends EventEmitter {
   triggerAuto(autoType = 'farm', action = 'start') {
     if (this.child && this.child.stdin && !this.child.stdin.destroyed) {
       try {
+        const validAutoTypes = ['farm', 'diamond', 'kc', 'fish', 'cau_ca', 'cc', 'sell_ore', 'banda', 'stone', 'bd', 'event', 'sk', 'all'];
+        if (!validAutoTypes.includes(autoType) && validAutoTypes.includes(action)) {
+          autoType = action;
+          action = 'start';
+        }
+
         if (action === 'start') {
           // Kiểm tra xem có phải bật Subtask (Farm / Bán Đá) khi Auto lớn (KC / Câu Cá) đang chạy không
           const isParentRunning = this.autoState && this.autoState.isRunning && (this.autoState.autoType === 'diamond' || this.autoState.autoType === 'kc' || this.autoState.autoType === 'fish');
           const isTargetSubTask = (autoType === 'farm' || autoType === 'sell_ore' || autoType === 'banda' || autoType === 'stone' || autoType === 'bd');
-
-          // Chỉ gửi STOP_AUTO nếu chuyển giữa các task độc lập, KHÔNG gửi STOP_AUTO khi lồng subtask vào task lớn!
-          if (this.autoState && this.autoState.isRunning && !(isParentRunning && isTargetSubTask)) {
-            this.child.stdin.write('STOP_AUTO\n');
-          }
 
           if (autoType === 'farm' && this.account.farmSettings) {
             const jsonStr = JSON.stringify(this.account.farmSettings);
@@ -720,7 +565,7 @@ class SingleBotProcess extends EventEmitter {
             this.child.stdin.write(`SELL_ORE_SETTINGS ${jsonStr}\n`);
           }
           this.child.stdin.write(`START_AUTO ${autoType}\n`);
-          
+
           const friendlyName = this.getFriendlyName(autoType);
 
           if (isParentRunning && isTargetSubTask) {
@@ -740,14 +585,13 @@ class SingleBotProcess extends EventEmitter {
               message: `Đang chạy ${friendlyName}...`
             };
           }
-        } else {
-          // action === 'stop'
+        } else if (action === 'stop') {
           this.child.stdin.write(`STOP_AUTO ${autoType}\n`);
 
           // Nếu chỉ dừng subtask khi auto lớn đang chạy -> quay lại auto lớn, không tắt tiến trình auto!
           if (this.autoState && this.autoState.isRunning && this.autoState.subTask &&
-              (this.autoState.subTask === autoType || (autoType === 'farm' && this.autoState.subTask === 'farm') ||
-               ((autoType === 'sell_ore' || autoType === 'banda' || autoType === 'stone' || autoType === 'bd') &&
+            (this.autoState.subTask === autoType || (autoType === 'farm' && this.autoState.subTask === 'farm') ||
+              ((autoType === 'sell_ore' || autoType === 'banda' || autoType === 'stone' || autoType === 'bd') &&
                 (this.autoState.subTask === 'sell_ore' || this.autoState.subTask === 'banda' || this.autoState.subTask === 'stone' || this.autoState.subTask === 'bd')))) {
             this.autoState.subTask = null;
             this.autoState.message = `Đang tiếp tục chạy ${this.getFriendlyName(this.autoState.autoType)}...`;
@@ -882,7 +726,7 @@ class SingleBotProcess extends EventEmitter {
     if (this.child && this.child.stdin && !this.child.stdin.destroyed) {
       try {
         this.child.stdin.write('RESET_DATA\n');
-      } catch (e) {}
+      } catch (e) { }
     }
     this.emit('stats', { accountId: this.account.id, stats: this.playerStats });
     return true;

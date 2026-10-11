@@ -2594,8 +2594,11 @@ public class AvatarModAdapter {
 
     public static boolean startAuto(String autoType) {
         ClassLoader cl = getClassLoader();
-        if (cl == null)
+        if (cl == null) {
+            System.out.println("⚠️ [CHƯA VÀO GAME]: Giả lập đang khởi chạy, vui lòng đợi đăng nhập xong rồi bật Auto!");
+            System.out.println("[AUTO_STATUS]: {\"isRunning\":false,\"status\":\"warning\",\"message\":\"Đang khởi tạo giả lập game...\"}");
             return false;
+        }
 
         AutoTaskInfo curTaskBefore = getActiveAutoTask();
         boolean isSubTask = false;
@@ -2608,9 +2611,9 @@ public class AvatarModAdapter {
         }
 
         if (!isSubTask) {
-            stopAuto();
+            stopAuto(null, true);
             try {
-                Thread.sleep(350);
+                Thread.sleep(150);
             } catch (InterruptedException ignored) {
             }
         }
@@ -2855,10 +2858,11 @@ public class AvatarModAdapter {
                         return true;
                     }
                 } else {
-                    System.err.println("⚠️ [KHÔNG HỖ TRỢ]: Bản mod đang chạy [" + schema.name
+                    System.out.println("⚠️ [KHÔNG HỖ TRỢ]: Bản mod đang chạy [" + schema.name
                             + "] không có Auto Câu Cá. Vui lòng đổi sang [avatar_fish_build40.jar] trong Quản Lý File!");
                     System.out.println(
                             "[AUTO_STATUS]: {\"isRunning\":false,\"status\":\"error\",\"message\":\"Bản mod hiện tại không hỗ trợ Auto Câu Cá. Hãy chọn file avatar_fish_build40.jar!\"}");
+                    return false;
                 }
             } else if ("sell_ore".equalsIgnoreCase(autoType) || "banda".equalsIgnoreCase(autoType)
                     || "stone".equalsIgnoreCase(autoType) || "bd".equalsIgnoreCase(autoType)) {
@@ -2918,16 +2922,23 @@ public class AvatarModAdapter {
             }
         } catch (Throwable t) {
             System.err.println("[START_AUTO ERR]: " + t.getMessage());
+            t.printStackTrace();
+            System.out.println("❌ [LỖI BẬT AUTO]: Không thể khởi chạy " + autoType + " (" + (t.getMessage() != null ? t.getMessage() : t.getClass().getSimpleName()) + ")!");
+            System.out.println("[AUTO_STATUS]: {\"isRunning\":false,\"status\":\"error\",\"message\":\"Lỗi khởi chạy " + autoType + "\"}");
         }
 
         return false;
     }
 
     public static void stopAuto() {
-        stopAuto(null);
+        stopAuto(null, false);
     }
 
     public static void stopAuto(String targetType) {
+        stopAuto(targetType, false);
+    }
+
+    public static void stopAuto(String targetType, boolean silent) {
         ClassLoader cl = getClassLoader();
         if (cl == null)
             return;
@@ -2953,8 +2964,10 @@ public class AvatarModAdapter {
                 Method returnMethod = taskCtrlCls.getMethod(schema.taskReturnMethod);
                 returnMethod.invoke(null);
                 lastConfiguredAutoType = curTask.parentAutoType;
-                System.out.println("⏹️ [QUAY VỀ AUTO CHÍNH]: Đã dừng subtask (" + curTask.friendlyName + ") và quay về " + curTask.parentAutoType + "!");
-                System.out.println("[AUTO_STATUS]: {\"isRunning\":true,\"status\":\"running\",\"autoType\":\"" + curTask.parentAutoType + "\",\"subTask\":false,\"message\":\"Đang chạy tiếp " + curTask.parentAutoType + "...\"}");
+                if (!silent) {
+                    System.out.println("⏹️ [QUAY VỀ AUTO CHÍNH]: Đã dừng subtask (" + curTask.friendlyName + ") và quay về " + curTask.parentAutoType + "!");
+                    System.out.println("[AUTO_STATUS]: {\"isRunning\":true,\"status\":\"running\",\"autoType\":\"" + curTask.parentAutoType + "\",\"subTask\":false,\"message\":\"Đang chạy tiếp " + curTask.parentAutoType + "...\"}");
+                }
                 return;
             } catch (Throwable ignored) {
             }
@@ -2992,8 +3005,10 @@ public class AvatarModAdapter {
         wasInFarmDiamond = false;
         wasInFarmFish = false;
 
-        System.out.println("⏹️ [DỪNG AUTO]: Đã dừng tiến trình Auto.");
-        System.out.println("[AUTO_STATUS]: {\"isRunning\":false,\"status\":\"stopped\",\"message\":\"Đã dừng Auto\"}");
+        if (!silent) {
+            System.out.println("⏹️ [DỪNG AUTO]: Đã dừng tiến trình Auto.");
+            System.out.println("[AUTO_STATUS]: {\"isRunning\":false,\"status\":\"stopped\",\"message\":\"Đã dừng Auto\"}");
+        }
     }
 
     public static AutoTaskInfo getActiveAutoTask() {

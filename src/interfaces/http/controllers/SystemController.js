@@ -1,4 +1,4 @@
-const jreManager = require('../../../../utils/jreManager');
+const jreManager = require('../../../infrastructure/process/JreManager');
 
 /**
  * SystemController (Interface Layer)

@@ -25,6 +25,8 @@ jre/
 openjdk/
 *.log
 logs/
+*.class
+java-engine/bin/
 
 # ==========================================
 # MicroEmulator Local RMS & Session Cache & Runtime IPC

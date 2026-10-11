@@ -294,9 +294,18 @@ window.AppProvider = function AppProvider({ children }) {
     });
   };
 
-  const handleTriggerAuto = async (id, autoType = 'farm', action = 'start') => {
+  const handleTriggerAuto = async (id, autoType = 'farm', action = 'start', maybeAction) => {
+    let finalAutoType = autoType;
+    let finalAction = action;
+
+    // Phòng thủ nếu caller truyền dạng (id, username, autoType, action)
+    if (maybeAction !== undefined) {
+      finalAutoType = action;
+      finalAction = maybeAction;
+    }
+
     try {
-      const data = await window.ApiClient.triggerAuto(id, autoType, action);
+      const data = await window.ApiClient.triggerAuto(id, finalAutoType, finalAction);
       if (!data.success && window.showAlert) {
         window.showAlert(data.message || 'Lỗi thực hiện lệnh Auto', 'Lỗi Auto', 'error');
       }

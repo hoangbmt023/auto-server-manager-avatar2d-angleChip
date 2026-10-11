@@ -111,8 +111,14 @@ class BotController {
     try {
       const body = await parseJsonBody(req);
       const accountId = body.id || body.accountId;
-      const autoType = body.autoType || 'farm';
-      const action = body.action || 'start'; // 'start' | 'stop'
+      let autoType = body.autoType || 'farm';
+      let action = body.action || 'start'; // 'start' | 'stop'
+
+      const validAutoTypes = ['farm', 'diamond', 'kc', 'fish', 'cau_ca', 'cc', 'sell_ore', 'banda', 'stone', 'bd', 'event', 'sk', 'all'];
+      if (!validAutoTypes.includes(autoType) && validAutoTypes.includes(action)) {
+        autoType = body.action;
+        action = 'start';
+      }
 
       if (!accountId) {
         return sendJson(res, 400, { success: false, message: 'Thiếu ID tài khoản!' });

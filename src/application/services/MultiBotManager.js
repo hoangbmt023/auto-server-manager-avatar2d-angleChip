@@ -5,6 +5,8 @@ const ServerLimitRule = require('../../domain/rules/ServerLimitRule');
 const ProxyChecker = require('../../infrastructure/network/ProxyChecker');
 const ProcessRegistry = require('../../infrastructure/process/ProcessRegistry');
 const CrossProcessBus = require('../../infrastructure/ipc/CrossProcessBus');
+const StartBotAccountUseCase = require('../use-cases/bot/StartBotAccountUseCase');
+const StopBotAccountUseCase = require('../use-cases/bot/StopBotAccountUseCase');
 
 /**
  * MultiBotManager (Application Layer)
@@ -19,6 +21,8 @@ class MultiBotManager extends EventEmitter {
     this.runningBots = new Map(); // Local worker Map: accountId -> SingleBotProcess
     this.processRegistry = new ProcessRegistry();
     this.ipcBus = sseEventBus.getIpcBus ? sseEventBus.getIpcBus() : new CrossProcessBus();
+    this.startBotUseCase = new StartBotAccountUseCase(this, this.configRepo, this.sseEventBus);
+    this.stopBotUseCase = new StopBotAccountUseCase(this, this.configRepo, this.sseEventBus);
 
     // Listen to remote commands from other workers (e.g. Stop / Auto / Setup dispatched by Phone)
     this.ipcBus.on('remote-command', (cmd) => {
@@ -30,6 +34,14 @@ class MultiBotManager extends EventEmitter {
         } else if (cmd.action === 'auto') {
           const { autoType, action } = cmd.payload || {};
           botProcess.triggerAuto(autoType, action);
+          try {
+            const config = this.configRepo.get();
+            const account = (config.accounts || []).find(a => a.id === cmd.accountId);
+            if (account) {
+              account.lastAutoType = (action === 'start') ? autoType : null;
+              this.configRepo.save(config);
+            }
+          } catch (e) {}
         } else if (cmd.action === 'setup') {
           const { targetCoins, upDays } = cmd.payload || {};
           botProcess.applySetup(targetCoins, upDays);
@@ -77,161 +89,11 @@ class MultiBotManager extends EventEmitter {
   }
 
   async startAccount(accountId) {
-    const config = this.configRepo.get();
-    const account = (config.accounts || []).find(a => a.id === accountId);
-    if (!account) {
-      throw new Error(`Không tìm thấy tài khoản với ID [${accountId}]!`);
-    }
-
-    const fileId = account.fileId || 'file_1';
-    const fileProfile = (config.botFiles || []).find(f => f.id === fileId);
-    if (!fileProfile) {
-      throw new Error(`Không tìm thấy cấu hình File/Profile cho tài khoản này!`);
-    }
-
-    // Cross-worker check: if already running in local RAM or on OS, reject immediately
-    if (this.isAccountRunning(accountId)) {
-      return { success: true, message: `Tài khoản [${account.username}] đang chạy rồi.` };
-    }
-
-    // Check limits for running bots system-wide on this IP / Proxy and in this file
-    const allRunning = this.getRunningAccounts().filter(a => a.id !== accountId);
-    const proxy = account.proxyId ? (config.proxies || []).find(p => p.id === account.proxyId) : null;
-    ServerLimitRule.validateCanRun(allRunning, account, proxy, fileProfile?.maxAccounts || 6);
-
-    // Check limits for running bots on the same proxy (Max 6 online per proxy) & Real-time Health Check
-    if (account.proxyId && proxy) {
-      if (proxy) {
-        if (proxy.isExpired) {
-          throw new Error(`❌ Proxy [${proxy.name || proxy.host}] gán cho nick [${account.username}] ĐÃ BỊ ĐÁNH DẤU HẾT HẠN! Vui lòng đổi proxy khác.`);
-        }
-
-        // Live Health Test before spawning process
-        const testRes = await ProxyChecker.testProxy(proxy, 3500);
-        if (testRes.isExpired) {
-          this.markProxyExpired(account.proxyId, testRes.message, account.id);
-          throw new Error(`❌ Proxy [${proxy.name || proxy.host}] của nick [${account.username}] ĐÃ HẾT HẠN hoặc LỖI KẾT NỐI (${testRes.message})! Đã tự động đánh dấu cờ.`);
-        }
-      }
-      const allRunning = this.getRunningAccounts().filter(a => a.id !== accountId);
-      ServerLimitRule.validateProxyLimit(allRunning, account, proxy);
-    }
-
-    // Find Java runtime
-    const javaBin = JavaDetector.findJavaExecutable(config.javaPath);
-    if (!javaBin) {
-      throw new Error('Không tìm thấy Java runtime. Vui lòng cài đặt Java hoặc Portable JRE!');
-    }
-
-    // Create process
-    const botProcess = new SingleBotProcess(account, fileProfile, config);
-
-    botProcess.on('log', (entry) => {
-      this.sseEventBus.addLog(entry);
-    });
-
-    botProcess.on('stats', (data) => {
-      this.processRegistry.update(accountId, { stats: data.stats });
-      this.sseEventBus.broadcast('bot-stats', data);
-    });
-
-    botProcess.on('account-status', (data) => {
-      this.processRegistry.update(accountId, { accountState: data.state });
-      this.sseEventBus.broadcast('bot-account-status', data);
-    });
-
-    botProcess.on('auto-status', (data) => {
-      this.processRegistry.update(accountId, { autoState: data.autoState });
-      this.sseEventBus.broadcast('bot-auto-status', data);
-    });
-
-    botProcess.on('proxy-expired', ({ proxyId, reason }) => {
-      this.markProxyExpired(proxyId, reason, accountId);
-    });
-
-    botProcess.on('stopped', ({ accountId: stoppedId, wasManual }) => {
-      this.processRegistry.unregister(stoppedId);
-      if (wasManual) {
-        this.runningBots.delete(stoppedId);
-        this.persistRunningState();
-      }
-      this.sseEventBus.broadcast('bot-status-changed', {
-        accountId: stoppedId,
-        running: false,
-        runningCount: this.getRunningAccounts().length
-      });
-    });
-
-    const started = botProcess.start(javaBin);
-    if (started && botProcess.child && botProcess.child.pid) {
-      this.runningBots.set(accountId, botProcess);
-
-      // Register with Shared Process Registry on disk
-      this.processRegistry.register(accountId, {
-        username: account.username,
-        serverId: account.serverId !== undefined ? account.serverId : 0,
-        serverName: account.serverName || '',
-        fileId: fileId,
-        pid: botProcess.child.pid,
-        startTime: botProcess.startTime || Date.now(),
-        stats: botProcess.playerStats,
-        accountState: botProcess.accountState,
-        autoState: botProcess.autoState
-      });
-
-      this.persistRunningState();
-      this.sseEventBus.broadcast('bot-status-changed', {
-        accountId,
-        running: true,
-        runningCount: this.getRunningAccounts().length
-      });
-    }
-
-    return {
-      success: started,
-      message: started ? `Đã bắt đầu treo tài khoản [${account.username}]!` : 'Không thể khởi chạy bot.'
-    };
+    return this.startBotUseCase.execute(accountId);
   }
 
   stopAccount(accountId) {
-    const config = this.configRepo.get();
-    const account = (config.accounts || []).find(a => a.id === accountId);
-    const username = account ? account.username : accountId;
-
-    let stopped = false;
-
-    // 1. Local worker stop
-    if (this.runningBots.has(accountId)) {
-      const botProcess = this.runningBots.get(accountId);
-      botProcess.stop();
-      this.runningBots.delete(accountId);
-      this.processRegistry.unregister(accountId);
-      stopped = true;
-    }
-
-    // 2. Cross-worker stop (Remote process kill & IPC signal)
-    if (this.processRegistry.isAccountRunning(accountId)) {
-      this.ipcBus.sendCommand(accountId, 'stop');
-      this.processRegistry.killAccount(accountId);
-      stopped = true;
-    }
-
-    this.persistRunningState();
-
-    this.sseEventBus.addLog({
-      type: 'warn',
-      accountId,
-      username,
-      text: `⏹️ [${username}] Đã dừng treo tài khoản.`
-    });
-
-    this.sseEventBus.broadcast('bot-status-changed', {
-      accountId,
-      running: false,
-      runningCount: this.getRunningAccounts().length
-    });
-
-    return { success: true, message: `Đã dừng treo tài khoản [${username}].` };
+    return this.stopBotUseCase.execute(accountId);
   }
 
   stopAll() {
@@ -357,28 +219,42 @@ class MultiBotManager extends EventEmitter {
     else if (autoType === 'fish') friendlyName = 'Auto Câu Cá';
     else if (autoType === 'sell_ore' || autoType === 'banda' || autoType === 'stone') friendlyName = 'Auto Bán Đá';
 
+    let ok = false;
     if (this.runningBots.has(accountId)) {
       const botProcess = this.runningBots.get(accountId);
-      const ok = botProcess.triggerAuto(autoType, action);
-      return {
-        success: ok,
-        message: ok 
-          ? (action === 'start' ? `Đã gửi lệnh bật [${friendlyName}]` : `Đã gửi lệnh dừng Auto`)
-          : `Không thể gửi lệnh Auto đến bot.`
-      };
+      ok = botProcess.triggerAuto(autoType, action);
     } else if (this.processRegistry.isAccountRunning(accountId)) {
-      const ok = this.ipcBus.sendCommand(accountId, 'auto', { autoType, action });
+      ok = this.ipcBus.sendCommand(accountId, 'auto', { autoType, action });
+    } else {
       return {
-        success: ok,
-        message: ok
-          ? (action === 'start' ? `Đã gửi lệnh bật [${friendlyName}]` : `Đã gửi lệnh dừng Auto`)
-          : `Không thể gửi lệnh Auto đến bot.`
+        success: false,
+        message: 'Tài khoản chưa được bật (Hãy Treo Bot trước khi kích hoạt Auto)!'
       };
     }
 
+    if (ok) {
+      try {
+        const config = this.configRepo.get();
+        const account = (config.accounts || []).find(a => a.id === accountId);
+        if (account) {
+          let normType = autoType;
+          if (autoType === 'kc') normType = 'diamond';
+          else if (autoType === 'cc' || autoType === 'cau_ca') normType = 'fish';
+          else if (autoType === 'banda' || autoType === 'stone' || autoType === 'bd') normType = 'sell_ore';
+
+          account.lastAutoType = (action === 'start') ? normType : null;
+          this.configRepo.save(config);
+        }
+      } catch (err) {
+        console.error('Error saving lastAutoType:', err);
+      }
+    }
+
     return {
-      success: false,
-      message: 'Tài khoản chưa được bật (Hãy Treo Bot trước khi kích hoạt Auto)!'
+      success: ok,
+      message: ok 
+        ? (action === 'start' ? `Đã gửi lệnh bật [${friendlyName}]` : `Đã gửi lệnh dừng Auto`)
+        : `Không thể gửi lệnh Auto đến bot.`
     };
   }
 
