@@ -97,8 +97,12 @@ class MultiBotManager extends EventEmitter {
   }
 
   stopAll() {
+    const config = this.configRepo.get();
+
     // 1. Stop all local processes
     for (const [accId, botProcess] of this.runningBots.entries()) {
+      const acc = (config.accounts || []).find(a => a.id === accId);
+      if (acc) acc.lastAutoType = null;
       botProcess.stop();
       this.processRegistry.unregister(accId);
     }
@@ -107,6 +111,8 @@ class MultiBotManager extends EventEmitter {
     // 2. Stop all remote processes in registry
     const activeBots = this.processRegistry.getActiveBots();
     for (const [accId, rec] of Object.entries(activeBots)) {
+      const acc = (config.accounts || []).find(a => a.id === accId);
+      if (acc) acc.lastAutoType = null;
       this.ipcBus.sendCommand(accId, 'stop');
       if (rec.pid) {
         ProcessRegistry.killPid(rec.pid, true);
@@ -114,6 +120,7 @@ class MultiBotManager extends EventEmitter {
       this.processRegistry.unregister(accId);
     }
 
+    this.configRepo.save(config);
     this.persistRunningState();
 
     this.sseEventBus.addLog({

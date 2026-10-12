@@ -15,17 +15,17 @@ class StopBotAccountUseCase {
     const account = (config.accounts || []).find(a => a.id === accountId);
     const username = account ? account.username : accountId;
 
+    // Khi người dùng chủ động bấm Dừng bot, xoá trạng thái Auto đã lưu để khi bấm Treo lại sẽ không tự bật Auto
+    if (account) {
+      account.lastAutoType = null;
+      this.configRepo.save(config);
+    }
+
     let stopped = false;
 
     // 1. Local worker process stop
     if (this.multiBotManager.runningBots.has(accountId)) {
       const botProcess = this.multiBotManager.runningBots.get(accountId);
-      if (botProcess && botProcess.autoState && botProcess.autoState.isRunning && botProcess.autoState.autoType) {
-        if (account) {
-          account.lastAutoType = botProcess.autoState.autoType;
-          this.configRepo.save(config);
-        }
-      }
       botProcess.stop();
       this.multiBotManager.runningBots.delete(accountId);
       this.multiBotManager.processRegistry.unregister(accountId);
