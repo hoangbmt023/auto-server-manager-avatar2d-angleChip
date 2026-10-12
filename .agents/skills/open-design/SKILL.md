@@ -19,10 +19,9 @@ This skill activates OpenDesign capabilities within Antigravity, turning user br
    - **Modals & Setup**: Polished glassmorphic dialogues with smooth inputs and micro-animations.
    - **Decks / Slides**: Swiss-grid or magazine-style presentation slides for project demo.
 3. **Execution Standards & Strict Front-End Rules**:
-   - **NO RAW EMOJI ICONS (BẮT BUỘC)**: Tuyệt đối KHÔNG dùng emoji hoặc icon unicode mặc định (như `✅`, `🎲`, `📋`, `✓`, `🔄`, `🔍`) trong UI. Luôn dùng component vector SVG `<window.Icon name="..." size={...} color="..." />` từ `Icons.jsx`.
-   - **CSS Hygiene & Modals**: Toàn bộ CSS phải viết trong stylesheets (`modals.css`, `index.css`), không viết inline style trong JSX. Kiểm tra kỹ đóng mở ngoặc nhọn `{}` trong CSS để tránh phá vỡ layout.
-   - **Mobile UX First**: Mọi bảng dữ liệu hoặc modal phải có card layout trên màn hình nhỏ điện thoại (dưới 768px), không để chữ bé xíu hay tràn viền.
+   - **NO RAW EMOJI ICONS (MANDATORY)**: Strictly NEVER use raw emojis or default Unicode icons (such as `✅`, `🎲`, `📋`, `✓`, `🔄`, `🔍`) in the UI. Always use the vector SVG component `<window.Icon name="..." size={...} color="..." />` from `Icons.jsx`.
+   - **CSS Hygiene & Modals**: All CSS must be declared in modular stylesheets (`modals.css`, `index.css`), never as ad-hoc inline styles in JSX. Verify matching braces `{}` carefully to avoid breaking stylesheet layouts.
+   - **Mobile UX First**: All data tables and modals must provide responsive card layouts on mobile viewports (< 768px), preventing clipped text or horizontal overflow.
    - Never use bland default colors (use curated tokens like `--primary: #00e699`, `--bg-surface: #121824`).
    - Integrate with React JSX components in `public/src/components/` seamlessly.
    - Support dark mode by default with vibrant gaming / cyberpunk neon accents.
-

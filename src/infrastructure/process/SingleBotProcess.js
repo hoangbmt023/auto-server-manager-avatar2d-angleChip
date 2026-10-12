@@ -489,6 +489,10 @@ class SingleBotProcess extends EventEmitter {
 
     this.child = null;
     this.startTime = null;
+    if (this.account) {
+      this.account.lastAutoType = null;
+    }
+    this.autoState = { isRunning: false, autoType: null, subTask: null, status: 'stopped', message: '' };
     this.accountState = { state: 'idle', message: 'Đã dừng', isError: false, isMaintenance: false };
     return true;
   }

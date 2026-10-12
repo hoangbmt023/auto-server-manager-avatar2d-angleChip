@@ -147,7 +147,7 @@ public class FishBuild40Schema implements IModSchema {
         schema.activeTaskField = "do";
         schema.farmTaskClassName = "bq";
         schema.diamondTaskClassName = "aj";
-        schema.fishTaskClassName = "";
+        schema.fishTaskClassName = "bS";
         schema.farmTraderTaskClassName = "hn";
 
         return schema;
