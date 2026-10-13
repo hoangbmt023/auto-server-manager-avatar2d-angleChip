@@ -39,10 +39,9 @@ window.RmsInspectorModal = function RmsInspectorModal({
     setTestMode(false);
     setTestData(null);
     try {
-      const auditRes = await fetch(`/api/accounts/audit-rms?id=${accountId}`);
-      const auditJson = await auditRes.json();
+      const auditJson = await window.ApiClient.auditRms(accountId);
 
-      if (!auditRes.ok || !auditJson.success) {
+      if (!auditJson.success) {
         throw new Error(auditJson.message || 'Không thể kiểm tra file RMS');
       }
 
@@ -66,13 +65,8 @@ window.RmsInspectorModal = function RmsInspectorModal({
   const handleRandomTest = async (roundsToRun = testRounds) => {
     try {
       setActionLoading(true);
-      const res = await fetch('/api/accounts/random-test-rms', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ id: accountId, rounds: roundsToRun })
-      });
-      const data = await res.json();
-      if (!res.ok || !data.success) {
+      const data = await window.ApiClient.randomTestRms(accountId, roundsToRun);
+      if (!data.success) {
         throw new Error(data.message || 'Lỗi khi chạy Random Test');
       }
 
@@ -100,13 +94,8 @@ window.RmsInspectorModal = function RmsInspectorModal({
   const handleRestoreOriginal = async () => {
     try {
       setActionLoading(true);
-      const res = await fetch('/api/accounts/restore-original-rms', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ id: accountId })
-      });
-      const data = await res.json();
-      if (!res.ok || !data.success) {
+      const data = await window.ApiClient.restoreOriginalRms(accountId);
+      if (!data.success) {
         throw new Error(data.message || 'Lỗi khi khôi phục RMS gốc');
       }
 
@@ -134,11 +123,7 @@ window.RmsInspectorModal = function RmsInspectorModal({
   const handleSafeClose = async () => {
     if (testMode) {
       try {
-        await fetch('/api/accounts/restore-original-rms', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ id: accountId })
-        });
+        await window.ApiClient.restoreOriginalRms(accountId);
       } catch (err) {
         console.error('Lỗi tự động khôi phục RMS gốc khi đóng modal:', err);
       }

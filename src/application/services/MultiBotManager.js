@@ -1,28 +1,42 @@
 const EventEmitter = require('events');
-const SingleBotProcess = require('../../infrastructure/process/SingleBotProcess');
-const JavaDetector = require('../../infrastructure/process/JavaDetector');
-const ServerLimitRule = require('../../domain/rules/ServerLimitRule');
-const ProxyChecker = require('../../infrastructure/network/ProxyChecker');
 const ProcessRegistry = require('../../infrastructure/process/ProcessRegistry');
 const CrossProcessBus = require('../../infrastructure/ipc/CrossProcessBus');
 const StartBotAccountUseCase = require('../use-cases/bot/StartBotAccountUseCase');
 const StopBotAccountUseCase = require('../use-cases/bot/StopBotAccountUseCase');
+const { DateTimeUtil } = require('../../shared/utils/dateTime');
 
 /**
  * MultiBotManager (Application Layer)
  * Manages concurrent bot instances across single or multiple cPanel lsnode workers.
  * Features Cross-Worker Process Registry, Shared IPC Bus, and OS PID Liveness Verification.
+ * Powered 100% by MySQL Repositories (Database-Driven, zero config.json dependency).
  */
 class MultiBotManager extends EventEmitter {
-  constructor(configRepo, sseEventBus) {
+  constructor(accountRepo, fileRepo, proxyRepo, settingRepo, sseEventBus) {
     super();
-    this.configRepo = configRepo;
+    this.accountRepo = accountRepo;
+    this.fileRepo = fileRepo;
+    this.proxyRepo = proxyRepo;
+    this.settingRepo = settingRepo;
     this.sseEventBus = sseEventBus;
+
     this.runningBots = new Map(); // Local worker Map: accountId -> SingleBotProcess
     this.processRegistry = new ProcessRegistry();
-    this.ipcBus = sseEventBus.getIpcBus ? sseEventBus.getIpcBus() : new CrossProcessBus();
-    this.startBotUseCase = new StartBotAccountUseCase(this, this.configRepo, this.sseEventBus);
-    this.stopBotUseCase = new StopBotAccountUseCase(this, this.configRepo, this.sseEventBus);
+    this.ipcBus = sseEventBus && sseEventBus.getIpcBus ? sseEventBus.getIpcBus() : new CrossProcessBus();
+
+    this.startBotUseCase = new StartBotAccountUseCase(
+      this,
+      this.accountRepo,
+      this.fileRepo,
+      this.proxyRepo,
+      this.settingRepo,
+      this.sseEventBus
+    );
+    this.stopBotUseCase = new StopBotAccountUseCase(
+      this,
+      this.accountRepo,
+      this.sseEventBus
+    );
 
     // Listen to remote commands from other workers (e.g. Stop / Auto / Setup dispatched by Phone)
     this.ipcBus.on('remote-command', (cmd) => {
@@ -34,14 +48,6 @@ class MultiBotManager extends EventEmitter {
         } else if (cmd.action === 'auto') {
           const { autoType, action } = cmd.payload || {};
           botProcess.triggerAuto(autoType, action);
-          try {
-            const config = this.configRepo.get();
-            const account = (config.accounts || []).find(a => a.id === cmd.accountId);
-            if (account) {
-              account.lastAutoType = (action === 'start') ? autoType : null;
-              this.configRepo.save(config);
-            }
-          } catch (e) {}
         } else if (cmd.action === 'setup') {
           const { targetCoins, upDays } = cmd.payload || {};
           botProcess.applySetup(targetCoins, upDays);
@@ -68,9 +74,13 @@ class MultiBotManager extends EventEmitter {
     return this.processRegistry.isAccountRunning(accountId);
   }
 
-  getRunningAccounts() {
-    const config = this.configRepo.get();
-    const accounts = config.accounts || [];
+  async getRunningAccounts() {
+    let accounts = [];
+    if (this.accountRepo) {
+      try {
+        accounts = await this.accountRepo.findAll();
+      } catch (e) {}
+    }
     const activeRegistry = this.processRegistry.getActiveBots();
     const runningList = [];
 
@@ -84,25 +94,22 @@ class MultiBotManager extends EventEmitter {
     return runningList;
   }
 
-  getRunningBotsInFile(fileId) {
-    return this.getRunningAccounts().filter(a => (a.fileId || 'file_1') === fileId);
+  async getRunningBotsInFile(fileId) {
+    const runningAccs = await this.getRunningAccounts();
+    return runningAccs.filter(a => (a.fileId || 'file_1') === fileId);
   }
 
   async startAccount(accountId) {
     return this.startBotUseCase.execute(accountId);
   }
 
-  stopAccount(accountId) {
+  async stopAccount(accountId) {
     return this.stopBotUseCase.execute(accountId);
   }
 
-  stopAll() {
-    const config = this.configRepo.get();
-
+  async stopAll() {
     // 1. Stop all local processes
     for (const [accId, botProcess] of this.runningBots.entries()) {
-      const acc = (config.accounts || []).find(a => a.id === accId);
-      if (acc) acc.lastAutoType = null;
       botProcess.stop();
       this.processRegistry.unregister(accId);
     }
@@ -111,8 +118,6 @@ class MultiBotManager extends EventEmitter {
     // 2. Stop all remote processes in registry
     const activeBots = this.processRegistry.getActiveBots();
     for (const [accId, rec] of Object.entries(activeBots)) {
-      const acc = (config.accounts || []).find(a => a.id === accId);
-      if (acc) acc.lastAutoType = null;
       this.ipcBus.sendCommand(accId, 'stop');
       if (rec.pid) {
         ProcessRegistry.killPid(rec.pid, true);
@@ -120,8 +125,7 @@ class MultiBotManager extends EventEmitter {
       this.processRegistry.unregister(accId);
     }
 
-    this.configRepo.save(config);
-    this.persistRunningState();
+    await this.persistRunningState();
 
     this.sseEventBus.addLog({
       type: 'warn',
@@ -135,38 +139,52 @@ class MultiBotManager extends EventEmitter {
     return { success: true, message: 'Đã dừng tất cả bot.' };
   }
 
-  persistRunningState() {
-    const config = this.configRepo.get();
-    const runningAccs = this.getRunningAccounts();
-    const runningIds = runningAccs.map(a => a.id);
-    config.runningAccountIds = runningIds;
-    config.botRunningState = runningIds.length > 0;
-    this.configRepo.save(config);
+  async persistRunningState() {
+    if (!this.settingRepo) return;
+    try {
+      const runningAccs = await this.getRunningAccounts();
+      const runningIds = runningAccs.map(a => a.id);
+      await this.settingRepo.set('runningAccountIds', runningIds);
+      await this.settingRepo.set('botRunningState', runningIds.length > 0);
+    } catch (e) {
+      console.error('Error persisting running state to MySQL:', e.message);
+    }
   }
 
   async resumePreviousRunningBots() {
-    const config = this.configRepo.get();
-    if (!config.autoStart) return;
+    if (!this.settingRepo) return;
+    try {
+      const autoStart = await this.settingRepo.get('autoStart');
+      if (autoStart === false || autoStart === 'false') return;
 
-    const savedRunningIds = Array.isArray(config.runningAccountIds) ? config.runningAccountIds : [];
-    if (savedRunningIds.length === 0 && config.activeAccountId && config.botRunningState) {
-      savedRunningIds.push(config.activeAccountId);
-    }
+      const savedRunningIds = (await this.settingRepo.get('runningAccountIds')) || [];
+      const idList = Array.isArray(savedRunningIds) ? savedRunningIds : [];
 
-    if (savedRunningIds.length === 0) {
-      console.log('⏹️ Không có nick nào đang ở trạng thái treo trước đó.');
-      return;
-    }
-
-    console.log(`🤖 Tự động khôi phục treo ${savedRunningIds.length} tài khoản Avatar...`);
-    for (const accId of savedRunningIds) {
-      try {
-        if (!this.isAccountRunning(accId)) {
-          await this.startAccount(accId);
+      if (idList.length === 0) {
+        const activeAccId = await this.settingRepo.get('activeAccountId');
+        const botState = await this.settingRepo.get('botRunningState');
+        if (activeAccId && botState) {
+          idList.push(activeAccId);
         }
-      } catch (err) {
-        console.error(`❌ Không thể khôi phục tài khoản [${accId}]:`, err.message);
       }
+
+      if (idList.length === 0) {
+        console.log('⏹️ Không có nick nào đang ở trạng thái treo trước đó.');
+        return;
+      }
+
+      console.log(`🤖 Tự động khôi phục treo ${idList.length} tài khoản Avatar từ MySQL...`);
+      for (const accId of idList) {
+        try {
+          if (!this.isAccountRunning(accId)) {
+            await this.startAccount(accId);
+          }
+        } catch (err) {
+          console.error(`❌ Không thể khôi phục tài khoản [${accId}]:`, err.message);
+        }
+      }
+    } catch (err) {
+      console.error('Error in resumePreviousRunningBots:', err.message);
     }
   }
 
@@ -239,24 +257,6 @@ class MultiBotManager extends EventEmitter {
       };
     }
 
-    if (ok) {
-      try {
-        const config = this.configRepo.get();
-        const account = (config.accounts || []).find(a => a.id === accountId);
-        if (account) {
-          let normType = autoType;
-          if (autoType === 'kc') normType = 'diamond';
-          else if (autoType === 'cc' || autoType === 'cau_ca') normType = 'fish';
-          else if (autoType === 'banda' || autoType === 'stone' || autoType === 'bd') normType = 'sell_ore';
-
-          account.lastAutoType = (action === 'start') ? normType : null;
-          this.configRepo.save(config);
-        }
-      } catch (err) {
-        console.error('Error saving lastAutoType:', err);
-      }
-    }
-
     return {
       success: ok,
       message: ok 
@@ -275,16 +275,18 @@ class MultiBotManager extends EventEmitter {
     return false;
   }
 
-  markProxyExpired(proxyId, reason, accountId = null) {
+  async markProxyExpired(proxyId, reason, accountId = null) {
     if (!proxyId) return;
-    const config = this.configRepo.get();
-    const proxy = (config.proxies || []).find(p => p.id === proxyId);
-    if (!proxy) return;
 
-    proxy.isExpired = true;
-    proxy.errorReason = reason || 'Proxy đã hết hạn hoặc từ chối xác thực';
-    proxy.lastChecked = new Date().toISOString();
-    this.configRepo.save(config);
+    let proxy = null;
+    if (this.proxyRepo) {
+      try {
+        proxy = await this.proxyRepo.findById(proxyId);
+        await this.proxyRepo.updateStatus(proxyId, false, true);
+      } catch (e) {
+        console.error('Error updating expired proxy in MySQL:', e.message);
+      }
+    }
 
     if (this.sseEventBus) {
       this.sseEventBus.broadcast('bot-status-changed', {
@@ -292,13 +294,21 @@ class MultiBotManager extends EventEmitter {
         proxyId,
         reason
       });
-      const username = accountId ? ((config.accounts || []).find(a => a.id === accountId)?.username || '') : '';
+      let username = '';
+      if (accountId && this.accountRepo) {
+        try {
+          const acc = await this.accountRepo.findById(accountId);
+          if (acc) username = acc.username;
+        } catch (e) {}
+      }
+      const proxyName = proxy ? proxy.name : proxyId;
+      const proxyHost = proxy ? `${proxy.host}:${proxy.port}` : '';
       this.sseEventBus.addLog({
         timestamp: new Date().toLocaleTimeString('vi-VN', { hour12: false }),
         type: 'error',
         accountId: accountId,
         username,
-        text: `🛑 [PROXY ALERT]: Phát hiện Proxy [${proxy.name}] (${proxy.host}:${proxy.port}) HẾT HẠN hoặc LỖI XÁC THỰC! Đã đánh dấu cờ hết hạn.`
+        text: `🛑 [PROXY ALERT]: Phát hiện Proxy [${proxyName}] (${proxyHost}) HẾT HẠN hoặc LỖI XÁC THỰC! Đã đánh dấu cờ hết hạn.`
       });
     }
   }

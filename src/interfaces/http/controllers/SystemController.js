@@ -1,53 +1,73 @@
 const jreManager = require('../../../infrastructure/process/JreManager');
+const ApiResponse = require('../../../application/dtos/common/ApiResponse');
+const ErrorResponse = require('../../../application/dtos/common/ErrorResponse');
+const SaveSystemConfigRequestDto = require('../../../application/dtos/system/SaveSystemConfigRequestDto');
+const { BadRequestException } = require('../../../domain/errors');
+const { sendErrorResponse } = require('../helpers/errorHandler');
 
 /**
  * SystemController (Interface Layer)
  * Handles global configuration, JRE downloads, and system maintenance.
+ * Powered 100% by MySQL System Settings (Database-Driven, zero config.json dependency).
  */
 class SystemController {
-  constructor(configRepo, sseEventBus = null) {
-    this.configRepo = configRepo;
+  constructor(settingRepo, sseEventBus = null) {
+    this.settingRepo = settingRepo;
     this.sseEventBus = sseEventBus;
   }
 
+  _sendError(res, sendJson, err) {
+    return sendErrorResponse(res, sendJson, err);
+  }
+
   async getConfig(req, res, sendJson) {
-    const cfg = this.configRepo.get();
-    return sendJson(res, 200, {
-      success: true,
-      config: {
+    try {
+      const cfg = await this.settingRepo.getCompleteConfig();
+      const safeConfig = {
         ...cfg,
         password: cfg.password ? '******' : ''
-      }
-    });
+      };
+      const resp = ApiResponse.success(safeConfig, 'Lấy cấu hình thành công!');
+      resp.config = safeConfig; // Backward compatibility
+      return sendJson(res, 200, resp);
+    } catch (err) {
+      return this._sendError(res, sendJson, err);
+    }
   }
 
   async saveConfig(req, res, sendJson, parseJsonBody) {
     try {
       const body = await parseJsonBody(req);
-      const current = this.configRepo.get();
+      const dto = new SaveSystemConfigRequestDto(body);
+      dto.validate(); // Chặn lỗi ngay tầng đầu tiên
 
-      if (body.password !== undefined && body.password !== '******') {
-        current.password = body.password;
+      const updates = {
+        appId: dto.appId,
+        port: dto.port,
+        rmsMode: dto.rmsMode,
+        maxMemoryMb: dto.maxMemoryMb,
+        autoRestart: dto.autoRestart,
+        autoStart: dto.autoStart
+      };
+
+      if (body.password !== undefined && body.password !== '******' && body.password !== '') {
+        updates.password = dto.password;
       }
-      if (body.port !== undefined) current.port = parseInt(body.port, 10) || current.port;
-      if (body.javaPath !== undefined) current.javaPath = body.javaPath.trim();
-      if (body.appId !== undefined) current.appId = body.appId.trim();
-      if (body.rmsMode !== undefined) current.rmsMode = body.rmsMode;
-      if (body.autoRestart !== undefined) current.autoRestart = Boolean(body.autoRestart);
-      if (body.autoStart !== undefined) current.autoStart = Boolean(body.autoStart);
-      if (body.maxMemoryMb !== undefined) current.maxMemoryMb = parseInt(body.maxMemoryMb, 10) || 256;
-      if (body.proxy !== undefined) current.proxy = body.proxy;
+      if (dto.javaPath) updates.javaPath = dto.javaPath;
+      if (dto.emulatorJar) updates.emulatorJar = dto.emulatorJar;
+      if (dto.gameJar) updates.gameJar = dto.gameJar;
 
-      this.configRepo.save(current);
-      return sendJson(res, 200, { success: true, message: 'Đã lưu cấu hình thành công!' });
+      await this.settingRepo.setMany(updates);
+
+      return sendJson(res, 200, ApiResponse.success(null, 'Đã lưu cấu hình thành công!'));
     } catch (err) {
-      return sendJson(res, 400, { success: false, message: err.message });
+      return this._sendError(res, sendJson, err);
     }
   }
 
   async installJre(req, res, sendJson) {
     if (jreManager.isInstalling) {
-      return sendJson(res, 400, { success: false, message: 'Đang trong quá trình tải và cài đặt JRE...' });
+      throw new BadRequestException('Đang trong quá trình tải và cài đặt JRE...');
     }
 
     // Start background installation with real-time SSE progress broadcast
@@ -55,8 +75,11 @@ class SystemController {
       if (this.sseEventBus) {
         this.sseEventBus.broadcast('jre_progress', progress);
       }
-    }, this.configRepo).then(result => {
+    }, this.settingRepo).then(async (result) => {
       console.log('✅ JRE Install completed successfully:', result);
+      if (result && result.javaPath) {
+        await this.settingRepo.set('javaPath', result.javaPath);
+      }
       if (this.sseEventBus) {
         this.sseEventBus.broadcast('jre_progress', { percent: 100, message: 'Đã hoàn tất cài đặt JRE!', ready: true });
       }

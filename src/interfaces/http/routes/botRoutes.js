@@ -22,6 +22,20 @@ module.exports = function createBotRoutes(botController) {
     return botController.restartAll(req, res, sendJson);
   });
 
+  // RESTful Account Execution Routes
+  router.post('/api/accounts/:id/start', (req, res, { sendJson, parseJsonBody }) => {
+    return botController.startAccount(req, res, sendJson, parseJsonBody);
+  });
+
+  router.post('/api/accounts/:id/stop', (req, res, { sendJson, parseJsonBody }) => {
+    return botController.stopAccount(req, res, sendJson, parseJsonBody);
+  });
+
+  router.post('/api/accounts/:id/auto', (req, res, { sendJson, parseJsonBody }) => {
+    return botController.triggerAuto(req, res, sendJson, parseJsonBody);
+  });
+
+  // Legacy Bot Action Routes
   router.post('/api/bot/start-account', (req, res, { sendJson, parseJsonBody }) => {
     return botController.startAccount(req, res, sendJson, parseJsonBody);
   });

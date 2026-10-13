@@ -1,3 +1,5 @@
+const { BadRequestException } = require('../errors');
+
 /**
  * ServerLimitRule (Domain Layer)
  * Enforces business rules on account counts and running constraints.
@@ -16,7 +18,7 @@ class ServerLimitRule {
     const effectiveMax = Math.max(6, parseInt(maxAccounts || 6, 10));
 
     if (existing.length >= effectiveMax) {
-      throw new Error(`❌ GIỚI HẠN FILE: File này đã đạt tối đa ${effectiveMax} tài khoản! Vui lòng tăng giới hạn số nick cho File hoặc tạo File mới.`);
+      throw new BadRequestException(`❌ GIỚI HẠN FILE: File này đã đạt tối đa ${effectiveMax} tài khoản! Vui lòng tăng giới hạn số nick cho File hoặc tạo File mới.`);
     }
 
     const sId = parseInt(targetServerId, 10) === 1 ? 1 : 0;
@@ -28,11 +30,11 @@ class ServerLimitRule {
     const serverCountInIp = existingInIp.filter(a => parseInt(a.serverId, 10) === sId).length;
 
     if (serverCountInIp >= this.MAX_PER_SERVER) {
-      throw new Error(`❌ GIỚI HẠN IP [${ipDisplayName}]: Đã đủ ${this.MAX_PER_SERVER} tài khoản Server [${serverName}] (Tối đa ${this.MAX_PER_SERVER} nick/server cho mỗi IP/Proxy)! Vui lòng chọn IP/Proxy khác.`);
+      throw new BadRequestException(`❌ GIỚI HẠN IP [${ipDisplayName}]: Đã đủ ${this.MAX_PER_SERVER} tài khoản Server [${serverName}] (Tối đa ${this.MAX_PER_SERVER} nick/server cho mỗi IP/Proxy)! Vui lòng chọn IP/Proxy khác.`);
     }
 
     if (existingInIp.length >= this.MAX_PER_FILE) {
-      throw new Error(`❌ GIỚI HẠN IP [${ipDisplayName}]: Đã đạt tối đa ${this.MAX_PER_FILE} tài khoản (3 Hoàn Mỹ + 3 Diệu Kỳ)! Vui lòng chọn IP/Proxy khác.`);
+      throw new BadRequestException(`❌ GIỚI HẠN IP [${ipDisplayName}]: Đã đạt tối đa ${this.MAX_PER_FILE} tài khoản (3 Hoàn Mỹ + 3 Diệu Kỳ)! Vui lòng chọn IP/Proxy khác.`);
     }
   }
 

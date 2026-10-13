@@ -2,23 +2,22 @@
  * StopBotAccountUseCase (Application Layer - Use Case)
  * Handles stopping a bot instance cleanly, across both local worker memory
  * and distributed cross-worker process registry via IPC.
+ * Powered 100% by MySQL Repositories (Database-Driven, zero config.json dependency).
  */
 class StopBotAccountUseCase {
-  constructor(multiBotManager, configRepo, sseEventBus) {
+  constructor(multiBotManager, accountRepo, sseEventBus) {
     this.multiBotManager = multiBotManager;
-    this.configRepo = configRepo;
+    this.accountRepo = accountRepo;
     this.sseEventBus = sseEventBus;
   }
 
-  execute(accountId) {
-    const config = this.configRepo.get();
-    const account = (config.accounts || []).find(a => a.id === accountId);
-    const username = account ? account.username : accountId;
-
-    // Khi người dùng chủ động bấm Dừng bot, xoá trạng thái Auto đã lưu để khi bấm Treo lại sẽ không tự bật Auto
-    if (account) {
-      account.lastAutoType = null;
-      this.configRepo.save(config);
+  async execute(accountId) {
+    let username = accountId;
+    if (this.accountRepo) {
+      try {
+        const account = await this.accountRepo.findById(accountId);
+        if (account) username = account.username;
+      } catch (e) {}
     }
 
     let stopped = false;
@@ -39,7 +38,7 @@ class StopBotAccountUseCase {
       stopped = true;
     }
 
-    this.multiBotManager.persistRunningState();
+    await this.multiBotManager.persistRunningState();
 
     this.sseEventBus.addLog({
       type: 'warn',
@@ -48,10 +47,11 @@ class StopBotAccountUseCase {
       text: `⏹️ [${username}] Đã dừng treo tài khoản.`
     });
 
+    const runningCount = (await this.multiBotManager.getRunningAccounts()).length;
     this.sseEventBus.broadcast('bot-status-changed', {
       accountId,
       running: false,
-      runningCount: this.multiBotManager.getRunningAccounts().length
+      runningCount
     });
 
     return { success: true, message: `Đã dừng treo tài khoản [${username}].` };

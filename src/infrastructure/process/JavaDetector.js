@@ -1,6 +1,7 @@
 const { execSync } = require('child_process');
 const path = require('path');
 const fs = require('fs');
+const config = require('../../config');
 
 /**
  * JavaDetector (Infrastructure Layer)
@@ -49,8 +50,8 @@ class JavaDetector {
     }
 
     // 3. JAVA_HOME environment variable
-    if (process.env.JAVA_HOME) {
-      const javaHomeBin = path.join(process.env.JAVA_HOME, 'bin', exeName);
+    if (config.java.javaHome) {
+      const javaHomeBin = path.join(config.java.javaHome, 'bin', exeName);
       if (fs.existsSync(javaHomeBin)) {
         return javaHomeBin;
       }

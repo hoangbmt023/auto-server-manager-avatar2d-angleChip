@@ -1,0 +1,55 @@
+const RegisterUserRequestDto = require('../../../application/dtos/auth/RegisterUserRequestDto');
+const LoginUserRequestDto = require('../../../application/dtos/auth/LoginUserRequestDto');
+const ApiResponse = require('../../../application/dtos/common/ApiResponse');
+const ErrorResponse = require('../../../application/dtos/common/ErrorResponse');
+const { sendErrorResponse } = require('../helpers/errorHandler');
+
+/**
+ * AuthController (Interface Layer)
+ * Handles user registration, login, and profile requests.
+ * Automatically wraps responses with standard ApiResponse and maps Custom Exceptions.
+ */
+class AuthController {
+  constructor(authService) {
+    this.authService = authService;
+  }
+
+  _sendError(res, sendJson, err) {
+    return sendErrorResponse(res, sendJson, err);
+  }
+
+  async register(req, res, sendJson, parseJsonBody) {
+    try {
+      const body = await parseJsonBody(req);
+      const dto = new RegisterUserRequestDto(body);
+      const user = await this.authService.register(dto);
+
+      return sendJson(res, 201, ApiResponse.success(user, 'Đăng ký tài khoản thành công!'));
+    } catch (err) {
+      return this._sendError(res, sendJson, err);
+    }
+  }
+
+  async login(req, res, sendJson, parseJsonBody) {
+    try {
+      const body = await parseJsonBody(req);
+      const dto = new LoginUserRequestDto(body);
+      const user = await this.authService.login(dto);
+
+      return sendJson(res, 200, ApiResponse.success(user, 'Đăng nhập thành công!'));
+    } catch (err) {
+      return this._sendError(res, sendJson, err);
+    }
+  }
+
+  async getUsers(req, res, sendJson) {
+    try {
+      const users = await this.authService.getAllUsers();
+      return sendJson(res, 200, ApiResponse.success(users, 'Lấy danh sách người dùng thành công!'));
+    } catch (err) {
+      return this._sendError(res, sendJson, err);
+    }
+  }
+}
+
+module.exports = AuthController;

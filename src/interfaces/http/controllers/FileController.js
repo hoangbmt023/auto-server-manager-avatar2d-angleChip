@@ -1,16 +1,26 @@
 const path = require('path');
 const fs = require('fs');
+const ApiResponse = require('../../../application/dtos/common/ApiResponse');
+const ErrorResponse = require('../../../application/dtos/common/ErrorResponse');
+const SaveBotFileRequestDto = require('../../../application/dtos/file/SaveBotFileRequestDto');
+const { BadRequestException } = require('../../../domain/errors');
+const { sendErrorResponse } = require('../helpers/errorHandler');
 
 /**
  * FileController (Interface Layer)
  * Handles bot profiles/files and custom JAR file uploads.
+ * Automatically wraps responses with standard ApiResponse and maps Custom Exceptions.
  */
 class FileController {
-  constructor(fileProfileService, configRepo, sseEventBus = null) {
+  constructor(fileProfileService, fileRepo, sseEventBus = null) {
     this.fileProfileService = fileProfileService;
-    this.configRepo = configRepo;
+    this.fileRepo = fileRepo;
     this.sseEventBus = sseEventBus;
     this.workspaceRoot = path.resolve(__dirname, '../../../../');
+  }
+
+  _sendError(res, sendJson, err) {
+    return sendErrorResponse(res, sendJson, err);
   }
 
   broadcastChange() {
@@ -22,59 +32,87 @@ class FileController {
   }
 
   async getFiles(req, res, sendJson) {
-    const config = this.configRepo.get();
-    const files = this.fileProfileService.getFiles();
-    return sendJson(res, 200, {
-      success: true,
-      activeFileId: config.activeFileId || 'file_1',
-      files
-    });
+    try {
+      const activeFileId = (await this.fileRepo.getActiveFileId()) || 'file_1';
+      const files = await this.fileProfileService.getFiles();
+      const payload = {
+        activeFileId,
+        files
+      };
+      const resp = ApiResponse.success(payload, 'Lấy danh sách file thành công!');
+      Object.assign(resp, payload); // Compatibility for legacy UI
+      return sendJson(res, 200, resp);
+    } catch (err) {
+      return this._sendError(res, sendJson, err);
+    }
   }
 
   async saveFile(req, res, sendJson, parseJsonBody) {
     try {
       const body = await parseJsonBody(req);
-      const saved = this.fileProfileService.saveFile(body);
+      if (req.params && req.params.id && !body.id) {
+        body.id = req.params.id;
+      }
+      const dto = new SaveBotFileRequestDto(body);
+      dto.validate(); // Chặn ngay tầng đầu tiên
+
+      const saved = await this.fileProfileService.saveFile(dto);
       this.broadcastChange();
-      return sendJson(res, 200, {
-        success: true,
-        message: `Đã lưu File [${saved.name}] thành công!`,
-        file: saved
-      });
+      const resp = ApiResponse.success(saved, `Đã lưu File [${saved.name}] thành công!`);
+      resp.file = saved;
+      return sendJson(res, 200, resp);
     } catch (err) {
-      return sendJson(res, 400, { success: false, message: err.message });
+      return this._sendError(res, sendJson, err);
     }
   }
 
   async deleteFile(req, res, sendJson, parseJsonBody) {
     try {
-      const body = await parseJsonBody(req);
-      if (!body.id) {
-        return sendJson(res, 400, { success: false, message: 'Thiếu ID File!' });
+      let fileId = req.params?.id || null;
+      if (!fileId) {
+        try {
+          const body = await parseJsonBody(req);
+          fileId = body?.id || null;
+        } catch (e) {}
       }
-      this.fileProfileService.deleteFile(body.id);
+      if (!fileId) {
+        const urlObj = new URL(req.url, 'http://localhost');
+        fileId = urlObj.searchParams.get('id');
+      }
+      if (!fileId) {
+        throw new BadRequestException('Thiếu ID File!', 'MISSING_FILE_ID');
+      }
+      await this.fileProfileService.deleteFile(fileId);
       this.broadcastChange();
-      return sendJson(res, 200, { success: true, message: 'Đã xóa File thành công.' });
+      return sendJson(res, 200, ApiResponse.success(null, 'Đã xóa File thành công.'));
     } catch (err) {
-      return sendJson(res, 400, { success: false, message: err.message });
+      return this._sendError(res, sendJson, err);
     }
   }
 
   async switchFile(req, res, sendJson, parseJsonBody) {
     try {
-      const body = await parseJsonBody(req);
-      if (!body.id) {
-        return sendJson(res, 400, { success: false, message: 'Thiếu ID File!' });
+      let fileId = req.params?.id || null;
+      if (!fileId) {
+        try {
+          const body = await parseJsonBody(req);
+          fileId = body?.id || null;
+        } catch (e) {}
       }
-      const switched = this.fileProfileService.switchFile(body.id);
+      if (!fileId) {
+        const urlObj = new URL(req.url, 'http://localhost');
+        fileId = urlObj.searchParams.get('id');
+      }
+      if (!fileId) {
+        throw new BadRequestException('Thiếu ID File!', 'MISSING_FILE_ID');
+      }
+      const switched = await this.fileProfileService.switchFile(fileId);
       this.broadcastChange();
-      return sendJson(res, 200, {
-        success: true,
-        message: `Đã chuyển sang [${switched.name}]!`,
-        file: switched
-      });
+      const resp = ApiResponse.success(switched, `Đã chuyển sang [${switched.name}]!`);
+      resp.file = switched;
+      return sendJson(res, 200, resp);
     } catch (err) {
-      return sendJson(res, 400, { success: false, message: err.message });
+      return this._sendError(res, sendJson, err);
     }
   }
 

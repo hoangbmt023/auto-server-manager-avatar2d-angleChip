@@ -1,3 +1,6 @@
+const { BadRequestException } = require('../errors');
+const { uuidv7 } = require('../../shared/utils/uuid');
+
 /**
  * Account Entity (Domain Layer)
  * Represents an Avatar Game Account with business validation.
@@ -5,6 +8,7 @@
 class Account {
   constructor({
     id,
+    userId = null,
     username,
     password = '',
     serverId = 0,
@@ -22,7 +26,8 @@ class Account {
     sellOreSettings = null,
     ipSlot = 1
   }) {
-    this.id = id || `acc_${Date.now()}_${Math.random().toString(36).substr(2, 4)}`;
+    this.id = id || uuidv7();
+    this.userId = userId || null;
     this.username = (username || '').trim();
     this.password = password || '';
     this.serverId = parseInt(serverId !== undefined ? serverId : 0, 10) === 1 ? 1 : 0;
@@ -92,16 +97,17 @@ class Account {
 
   validate() {
     if (!this.username) {
-      throw new Error('Tên tài khoản không được để trống!');
+      throw new BadRequestException('Tên tài khoản không được để trống!');
     }
     if (this.serverId !== 0 && this.serverId !== 1) {
-      throw new Error('Server không hợp lệ (0: Hoàn Mỹ, 1: Diệu Kỳ)!');
+      throw new BadRequestException('Server không hợp lệ (0: Hoàn Mỹ, 1: Diệu Kỳ)!');
     }
   }
 
   toPublicJson() {
     return {
       id: this.id,
+      userId: this.userId,
       username: this.username,
       password: this.password ? '******' : '',
       serverId: this.serverId,
@@ -124,6 +130,7 @@ class Account {
   toPersistenceJson() {
     return {
       id: this.id,
+      userId: this.userId,
       username: this.username,
       password: this.password,
       serverId: this.serverId,

@@ -13,6 +13,16 @@ window.SettingsModal = function SettingsModal({ config, theme = 'dark', setTheme
   const [autoStart, setAutoStart] = useSettingsModalState(Boolean(config?.autoStart));
   const [password, setPassword] = useSettingsModalState('');
   const [selectedTheme, setSelectedTheme] = useSettingsModalState(theme || 'dark');
+  const [fieldErrors, setFieldErrors] = useSettingsModalState({});
+
+  const clearFieldError = (f) => {
+    setFieldErrors(prev => {
+      if (!prev || !prev[f]) return prev;
+      const next = { ...prev };
+      delete next[f];
+      return next;
+    });
+  };
 
   const handleThemeChange = (newTheme) => {
     setSelectedTheme(newTheme);
@@ -24,11 +34,29 @@ window.SettingsModal = function SettingsModal({ config, theme = 'dark', setTheme
   const handleSubmit = async (e) => {
     e.preventDefault();
 
+    // 1. Validate Frontend
+    const feErrors = {};
+    const portNum = parseInt(port, 10);
+    if (isNaN(portNum) || portNum < 1 || portNum > 65535) {
+      feErrors.port = `Cổng Port [${port || ''}] không hợp lệ (1 - 65535)!`;
+    }
+    const memNum = parseInt(maxMemory, 10);
+    if (isNaN(memNum) || memNum < 64) {
+      feErrors.maxMemory = 'Giới hạn RAM phải tối thiểu từ 64MB trở lên!';
+    }
+
+    if (Object.keys(feErrors).length > 0) {
+      setFieldErrors(feErrors);
+      return;
+    }
+
+    setFieldErrors({});
+
     const payload = {
       appId: appId.trim(),
-      port: parseInt(port, 10) || 3001,
+      port: portNum || 3001,
       rmsMode,
-      maxMemoryMb: parseInt(maxMemory, 10),
+      maxMemoryMb: memNum || 512,
       autoRestart,
       autoStart
     };
@@ -37,17 +65,20 @@ window.SettingsModal = function SettingsModal({ config, theme = 'dark', setTheme
       payload.password = password;
     }
 
-    const notifyAlert = window.showAlert || alert;
     try {
       const data = await window.ApiClient.saveConfig(payload);
       if (data.success) {
-        notifyAlert('Đã lưu cài đặt cấu hình thành công!', 'Thành Công', 'success');
         onSaved(password);
       } else {
-        notifyAlert(data.message || 'Lỗi lưu cấu hình', 'Lỗi Cấu Hình', 'error');
+        // 2. Validate Backend
+        if (data.errors && typeof data.errors === 'object') {
+          setFieldErrors(data.errors);
+        } else {
+          setFieldErrors({ appId: data.message || 'Lỗi lưu cấu hình' });
+        }
       }
     } catch (err) {
-      notifyAlert('Lỗi: ' + err.message, 'Lỗi Hệ Thống', 'error');
+      setFieldErrors({ appId: 'Lỗi hệ thống: ' + err.message });
     }
   };
 
@@ -98,22 +129,40 @@ window.SettingsModal = function SettingsModal({ config, theme = 'dark', setTheme
             <label>Tên Hồ Sơ / App ID (Lưu RMS):</label>
             <input
               type="text"
-              className="form-control"
+              className={`form-control ${fieldErrors.appId ? 'input-error' : ''}`}
               value={appId}
-              onChange={e => setAppId(e.target.value)}
+              onChange={e => {
+                setAppId(e.target.value);
+                clearFieldError('appId');
+              }}
             />
+            {fieldErrors.appId && (
+              <div className="field-error-msg">
+                <window.Icon name="alert-circle" size={13} color="var(--apple-red)" />
+                <span>{fieldErrors.appId}</span>
+              </div>
+            )}
           </div>
           <div className="form-group">
             <label>Cổng Port Web Dashboard:</label>
             <input
               type="number"
-              className="form-control"
+              className={`form-control ${fieldErrors.port ? 'input-error' : ''}`}
               value={port}
-              onChange={e => setPort(e.target.value)}
-              min="80"
+              onChange={e => {
+                setPort(e.target.value);
+                clearFieldError('port');
+              }}
+              min="1"
               max="65535"
               placeholder="3001"
             />
+            {fieldErrors.port && (
+              <div className="field-error-msg">
+                <window.Icon name="alert-circle" size={13} color="var(--apple-red)" />
+                <span>{fieldErrors.port}</span>
+              </div>
+            )}
           </div>
         </div>
 
@@ -129,12 +178,21 @@ window.SettingsModal = function SettingsModal({ config, theme = 'dark', setTheme
             <label>Giới hạn RAM (MB):</label>
             <input
               type="number"
-              className="form-control"
+              className={`form-control ${fieldErrors.maxMemory ? 'input-error' : ''}`}
               value={maxMemory}
-              onChange={e => setMaxMemory(e.target.value)}
+              onChange={e => {
+                setMaxMemory(e.target.value);
+                clearFieldError('maxMemory');
+              }}
               min="64"
-              max="2048"
+              max="8192"
             />
+            {fieldErrors.maxMemory && (
+              <div className="field-error-msg">
+                <window.Icon name="alert-circle" size={13} color="var(--apple-red)" />
+                <span>{fieldErrors.maxMemory}</span>
+              </div>
+            )}
           </div>
         </div>
 
@@ -167,11 +225,20 @@ window.SettingsModal = function SettingsModal({ config, theme = 'dark', setTheme
           </label>
           <input
             type="password"
-            className="form-control"
+            className={`form-control ${fieldErrors.password ? 'input-error' : ''}`}
             placeholder="Nhập mật khẩu mới bảo vệ web"
             value={password}
-            onChange={e => setPassword(e.target.value)}
+            onChange={e => {
+              setPassword(e.target.value);
+              clearFieldError('password');
+            }}
           />
+          {fieldErrors.password && (
+            <div className="field-error-msg">
+              <window.Icon name="alert-circle" size={13} color="var(--apple-red)" />
+              <span>{fieldErrors.password}</span>
+            </div>
+          )}
         </div>
       </form>
     </window.ModalBase>

@@ -1,91 +1,102 @@
-# 🐟 HƯỚNG DẪN TRIỂN KHAI TREO BOT AVATAR TRÊN HOSTING CPANEL (NODE.JS)
+# 🚀 Deploying Avatar Multi-Bot Manager on cPanel (Node.js)
 
-Hệ thống được thiết kế theo mô hình **Node.js Web Wrapper & Clean Architecture**, biến giả lập AngelChip MicroEmulator và các bản Mod Avatar 2D (`avatar_fish_build40.jar`, `avatar_upxu_build34.jar`...) thành ứng dụng Web chạy ngầm liên tục 24/7 trên Hosting **cPanel (thông qua mục "Setup Node.js App")** kèm theo bảng điều khiển trực quan thời gian thực.
-
----
-
-## 🚀 TÍNH NĂNG NỔI BẬT
-
-1. **Chạy ngầm 24/7 trên cPanel**: Web Server Node.js lắng nghe HTTP liên tục để Phusion Passenger trên cPanel không kill tiến trình.
-2. **Web Dashboard thời gian thực (Live Terminal)**: Xem trực tiếp log game từng bot, số dư Xu/Lượng, Uptime, CPU & RAM qua Server-Sent Events (SSE).
-3. **Cơ chế Phục hồi tự động**: Tự động khôi phục toàn bộ các nick đang treo khi server restart (`autoStart` & `autoRestart`).
-4. **Tự động cài đặt Portable OpenJDK 17 Linux x64**: Tải và giải nén Java 17 trực tiếp vào hosting chỉ với 1 click mà không cần quyền root server.
-5. **Hệ thống Proxy Pool với 3-Attempt Retry**: Kiểm tra tự động 3 lần hạn chế báo lỗi giả, chống trùng IP, hỗ trợ cả SOCKS5 và HTTP Proxy.
-6. **Bảo mật AES-256-CBC**: Mã hóa mật khẩu nick và mật khẩu bảo vệ Dashboard an toàn.
-7. **Không cần npm install**: 100% Core Node.js thuần, không phát sinh lỗi dependency khi tải lên cPanel.
+> Step-by-step production deployment guide for running 24/7 background bots on shared or VPS cPanel hosting via Setup Node.js App.
 
 ---
 
-## 📦 CẤU TRÚC THƯ MỤC DỰ ÁN
+## 🌟 Overview
 
-```text
-cpanel-avatar-bot/
-├── app.js                          # Entrypoint cho cPanel Setup Node.js App
-├── server.js                       # HTTP Server & API Clean Architecture
-├── package.json                    # Metadata ứng dụng Node.js
-├── config.example.json             # File mẫu cấu hình ban đầu
-├── .env.example                    # File mẫu cấu hình biến môi trường
-│
-├── jars/                           # Quản lý file Java thực thi
-│   ├── emulator/                   # Giả lập AngelChip (AngelChipEmulator_V2Proxy.jar)
-│   └── games/                      # Bản Mod game (avatar_fish_build40.jar, avatar_upxu_build34.jar)
-│
-├── AvatarHeadlessLauncher.java     # Bộ điều phối chạy game không đầu (Headless)
-├── AvatarModAdapter.java           # Adapter giao tiếp phản chiếu Mod game
-├── ModSchema.java                  # Bảng ánh xạ Schema động cho từng bản Mod
-│
-├── src/                            # Kiến trúc Clean Architecture
-│   ├── domain/                     # Domain Entities & Business Rules (ServerLimitRule)
-│   ├── application/                # Use Cases & Services (MultiBotManager, ProxyService)
-│   ├── infrastructure/             # Process, Security, Storage (RmsWriter, ProxyChecker)
-│   └── interfaces/                 # HTTP Server & API Controllers
-│
-├── public/                         # Giao diện Web Dashboard (React + CSS Glassmorphism)
-└── utils/                          # Tiện ích môi trường & JRE Portable Manager
-```
+This application functions as a **Node.js Web Wrapper & Clean Architecture Engine**. It wraps the AngelChip MicroEmulator (`.jar`) and Avatar 2D mod binaries into a persistent background web service. By binding an HTTP server to the assigned cPanel port, **Phusion Passenger** keeps the Node.js process alive 24/7 without being killed by idle worker timeouts.
 
 ---
 
-## 🛠 CÁC BƯỚC TRIỂN KHAI LÊN CPANEL CHI TIẾT
+## ✨ Key Capabilities on cPanel
 
-### 🔹 Bước 1: Chuẩn bị tệp mã nguồn
-1. Đảm bảo toàn bộ các file Java (`AvatarHeadlessLauncher.java`, `AvatarModAdapter.java`, `ModSchema.java`) đã được biên dịch sang `.class`.
-2. Nén toàn bộ mã nguồn thư mục dự án thành file `.zip` (ví dụ `bot-avatar-cpanel.zip`).
-   *(Lưu ý: Không nén file `config.json` chứa mật khẩu cá nhân lên git/kho lưu trữ chung)*.
-
----
-
-### 🔹 Bước 2: Tải lên cPanel & Giải nén
-1. Đăng nhập vào tài khoản cPanel của bạn $\rightarrow$ Mở mục **Trình quản lý tệp (File Manager)**.
-2. Điều hướng đến thư mục muốn chạy bot (ví dụ `/home/username/bot-avatar`).
-3. Tải file `.zip` lên và chọn **Extract (Giải nén)**.
+1. **24/7 Background Persistence**: Continuous HTTP listener prevents Passenger from recycling or terminating background bots.
+2. **Real-time Live Terminal (SSE)**: Stream real-time in-game logs, coin metrics, uptime, CPU, and RAM via Server-Sent Events.
+3. **Auto-Recovery on Server Reboot**: Automatically re-launches all previously running bots on server start (`autoStart` & `autoRestart`).
+4. **1-Click Portable OpenJDK 17 (Linux x64)**: Download and extract a fully self-contained Java 17 runtime directly inside your user directory without requiring root / sudo access.
+5. **Proxy Pool with 3-Attempt Retry**: Eliminate false-positive offline alerts with built-in SOCKS5 and HTTP proxy validation.
+6. **Zero External Runtime Dependencies**: Built with 100% native Node.js core libraries; no complex native build tools required.
 
 ---
 
-### 🔹 Bước 3: Tạo ứng dụng Node.js trong cPanel
-1. Trên trang chủ cPanel, tìm và nhấp vào mục **Setup Node.js App** (hoặc *Cài đặt ứng dụng Node.js*).
-2. Nhấn **Create Application** (Tạo ứng dụng):
-   - **Node.js version:** Chọn phiên bản `18.x`, `20.x` hoặc `22.x` (khuyến nghị `20.x`).
-   - **Application mode:** Chọn `Production`.
-   - **Application root:** Nhập tên thư mục bạn vừa giải nén: `bot-avatar`.
-   - **Application URL:** Chọn tên miền hoặc subdomain để truy cập Web Dashboard.
-   - **Application startup file:** Nhập `app.js`.
-3. Nhấn nút **Create** ở góc phải trên cùng.
+## 🛠️ Step-by-Step Deployment Instructions
+
+### Step 1: Prepare Source Code Archive
+1. Exclude `node_modules/`, `.git/`, and local log files.
+2. Compress the project folder into a `.zip` archive (e.g., `avatar-bot-cpanel.zip`).
 
 ---
 
-### 🔹 Bước 4: Cài đặt Java 17 & Bắt đầu Treo Bot
-1. Nhấp vào đường dẫn **Application URL** để mở giao diện Web Dashboard trên trình duyệt.
-2. **Nếu hosting chưa có Java**: Dashboard sẽ hiển thị cảnh báo kèm nút:
-   👉 **`⚡ Tự động tải & cài đặt Portable Java 17 (Linux x64)`**
-   *(Hệ thống sẽ tự động tải OpenJDK 17 về hosting trong 30–60 giây)*.
-3. Thêm tài khoản game, gán File cấu hình và Proxy (nếu có).
-4. Nhấn nút **`▶ Treo Nick`** để bot bắt đầu đăng nhập và chạy 24/7!
+### Step 2: Upload to cPanel & Extract
+1. Log in to your cPanel control panel $\rightarrow$ Open **File Manager**.
+2. Navigate to your desired application directory (e.g., `/home/username/avatar-bot`).
+3. Click **Upload** and upload `avatar-bot-cpanel.zip`.
+4. Right-click the uploaded `.zip` and select **Extract**.
 
 ---
 
-## ⚙️ CÁC CÀI ĐẶT NÂNG CAO TRÊN DASHBOARD
+### Step 3: Create Application in "Setup Node.js App"
+1. In cPanel, navigate to **Software** $\rightarrow$ **Setup Node.js App**.
+2. Click **Create Application**:
+   - **Node.js version**: Select `18.x`, `20.x`, or higher.
+   - **Application mode**: Select `Production`.
+   - **Application root**: Enter the folder path where files were extracted (e.g., `avatar-bot`).
+   - **Application URL**: Select your domain or subdomain (e.g., `bot.yourdomain.com`).
+   - **Application startup file**: Enter `app.js` *(Crucial: cPanel Passenger expects `app.js`)*.
+3. Click **Create**.
 
-* **Quản Lý Proxy Pool**: Thêm danh sách Proxy SOCKS5/HTTP để treo nhiều nick khác dải IP an toàn (mỗi Proxy tối đa 6 nick).
-* **Tự Khôi Phục (`autoStart`)**: Tích chọn trong phần Cài đặt để bot tự động khôi phục toàn bộ tài khoản khi server khởi động lại.
-* **Mật Khẩu Bảng Điều Khiển (PIN)**: Thiết lập mã khóa bảo vệ để ngăn chặn người ngoài truy cập Dashboard.
+---
+
+### Step 4: Configure Database & Environment (`.env.production`)
+1. Create a MySQL database and user in cPanel via **MySQL Databases**.
+2. Open **File Manager**, locate `.env.production` in your application root, and configure your database credentials:
+   ```env
+   NODE_ENV=production
+   PORT=3001
+   APP_SECRET=your_super_secret_32_character_key
+
+   DB_HOST=localhost
+   DB_PORT=3306
+   DB_USER=cpanel_db_user
+   DB_PASSWORD=cpanel_db_password
+   DB_NAME=cpanel_avatar_bot_manager
+
+   CORS_ALLOWED_ORIGINS=https://bot.yourdomain.com
+   MAX_PAYLOAD_SIZE_MB=5
+   ```
+
+---
+
+### Step 5: Install Dependencies & Run Database Migrations
+1. In **Setup Node.js App**, copy the virtual environment enter command shown at the top (e.g., `source /home/username/nodevenv/avatar-bot/20/bin/activate`).
+2. Open **Terminal** in cPanel (or connect via SSH), paste the command, and run:
+   ```bash
+   npm install --production
+   ```
+3. Restart the application by clicking **Restart** in the Node.js App manager.
+4. On startup, the built-in **Code-First Database Migrator** will automatically create all necessary MySQL tables (`users`, `accounts`, `proxies`, `bot_files`, `system_settings`) and seed initial defaults.
+
+---
+
+### Step 6: Install Portable Java 17 (No Root Required)
+If your cPanel hosting does not have Java installed:
+1. Open your Dashboard URL in your browser: `https://bot.yourdomain.com`.
+2. Open **Settings** $\rightarrow$ Click **⚡ Install Portable OpenJDK 17**.
+3. The system will automatically download, unpack, and set up `OpenJDK 17 (Linux x64)` inside the `jars/` directory.
+
+---
+
+### Step 7: Add Accounts & Start 24/7 Automation!
+1. Click **+ Add Account** to configure your username, server (Hoan My / Dieu Ky), and proxy.
+2. Customize features (Auto Fishing, Auto Farm, Diamond Mining, Gemstone Selling).
+3. Click **Start** to spawn the bot instance. Monitor real-time logs directly in the Live Terminal.
+
+---
+
+## 🔒 Security Best Practices
+
+* **Strong Password**: Set a dashboard access password in Settings to protect your endpoints.
+* **Keep Secrets Safe**: Ensure `.env.production` file permissions are set to `600` (readable only by your user).
+* **Environment Protection**: Never commit production credentials to public version control repositories.

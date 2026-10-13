@@ -30,19 +30,12 @@ class RmsWriter {
 
   static getModType(account, fileId = 'file_1') {
     try {
-      const ConfigRepository = require('../persistence/ConfigRepository');
-      const configRepo = new ConfigRepository();
-      const config = configRepo.get();
-      const fId = account.fileId || fileId || config.activeFileId;
-      const file = (config.botFiles || []).find(f => f.id === fId);
-      if (file) {
-        if (file.modType) return file.modType.toLowerCase();
-        if (file.gameJar) {
-          const j = file.gameJar.toLowerCase();
-          if (j.includes('chipmix')) return 'chipmix';
-          if (j.includes('fish')) return 'fish';
-          if (j.includes('upxu')) return 'upxu';
-        }
+      if (account && account.modType) return String(account.modType).toLowerCase();
+      if (account && account.gameJar) {
+        const j = String(account.gameJar).toLowerCase();
+        if (j.includes('chipmix')) return 'chipmix';
+        if (j.includes('fish')) return 'fish';
+        if (j.includes('upxu')) return 'upxu';
       }
     } catch (e) {}
     return 'upxu';

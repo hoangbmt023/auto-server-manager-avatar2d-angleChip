@@ -196,10 +196,11 @@ window.AppProvider = function AppProvider({ children }) {
 
     connectSSE();
 
+    // Chỉ đồng bộ dự phòng 60s/lần vì hệ thống đã có Server-Sent Events (SSE) thời gian thực
     const syncInterval = setInterval(() => {
       fetchStatus();
       fetchAccounts();
-    }, 5000);
+    }, 60000);
 
     const onVisibilityChange = () => {
       if (document.visibilityState === 'visible') {
@@ -431,16 +432,11 @@ window.AppProvider = function AppProvider({ children }) {
       const data = await window.ApiClient.saveProxy(payload);
       if (data.success) {
         fetchProxies();
-        if (data.message && window.showAlert) {
-          window.showAlert(data.message, 'Cập Nhật Proxy');
-        }
-        return { success: true };
+        return { success: true, message: data.message };
       } else {
-        if (window.showAlert) window.showAlert(data.message || 'Lỗi lưu Proxy', 'Lỗi Lưu Proxy', 'error');
-        return { success: false, message: data.message };
+        return data || { success: false, message: 'Lỗi lưu Proxy' };
       }
     } catch (err) {
-      if (window.showAlert) window.showAlert('Lỗi: ' + err.message, 'Lỗi Hệ Thống', 'error');
       return { success: false, message: err.message };
     }
   };

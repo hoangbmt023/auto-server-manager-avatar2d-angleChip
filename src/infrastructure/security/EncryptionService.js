@@ -1,7 +1,5 @@
 const crypto = require('crypto');
-try {
-  require('../../../utils/envLoader');
-} catch (e) {}
+const config = require('../../config');
 
 /**
  * EncryptionService (Infrastructure Layer - Security)
@@ -16,7 +14,7 @@ class EncryptionService {
   }
 
   getKey() {
-    const rawSecret = this.customSecret || process.env.APP_SECRET || process.env.ENCRYPTION_KEY || 'avatar_bot_cpanel_default_secret_key_2026';
+    const rawSecret = this.customSecret || config.security.appSecret;
     return crypto.createHash('sha256').update(String(rawSecret)).digest();
   }
 
@@ -68,6 +66,46 @@ class EncryptionService {
   isEncrypted(text) {
     return typeof text === 'string' && text.startsWith(this.prefix);
   }
+
+  /**
+   * Securely hash a user password using industry-standard bcrypt
+   */
+  hashPassword(password) {
+    if (!password || typeof password !== 'string') {
+      throw new Error('Mật khẩu không được để trống!');
+    }
+    const bcrypt = require('bcryptjs');
+    return bcrypt.hashSync(password, 10);
+  }
+
+  /**
+   * Verify a password against its hashed value (supports bcrypt & legacy scrypt)
+   */
+  verifyPassword(password, storedHash) {
+    if (!password || !storedHash || typeof storedHash !== 'string') return false;
+
+    // 1. Industry standard bcrypt hashes ($2a$, $2b$, $2y$)
+    if (storedHash.startsWith('$2')) {
+      const bcrypt = require('bcryptjs');
+      return bcrypt.compareSync(password, storedHash);
+    }
+
+    // 2. Legacy scrypt hashes (backward compatibility)
+    if (storedHash.startsWith('hash:')) {
+      const parts = storedHash.split(':');
+      if (parts.length !== 3) return false;
+
+      const salt = parts[1];
+      const originalHash = parts[2];
+      const secret = config.security.appSecret;
+      const combinedSalt = `${salt}:${secret}`;
+      const verifyHash = crypto.scryptSync(password, combinedSalt, 64).toString('hex');
+
+      return crypto.timingSafeEqual(Buffer.from(verifyHash, 'hex'), Buffer.from(originalHash, 'hex'));
+    }
+
+    return false;
+  }
 }
 
 // Singleton instance
@@ -77,5 +115,7 @@ module.exports = {
   EncryptionService,
   defaultEncryptionService,
   encrypt: (t) => defaultEncryptionService.encrypt(t),
-  decrypt: (t) => defaultEncryptionService.decrypt(t)
+  decrypt: (t) => defaultEncryptionService.decrypt(t),
+  hashPassword: (p) => defaultEncryptionService.hashPassword(p),
+  verifyPassword: (p, h) => defaultEncryptionService.verifyPassword(p, h)
 };
