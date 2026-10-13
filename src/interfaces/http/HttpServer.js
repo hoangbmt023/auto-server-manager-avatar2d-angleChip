@@ -227,8 +227,8 @@ class HttpServer {
         }
       }
 
-      // 4. Public User Registration & Login endpoints (bypass dashboard password requirement)
-      if (pathname === '/api/auth/register' || pathname === '/api/auth/login') {
+      // 4. Public User Registration, Login, and Refresh endpoints
+      if (pathname === '/api/auth/register' || pathname === '/api/auth/login' || pathname === '/api/auth/refresh') {
         const handled = await this.router.handle(req, res, parsedUrl, helpers);
         if (handled) return;
       }

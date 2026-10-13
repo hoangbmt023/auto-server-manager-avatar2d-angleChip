@@ -42,7 +42,9 @@ window.DashboardPage = function DashboardPage() {
     handleClearLogs,
     handleDownloadLogs,
     handleInstallJre,
-    handleTriggerAuto
+    handleTriggerAuto,
+    currentUser,
+    logoutUser
   } = window.useApp();
 
   const {
@@ -171,6 +173,8 @@ window.DashboardPage = function DashboardPage() {
         theme={theme}
         toggleTheme={toggleTheme}
         onOpenSettings={openSettingsModal}
+        currentUser={currentUser}
+        onLogout={logoutUser}
       />
 
       {/* 2. Main Content Grid */}

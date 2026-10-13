@@ -25,9 +25,40 @@ window.AppProvider = function AppProvider({ children }) {
   const [uptime, setUptime] = useState(0);
   const [availableJars, setAvailableJars] = useState(['avatar_fish_build40.jar']);
   const [theme, setTheme] = useState(() => localStorage.getItem('app_theme') || 'dark');
+  const [currentUser, setCurrentUser] = useState(() => window.ApiClient.getCurrentUser());
+  const [isAuthenticated, setIsAuthenticated] = useState(() => !!window.ApiClient.getAuthToken());
 
   const sseRef = useRef(null);
   const terminalRef = useRef(null);
+
+  // Check token on mount
+  useEffect(() => {
+    const token = window.ApiClient.getAuthToken();
+    if (token) {
+      window.ApiClient.getMe().then(res => {
+        if (res && res.success && res.data) {
+          setCurrentUser(res.data);
+          setIsAuthenticated(true);
+          window.ApiClient.setCurrentUser(res.data);
+        } else if (res && (res.status === 401 || !res.success)) {
+          window.ApiClient.logout();
+          setCurrentUser(null);
+          setIsAuthenticated(false);
+        }
+      }).catch(() => {});
+    }
+  }, []);
+
+  const loginUser = useCallback((user) => {
+    setCurrentUser(user);
+    setIsAuthenticated(true);
+  }, []);
+
+  const logoutUser = useCallback(() => {
+    window.ApiClient.logout();
+    setCurrentUser(null);
+    setIsAuthenticated(false);
+  }, []);
 
   // Theme Sync
   useEffect(() => {
@@ -521,6 +552,10 @@ window.AppProvider = function AppProvider({ children }) {
     runningDk,
     runningTotal,
     isAnyRunning,
+    currentUser,
+    isAuthenticated,
+    loginUser,
+    logoutUser,
     // Fetchers
     fetchStatus,
     fetchFiles,

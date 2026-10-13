@@ -14,6 +14,14 @@ module.exports = function createAuthRoutes(authController) {
     return authController.login(req, res, sendJson, parseJsonBody);
   });
 
+  router.post('/api/auth/refresh', (req, res, { sendJson, parseJsonBody }) => {
+    return authController.refresh(req, res, sendJson, parseJsonBody);
+  });
+
+  router.get('/api/auth/me', (req, res, { sendJson }) => {
+    return authController.me(req, res, sendJson);
+  });
+
   router.get('/api/users', (req, res, { sendJson }) => {
     return authController.getUsers(req, res, sendJson);
   });

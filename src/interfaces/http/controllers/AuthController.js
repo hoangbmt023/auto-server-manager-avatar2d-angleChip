@@ -1,12 +1,12 @@
 const RegisterUserRequestDto = require('../../../application/dtos/auth/RegisterUserRequestDto');
 const LoginUserRequestDto = require('../../../application/dtos/auth/LoginUserRequestDto');
 const ApiResponse = require('../../../application/dtos/common/ApiResponse');
-const ErrorResponse = require('../../../application/dtos/common/ErrorResponse');
+const { UnauthorizedException } = require('../../../domain/errors');
 const { sendErrorResponse } = require('../helpers/errorHandler');
 
 /**
  * AuthController (Interface Layer)
- * Handles user registration, login, and profile requests.
+ * Handles user registration, login, token refresh, and profile requests.
  * Automatically wraps responses with standard ApiResponse and maps Custom Exceptions.
  */
 class AuthController {
@@ -22,9 +22,9 @@ class AuthController {
     try {
       const body = await parseJsonBody(req);
       const dto = new RegisterUserRequestDto(body);
-      const user = await this.authService.register(dto);
+      const result = await this.authService.register(dto);
 
-      return sendJson(res, 201, ApiResponse.success(user, 'Đăng ký tài khoản thành công!'));
+      return sendJson(res, 201, ApiResponse.success(result, 'Đăng ký tài khoản thành công!'));
     } catch (err) {
       return this._sendError(res, sendJson, err);
     }
@@ -34,9 +34,33 @@ class AuthController {
     try {
       const body = await parseJsonBody(req);
       const dto = new LoginUserRequestDto(body);
-      const user = await this.authService.login(dto);
+      const result = await this.authService.login(dto);
 
-      return sendJson(res, 200, ApiResponse.success(user, 'Đăng nhập thành công!'));
+      return sendJson(res, 200, ApiResponse.success(result, 'Đăng nhập thành công!'));
+    } catch (err) {
+      return this._sendError(res, sendJson, err);
+    }
+  }
+
+  async refresh(req, res, sendJson, parseJsonBody) {
+    try {
+      const body = await parseJsonBody(req);
+      const refreshToken = body?.refreshToken || '';
+      const result = await this.authService.refresh(refreshToken);
+
+      return sendJson(res, 200, ApiResponse.success(result, 'Làm mới token thành công!'));
+    } catch (err) {
+      return this._sendError(res, sendJson, err);
+    }
+  }
+
+  async me(req, res, sendJson) {
+    try {
+      if (!req.user || !req.user.sub) {
+        throw new UnauthorizedException('Bạn chưa đăng nhập!');
+      }
+      const user = await this.authService.getUserById(req.user.sub);
+      return sendJson(res, 200, ApiResponse.success(user, 'Lấy thông tin người dùng thành công!'));
     } catch (err) {
       return this._sendError(res, sendJson, err);
     }

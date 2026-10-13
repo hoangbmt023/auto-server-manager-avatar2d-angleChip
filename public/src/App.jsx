@@ -1,10 +1,18 @@
 /**
  * App Root Component (Application Layer)
- * Wraps providers (AppContext, ModalContext) and renders the Dashboard and Dialogs.
+ * Wraps providers (AppContext, ModalContext) and conditionally renders
+ * GienPhim & Netflix AuthPage or DashboardPage based on JWT authentication.
  */
 function App() {
   const { dialog, closeDialog } = window.useModals();
+  const { isAuthenticated, loginUser } = window.useApp();
 
+  // 1. If not authenticated, present the GienPhim & Netflix Cinematic Auth Screen
+  if (!isAuthenticated) {
+    return <window.AuthPage onLoginSuccess={loginUser} />;
+  }
+
+  // 2. Authenticated Dashboard Experience
   return (
     <React.Fragment>
       <window.DashboardPage />

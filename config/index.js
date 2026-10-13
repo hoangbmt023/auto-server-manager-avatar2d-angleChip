@@ -52,6 +52,9 @@ const config = {
 
   security: {
     appSecret: env.get('APP_SECRET', env.get('ENCRYPTION_KEY', 'avatar_bot_cpanel_default_secret_key_2026')),
+    jwtSecret: env.get('JWT_SECRET', env.get('APP_SECRET', 'avatar_jwt_super_secret_key_2026')),
+    jwtExpiresIn: env.get('JWT_EXPIRES_IN', '24h'),
+    jwtRefreshExpiresIn: env.get('JWT_REFRESH_EXPIRES_IN', '7d'),
     maxPayloadSizeMb: env.getNumber('MAX_PAYLOAD_SIZE_MB', 5)
   },
 

@@ -72,6 +72,71 @@
       }
     },
 
+    getRefreshToken() {
+      return localStorage.getItem('avatar_bot_refresh_token') || '';
+    },
+
+    setRefreshToken(token) {
+      if (token) {
+        localStorage.setItem('avatar_bot_refresh_token', token);
+      } else {
+        localStorage.removeItem('avatar_bot_refresh_token');
+      }
+    },
+
+    getCurrentUser() {
+      const userStr = localStorage.getItem('avatar_bot_user');
+      try {
+        return userStr ? JSON.parse(userStr) : null;
+      } catch (e) {
+        return null;
+      }
+    },
+
+    setCurrentUser(user) {
+      if (user) {
+        localStorage.setItem('avatar_bot_user', JSON.stringify(user));
+      } else {
+        localStorage.removeItem('avatar_bot_user');
+      }
+    },
+
+    async login(email, password) {
+      const res = await this.request('/api/auth/login', {
+        method: 'POST',
+        data: { email, password }
+      });
+      if (res && res.success && res.data) {
+        if (res.data.accessToken) this.setAuthToken(res.data.accessToken);
+        if (res.data.refreshToken) this.setRefreshToken(res.data.refreshToken);
+        if (res.data.user) this.setCurrentUser(res.data.user);
+      }
+      return res;
+    },
+
+    async register(data) {
+      const res = await this.request('/api/auth/register', {
+        method: 'POST',
+        data
+      });
+      if (res && res.success && res.data) {
+        if (res.data.accessToken) this.setAuthToken(res.data.accessToken);
+        if (res.data.refreshToken) this.setRefreshToken(res.data.refreshToken);
+        if (res.data.user) this.setCurrentUser(res.data.user);
+      }
+      return res;
+    },
+
+    async getMe() {
+      return this.request('/api/auth/me', { method: 'GET' });
+    },
+
+    logout() {
+      this.setAuthToken(null);
+      this.setRefreshToken(null);
+      this.setCurrentUser(null);
+    },
+
     getHeaders() {
       const headers = { 'Content-Type': 'application/json' };
       const token = this.getAuthToken();

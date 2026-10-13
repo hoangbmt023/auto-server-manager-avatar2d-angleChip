@@ -1,6 +1,6 @@
 /**
  * Navbar Component (Presentation Layer)
- * Porsche & Apple Minimalist Floating Header with Vector Icons & Status Capsule
+ * Porsche & Apple Minimalist Floating Header with Vector Icons, Status Capsule & User Auth Badge
  */
 window.Navbar = function Navbar({
   isAnyRunning,
@@ -8,7 +8,9 @@ window.Navbar = function Navbar({
   status,
   theme = 'dark',
   toggleTheme,
-  onOpenSettings
+  onOpenSettings,
+  currentUser,
+  onLogout
 }) {
   const botMemMb = status?.system?.botMemMb || 0;
   const freeMemMb = status?.system?.freeMemMb || 0;
@@ -41,6 +43,29 @@ window.Navbar = function Navbar({
           <span className="pulse-dot"></span>
           <span>{isAnyRunning ? `${runningCount} Online` : 'Đã Dừng'}</span>
         </div>
+
+        {/* User Profile Badge (GienPhim Auth) */}
+        {currentUser && (
+          <div className="navbar-user-profile" title={`Đăng nhập với ${currentUser.email}`}>
+            <div className="navbar-user-avatar">
+              {(currentUser.email || 'U')[0].toUpperCase()}
+            </div>
+            <span className="navbar-user-email">{currentUser.email}</span>
+            {onLogout && (
+              <button
+                className="navbar-logout-btn"
+                onClick={onLogout}
+                title="Đăng xuất khỏi hệ thống"
+              >
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path>
+                  <polyline points="16 17 21 12 16 7"></polyline>
+                  <line x1="21" y1="12" x2="9" y2="12"></line>
+                </svg>
+              </button>
+            )}
+          </div>
+        )}
 
         {/* Theme Quick Switcher Button */}
         <button
