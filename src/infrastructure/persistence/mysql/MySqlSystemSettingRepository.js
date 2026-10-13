@@ -1,7 +1,7 @@
 const ISystemSettingRepository = require('../../../domain/repositories/ISystemSettingRepository');
 const { systemSettings } = require('../../database/drizzleSchema');
 const { eq } = require('drizzle-orm');
-const config = require('../../../config');
+const config = require('../../../../config');
 
 /**
  * MySqlSystemSettingRepository (Infrastructure Layer - Adapter)

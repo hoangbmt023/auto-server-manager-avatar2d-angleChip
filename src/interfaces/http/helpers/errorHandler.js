@@ -1,6 +1,6 @@
 const ErrorResponse = require('../../../application/dtos/common/ErrorResponse');
 const { AppException } = require('../../../domain/errors');
-const config = require('../../../config');
+const config = require('../../../../config');
 
 /**
  * Standard HTTP Error Response Handler (Spring Boot ExceptionHandler pattern)

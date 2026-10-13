@@ -9,7 +9,7 @@ const path = require('path');
 class EnvLoader {
   constructor() {
     this.loadedEnvFile = null;
-    this.rootDir = path.resolve(__dirname, '../../');
+    this.rootDir = path.resolve(__dirname, '../');
   }
 
   load() {

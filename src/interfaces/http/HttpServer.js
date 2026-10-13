@@ -2,7 +2,7 @@ const http = require('http');
 const url = require('url');
 const path = require('path');
 const fs = require('fs');
-const config = require('../../config');
+const config = require('../../../config');
 
 // Infrastructure & Persistence
 const SseEventBus = require('../../infrastructure/logging/SseEventBus');

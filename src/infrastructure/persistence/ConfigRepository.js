@@ -1,7 +1,7 @@
 const fs = require('fs');
 const path = require('path');
 const { encrypt, decrypt } = require('../security/EncryptionService');
-const config = require('../../config');
+const config = require('../../../config');
 
 /**
  * ConfigRepository (Infrastructure Layer)

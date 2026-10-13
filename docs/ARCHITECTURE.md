@@ -59,9 +59,11 @@ test-cpanel-avatar/
 ├── app.js                      # Startup wrapper for cPanel Setup Node.js App
 ├── package.json                # Project manifest and scripts
 │
-├── config/                     # Centralized Configuration Directory
-│   ├── drizzle.config.js       # Drizzle ORM CLI config (reads from config.db)
-│   └── index.js                # Single source of truth export (re-exports src/config)
+├── config/                     # Centralized Configuration & Environment Hub
+│   ├── envLoader.js            # Zero-dependency multi-env file reader (.env.<env>)
+│   ├── env.js                  # Intermediate Env Layer (type parsing, fallback, guards)
+│   ├── index.js                # Immutable domain-grouped config (app, db, security, cors, java)
+│   └── drizzle.config.js       # Drizzle ORM CLI config (reads from config.db)
 │
 ├── docs/                       # Technical & Architectural Documentation
 │   ├── ARCHITECTURE.md         # Clean Architecture & folder hierarchy (this file)
@@ -85,11 +87,6 @@ test-cpanel-avatar/
 │       └── styles/             # Component-scoped CSS modules
 │
 └── src/                        # Backend Clean Architecture Engine
-    ├── config/                 # [NEW] Centralized Configuration & Env Layer
-    │   ├── envLoader.js        # Zero-dependency multi-env file reader (.env.<env>)
-    │   ├── env.js              # Intermediate Env Layer (type parsing, fallback, guards)
-    │   └── index.js            # Immutable domain-grouped config (app, db, security, cors, java)
-    │
     ├── domain/                 # Core Domain (Zero External Dependencies)
     │   ├── entities/           # Account, Proxy, BotFile, User, SystemSetting
     │   ├── errors/             # AppException, ValidationException, NotFoundException...

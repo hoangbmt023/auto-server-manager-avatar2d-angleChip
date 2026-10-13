@@ -1,5 +1,5 @@
 const { BadRequestException } = require('../../../domain/errors');
-const config = require('../../../config');
+const config = require('../../../../config');
 
 /**
  * Sanitizes object keys to prevent Prototype Pollution attacks
