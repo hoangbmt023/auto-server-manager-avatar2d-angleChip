@@ -19,6 +19,16 @@ window.RentalSetupModal = function RentalSetupModal({
   const [upDaysInput, setUpDaysInput] = useRentalState(account.upDays ? account.upDays : '');
   const [isSubmitting, setIsSubmitting] = useRentalState(false);
   const [feedback, setFeedback] = useRentalState(null);
+  const [fieldErrors, setFieldErrors] = useRentalState({});
+
+  const clearFieldError = (f) => {
+    setFieldErrors(prev => {
+      if (!prev || !prev[f]) return prev;
+      const next = { ...prev };
+      delete next[f];
+      return next;
+    });
+  };
 
   const showFeedback = (msg, type = 'success') => {
     setFeedback({ msg, type });
@@ -32,16 +42,25 @@ window.RentalSetupModal = function RentalSetupModal({
 
   const handleSaveCoins = async (e) => {
     if (e) e.preventDefault();
+    const val = Number(targetCoinsInput);
+    if (isNaN(val) || val < 0) {
+      setFieldErrors({ targetCoins: 'Số xu mục tiêu phải là số nguyên >= 0!' });
+      return;
+    }
+    setFieldErrors({});
+
     try {
       setIsSubmitting(true);
-      const val = Math.max(0, Number(targetCoinsInput) || 0);
       const res = await window.ApiClient.updateAccountSetup(account.id, { targetCoins: val });
       if (res.success) {
-        if (window.showAlert) window.showAlert('Đã lưu mục tiêu xu Up Thuê thành công!', 'Thành Công', 'success');
         if (onAccountUpdated) onAccountUpdated();
         if (onClose) onClose();
       } else {
-        showFeedback(res.message || 'Lỗi lưu cài đặt', 'error');
+        if (res.errors && typeof res.errors === 'object') {
+          setFieldErrors(res.errors);
+        } else {
+          showFeedback(res.message || 'Lỗi lưu cài đặt', 'error');
+        }
       }
     } catch (err) {
       showFeedback('Lỗi: ' + err.message, 'error');
@@ -52,16 +71,25 @@ window.RentalSetupModal = function RentalSetupModal({
 
   const handleSaveDays = async (e) => {
     if (e) e.preventDefault();
+    const val = Number(upDaysInput);
+    if (isNaN(val) || val < 0) {
+      setFieldErrors({ upDays: 'Số ngày thuê phải là số nguyên >= 0!' });
+      return;
+    }
+    setFieldErrors({});
+
     try {
       setIsSubmitting(true);
-      const val = Math.max(0, Number(upDaysInput) || 0);
       const res = await window.ApiClient.updateAccountSetup(account.id, { upDays: val });
       if (res.success) {
-        if (window.showAlert) window.showAlert('Đã lưu số ngày Up Thuê thành công!', 'Thành Công', 'success');
         if (onAccountUpdated) onAccountUpdated();
         if (onClose) onClose();
       } else {
-        showFeedback(res.message || 'Lỗi lưu cài đặt', 'error');
+        if (res.errors && typeof res.errors === 'object') {
+          setFieldErrors(res.errors);
+        } else {
+          showFeedback(res.message || 'Lỗi lưu cài đặt', 'error');
+        }
       }
     } catch (err) {
       showFeedback('Lỗi: ' + err.message, 'error');
@@ -135,15 +163,24 @@ window.RentalSetupModal = function RentalSetupModal({
             <label>Số xu mục tiêu cần up:</label>
             <input
               type="number"
-              className="form-control"
+              className={`form-control ${fieldErrors.targetCoins ? 'input-error' : ''}`}
               placeholder="Nhập số xu (VD: 5000000)"
               value={targetCoinsInput}
               onFocus={(e) => { if (e.target.value === '0') e.target.select(); }}
-              onChange={(e) => setTargetCoinsInput(e.target.value)}
+              onChange={(e) => {
+                setTargetCoinsInput(e.target.value);
+                clearFieldError('targetCoins');
+              }}
               min="0"
               step="1000"
               autoFocus
             />
+            {fieldErrors.targetCoins && (
+              <div className="field-error-msg">
+                <window.Icon name="alert-circle" size={13} color="var(--apple-red)" />
+                <span>{fieldErrors.targetCoins}</span>
+              </div>
+            )}
             <small className="form-helper-blue">
               {Number(targetCoinsInput) > 0 ? `Đang đặt: ${formatNumber(targetCoinsInput)} Xu` : 'Đặt 0 để không giới hạn xu'}
             </small>
@@ -164,14 +201,23 @@ window.RentalSetupModal = function RentalSetupModal({
             <label>Số ngày up (Thời hạn):</label>
             <input
               type="number"
-              className="form-control"
+              className={`form-control ${fieldErrors.upDays ? 'input-error' : ''}`}
               placeholder="Nhập số ngày (VD: 30)"
               value={upDaysInput}
               onFocus={(e) => { if (e.target.value === '0') e.target.select(); }}
-              onChange={(e) => setUpDaysInput(e.target.value)}
+              onChange={(e) => {
+                setUpDaysInput(e.target.value);
+                clearFieldError('upDays');
+              }}
               min="0"
               autoFocus
             />
+            {fieldErrors.upDays && (
+              <div className="field-error-msg">
+                <window.Icon name="alert-circle" size={13} color="var(--apple-red)" />
+                <span>{fieldErrors.upDays}</span>
+              </div>
+            )}
             <small className="form-helper-blue">
               {Number(upDaysInput) > 0 ? `Thời hạn: ${upDaysInput} ngày` : 'Thời hạn: Vĩnh viễn (0)'}
             </small>

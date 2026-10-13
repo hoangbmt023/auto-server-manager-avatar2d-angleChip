@@ -184,16 +184,17 @@ function updateLogFilterOptions() {
 
 // Update UI State from Status Object
 function updateStatusUI(data) {
-  const bot = data.bot || {};
-  const java = data.java;
-  const sys = data.system;
-  const files = data.files;
+  const payload = (data && data.data) ? data.data : (data || {});
+  const bot = payload.bot || data.bot || {};
+  const java = payload.java || data.java;
+  const sys = payload.system || data.system;
+  const files = payload.files || data.files;
 
   runningAccountIds = bot.runningAccountIds || [];
   isBotRunning = Boolean(bot.runningCount > 0 || bot.running);
 
-  if (data.activeAccountId) activeAccountId = data.activeAccountId;
-  if (data.activeFileId) activeFileId = data.activeFileId;
+  if (payload.activeAccountId || data.activeAccountId) activeAccountId = payload.activeAccountId || data.activeAccountId;
+  if (payload.activeFileId || data.activeFileId) activeFileId = payload.activeFileId || data.activeFileId;
 
   if (isBotRunning) {
     botStatusBadge.className = 'status-indicator status-running';

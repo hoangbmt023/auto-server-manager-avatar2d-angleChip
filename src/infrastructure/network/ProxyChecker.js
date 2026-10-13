@@ -18,7 +18,7 @@ class ProxyChecker {
    * @param {number} retryDelayMs - Delay between failed retries in milliseconds (default: 500ms)
    * @returns {Promise<{ success: boolean, isExpired: boolean, latencyMs: number, message: string, attempts: number }>}
    */
-  static async testProxy(proxy, timeoutMs = 3500, maxRetries = 3, retryDelayMs = 500) {
+  static async testProxy(proxy, timeoutMs = 2500, maxRetries = 1, retryDelayMs = 200) {
     if (!proxy) {
       return {
         success: false,
@@ -54,25 +54,33 @@ class ProxyChecker {
         };
       }
 
-      // Nếu lỗi do sai cấu hình cơ bản (sai port, sai host), không cần retry lãng phí
-      if (lastResult.message && lastResult.message.includes('không hợp lệ')) {
+      // Các lỗi dứt khoát (cổng đóng, sai host, sai pass, proxy từ chối) -> Trả về ngay, không retry lãng phí thời gian
+      if (
+        lastResult.isFatal ||
+        (lastResult.message && (
+          lastResult.message.includes('từ chối kết nối') ||
+          lastResult.message.includes('không hợp lệ') ||
+          lastResult.message.includes('sai Tài khoản') ||
+          lastResult.message.includes('từ chối phương thức') ||
+          lastResult.message.includes('Không thể kết nối đến máy chủ Proxy')
+        ))
+      ) {
         return {
           ...lastResult,
           attempts: attempt
         };
       }
 
-      // Nếu còn lượt thử tiếp theo, nghỉ ngắn retryDelayMs rồi thử lại
+      // Nếu còn lượt thử tiếp theo do timeout, nghỉ ngắn retryDelayMs rồi thử lại
       if (attempt < maxRetries) {
         await new Promise(resolve => setTimeout(resolve, retryDelayMs));
       }
     }
 
-    // Nếu cả 3 lần thử đều thất bại
     return {
       ...lastResult,
       attempts: maxRetries,
-      message: `${lastResult.message || 'Lỗi kết nối proxy'} (Đã kiểm tra ${maxRetries} lần)`
+      message: maxRetries > 1 ? `${lastResult.message || 'Lỗi kết nối proxy'} (Đã kiểm tra ${maxRetries} lần)` : (lastResult.message || 'Lỗi kết nối proxy')
     };
   }
 
@@ -127,19 +135,23 @@ class ProxyChecker {
       socket.on('error', (err) => {
         const msg = err.message || '';
         let isExpired = false;
+        let isFatal = false;
         let userMsg = `Lỗi kết nối: ${msg}`;
 
         if (err.code === 'ECONNREFUSED') {
           isExpired = true;
+          isFatal = true;
           userMsg = 'Máy chủ Proxy từ chối kết nối (Port đóng hoặc gói proxy đã hết hạn)';
         } else if (err.code === 'ETIMEDOUT' || err.code === 'EHOSTUNREACH' || err.code === 'ENOTFOUND') {
           isExpired = true;
+          isFatal = true;
           userMsg = 'Không thể kết nối đến máy chủ Proxy (Host không phản hồi hoặc sai IP)';
         }
 
         finish({
           success: false,
           isExpired,
+          isFatal,
           latencyMs: Date.now() - startTime,
           message: userMsg
         });

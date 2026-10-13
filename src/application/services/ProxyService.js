@@ -1,22 +1,32 @@
 const ProxyChecker = require('../../infrastructure/network/ProxyChecker');
-const JsonProxyRepository = require('../../infrastructure/persistence/JsonProxyRepository');
+const ProxyMapper = require('../mappers/ProxyMapper');
+const { NotFoundException, BadRequestException } = require('../../domain/errors');
 
 /**
  * ProxyService (Application Layer)
- * Manages CRUD operations and Live/Expired Health Checks for the Proxy pool in config.json.
+ * Manages CRUD operations and Live/Expired Health Checks for Proxies.
+ * Multi-table delete uses MySQL Transaction; Single-table operations bypass transaction.
  */
 class ProxyService {
-  constructor(configRepo, multiBotManager, sseEventBus = null, proxyRepo = null) {
-    this.configRepo = configRepo;
+  constructor(proxyRepo, accountRepo, multiBotManager, sseEventBus = null, transactionManager = null) {
+    this.proxyRepo = proxyRepo;
+    this.accountRepo = accountRepo;
     this.multiBotManager = multiBotManager;
     this.sseEventBus = sseEventBus || (multiBotManager ? multiBotManager.sseEventBus : null);
-    this.proxyRepo = proxyRepo || new JsonProxyRepository(configRepo);
+    this.transactionManager = transactionManager;
   }
 
-  getProxies() {
-    const config = this.configRepo.get();
-    const proxies = config.proxies || [];
-    const accounts = config.accounts || [];
+  broadcastChange() {
+    if (this.sseEventBus) {
+      try {
+        this.sseEventBus.broadcast('proxy-status-changed', { timestamp: Date.now() });
+      } catch (e) {}
+    }
+  }
+
+  async getProxies() {
+    const proxies = await this.proxyRepo.findAll();
+    const accounts = await this.accountRepo.findAll();
     const runningStatuses = this.multiBotManager ? this.multiBotManager.getAllStatuses() : { instances: {} };
 
     return proxies.map(p => {
@@ -26,12 +36,9 @@ class ProxyService {
         return Boolean(r && r.running);
       }).length;
 
+      const dto = ProxyMapper.toResponseDto(p);
       return {
-        ...p,
-        isExpired: Boolean(p.isExpired),
-        errorReason: p.errorReason || null,
-        lastChecked: p.lastChecked || null,
-        latencyMs: p.latencyMs || null,
+        ...dto,
         totalAssigned: assignedAccounts.length,
         onlineCount,
         maxOnline: 6
@@ -39,184 +46,131 @@ class ProxyService {
     });
   }
 
-  async saveProxy(data) {
-    const config = this.configRepo.get();
-    if (!config.proxies) config.proxies = [];
-
-    const host = (data.host || '').trim();
-    const port = parseInt(data.port, 10);
-    if (!host) throw new Error('Vui lòng nhập Host / IP của Proxy!');
-    if (!port || isNaN(port) || port < 1 || port > 65535) throw new Error('Cổng Port của Proxy không hợp lệ (1 - 65535)!');
-
-    const id = data.id || `proxy_${Date.now()}_${Math.random().toString(36).substr(2, 4)}`;
-    const name = (data.name || '').trim() || `${data.type ? data.type.toUpperCase() : 'SOCKS5'} (${host}:${port})`;
-    const type = (data.type || 'socks').toLowerCase() === 'http' ? 'http' : 'socks';
-
-    const existingIdx = config.proxies.findIndex(p => p.id === id);
-    const existing = existingIdx !== -1 ? config.proxies[existingIdx] : {};
-
-    const proxyObj = {
-      ...existing,
-      id,
-      name,
-      type,
-      host,
-      port,
-      username: (data.username !== undefined ? data.username : (existing.username || '')).trim(),
-      password: (data.password !== undefined ? data.password : (existing.password || '')).trim()
-    };
-
-    // Live health check upon saving (adding or editing)
-    const testResult = await ProxyChecker.testProxy(proxyObj, 3500);
-    proxyObj.isExpired = Boolean(testResult.isExpired);
-    proxyObj.errorReason = testResult.isExpired ? (testResult.message || 'Không thể kết nối proxy') : null;
-    proxyObj.latencyMs = testResult.isExpired ? null : (testResult.latencyMs || null);
-    proxyObj.lastChecked = new Date().toISOString();
-
-    if (existingIdx !== -1) {
-      config.proxies[existingIdx] = proxyObj;
-    } else {
-      config.proxies.push(proxyObj);
+  async getProxyById(id) {
+    const proxy = await this.proxyRepo.findById(id);
+    if (!proxy) {
+      throw new NotFoundException(`Không tìm thấy Proxy với ID [${id}]!`);
     }
+    const accounts = await this.accountRepo.findAll();
+    const runningStatuses = this.multiBotManager ? this.multiBotManager.getAllStatuses() : { instances: {} };
+    const assignedAccounts = accounts.filter(a => a.proxyId === proxy.id);
+    const onlineCount = assignedAccounts.filter(a => {
+      const r = runningStatuses.instances[a.id];
+      return Boolean(r && r.running);
+    }).length;
 
-    this.configRepo.save(config);
-    this.broadcastChange();
+    const dto = ProxyMapper.toResponseDto(proxy);
     return {
-      proxy: proxyObj,
+      ...dto,
+      totalAssigned: assignedAccounts.length,
+      onlineCount,
+      maxOnline: 6
+    };
+  }
+
+  async saveProxy(data) {
+    const existing = data.id ? await this.proxyRepo.findById(data.id) : null;
+    const proxyEntity = ProxyMapper.toEntityFromSaveDto(data, existing ? existing.password : null);
+    proxyEntity.validate();
+
+    // Live health check before saving
+    const testResult = await ProxyChecker.testProxy(proxyEntity.toJSON(), 3500);
+    if (testResult.isExpired) {
+      throw new BadRequestException(
+        `Không thể lưu Proxy: Kiểm tra kết nối thất bại (${testResult.message || 'Proxy không phản hồi, từ chối hoặc hết hạn'})!`,
+        'PROXY_CONNECTION_FAILED'
+      );
+    }
+    proxyEntity.markActive(testResult.latencyMs);
+
+    // Single table operation (proxies) -> NO transaction needed
+    const saved = await this.proxyRepo.save(proxyEntity);
+    this.broadcastChange();
+
+    return {
+      proxy: ProxyMapper.toResponseDto(saved),
       testResult
     };
   }
 
-  deleteProxy(id) {
-    const config = this.configRepo.get();
-    if (!config.proxies) return false;
-
-    // Check if any running bots are using this proxy -> gracefully stop them
-    const runningAccounts = this.multiBotManager ? this.multiBotManager.getRunningAccounts() : [];
+  /**
+   * Delete Proxy: Modifies 2 tables (accounts, proxies)
+   * -> MANDATORY TRANSACTION USED
+   */
+  async deleteProxy(id) {
+    // 1. Stop any bots running with this proxy
+    const runningAccounts = this.multiBotManager ? await this.multiBotManager.getRunningAccounts() : [];
     const runningOnProxy = runningAccounts.filter(a => a.proxyId === id);
-    if (runningOnProxy.length > 0) {
-      for (const acc of runningOnProxy) {
-        try {
-          this.multiBotManager.stopAccount(acc.id);
-        } catch (e) {}
-      }
+    for (const acc of runningOnProxy) {
+      try {
+        await this.multiBotManager.stopAccount(acc.id);
+      } catch (e) {}
     }
 
-    // Unlink proxy from accounts
-    if (config.accounts) {
-      for (const acc of config.accounts) {
-        if (acc.proxyId === id) {
-          acc.proxyId = null;
-        }
-      }
-    }
+    // MULTI-TABLE OPERATION (2 tables) -> Use MySQL Transaction
+    if (this.transactionManager) {
+      const result = await this.transactionManager.withTransaction(async (conn) => {
+        // Table 1: Unlink proxy from accounts
+        await this.accountRepo.unlinkProxy(id, conn);
 
-    config.proxies = config.proxies.filter(p => p.id !== id);
-    this.configRepo.save(config);
-    this.broadcastChange();
-    return true;
-  }
+        // Table 2: Delete proxy record
+        const deleted = await this.proxyRepo.delete(id, conn);
+        return deleted;
+      });
 
-  /**
-   * Mark a proxy as expired / authentication failed.
-   */
-  markProxyExpired(id, reason) {
-    const config = this.configRepo.get();
-    if (!config.proxies) return false;
-
-    const proxy = config.proxies.find(p => p.id === id);
-    if (!proxy) return false;
-
-    proxy.isExpired = true;
-    proxy.errorReason = reason || 'Proxy đã hết hạn hoặc từ chối xác thực tài khoản';
-    proxy.lastChecked = new Date().toISOString();
-
-    this.configRepo.save(config);
-    this.broadcastChange();
-    return true;
-  }
-
-  /**
-   * Mark a proxy as active / cleared.
-   */
-  markProxyActive(id) {
-    const config = this.configRepo.get();
-    if (!config.proxies) return false;
-
-    const proxy = config.proxies.find(p => p.id === id);
-    if (!proxy) return false;
-
-    proxy.isExpired = false;
-    proxy.errorReason = null;
-    proxy.lastChecked = new Date().toISOString();
-
-    this.configRepo.save(config);
-    this.broadcastChange();
-    return true;
-  }
-
-  /**
-   * Test a single proxy and update its health status.
-   */
-  async testProxy(id) {
-    const config = this.configRepo.get();
-    const proxy = (config.proxies || []).find(p => p.id === id);
-    if (!proxy) {
-      throw new Error(`Không tìm thấy Proxy với ID [${id}]!`);
-    }
-
-    const result = await ProxyChecker.testProxy(proxy);
-
-    proxy.lastChecked = new Date().toISOString();
-    proxy.latencyMs = result.latencyMs;
-
-    if (result.isExpired) {
-      proxy.isExpired = true;
-      proxy.errorReason = result.message;
+      this.broadcastChange();
+      return result;
     } else {
-      proxy.isExpired = false;
-      proxy.errorReason = null;
+      await this.accountRepo.unlinkProxy(id);
+      const deleted = await this.proxyRepo.delete(id);
+      this.broadcastChange();
+      return deleted;
     }
-
-    this.configRepo.save(config);
-    this.broadcastChange();
-
-    return {
-      success: result.success,
-      isExpired: proxy.isExpired,
-      message: result.message,
-      latencyMs: result.latencyMs,
-      proxy
-    };
   }
 
-  /**
-   * Test all proxies sequentially.
-   */
+  async testProxy(id) {
+    const proxy = await this.proxyRepo.findById(id);
+    if (!proxy) {
+      throw new NotFoundException(`Không tìm thấy Proxy với ID [${id}]!`);
+    }
+
+    const result = await ProxyChecker.testProxy(proxy.toJSON(), 5000);
+    if (result.isExpired) {
+      proxy.markFailed();
+    } else {
+      proxy.markActive(result.latencyMs);
+    }
+
+    // Single table update (proxies) -> NO transaction needed
+    await this.proxyRepo.save(proxy);
+    this.broadcastChange();
+
+    return result;
+  }
+
   async testAllProxies() {
-    const config = this.configRepo.get();
-    const proxies = config.proxies || [];
+    const proxies = await this.proxyRepo.findAll();
     const results = [];
 
     for (const p of proxies) {
-      const res = await this.testProxy(p.id).catch(err => ({
-        success: false,
-        isExpired: true,
-        message: err.message,
-        proxy: p
-      }));
-      results.push(res);
-    }
-
-    return results;
-  }
-
-  broadcastChange() {
-    if (this.sseEventBus) {
       try {
-        this.sseEventBus.broadcast('bot-status-changed', { timestamp: Date.now() });
-      } catch (e) {}
+        const res = await ProxyChecker.testProxy(p.toJSON(), 3000);
+        if (res.isExpired) {
+          p.markFailed();
+        } else {
+          p.markActive(res.latencyMs);
+        }
+        await this.proxyRepo.save(p);
+        results.push({ id: p.id, name: p.name, ...res });
+      } catch (e) {
+        p.markFailed();
+        await this.proxyRepo.save(p);
+        results.push({ id: p.id, name: p.name, isExpired: true, message: e.message });
+      }
     }
+
+    this.broadcastChange();
+    return results;
   }
 }
 

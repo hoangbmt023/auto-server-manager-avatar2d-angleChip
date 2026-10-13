@@ -23,24 +23,41 @@ function ProxyFormModal({
   const [username, setUsername] = useProxyModalState(proxy?.username || '');
   const [password, setPassword] = useProxyModalState(proxy?.password || '');
   const [error, setError] = useProxyModalState('');
+  const [fieldErrors, setFieldErrors] = useProxyModalState({});
   const [loading, setLoading] = useProxyModalState(false);
+
+  const clearFieldError = (f) => {
+    setFieldErrors(prev => {
+      if (!prev || !prev[f]) return prev;
+      const next = { ...prev };
+      delete next[f];
+      return next;
+    });
+  };
 
   const handleSubmit = async (e) => {
     if (e) e.preventDefault();
+
+    // 1. Validate ngay tại tầng Frontend
+    const feErrors = {};
     if (!host.trim()) {
-      setError('Vui lòng nhập Host / IP Proxy!');
-      return;
+      feErrors.host = 'Địa chỉ IP / Host của Proxy không được để trống!';
     }
     const pNum = parseInt(port, 10);
-    if (!pNum || isNaN(pNum) || pNum < 1 || pNum > 65535) {
-      setError('Cổng Port không hợp lệ (1 - 65535)!');
+    if (!port || isNaN(pNum) || pNum < 1 || pNum > 65535) {
+      feErrors.port = `Cổng Port [${port || ''}] không hợp lệ (1 - 65535)!`;
+    }
+
+    if (Object.keys(feErrors).length > 0) {
+      setFieldErrors(feErrors);
       return;
     }
 
+    setFieldErrors({});
     setLoading(true);
     setError('');
     try {
-      await onSaveProxy({
+      const res = await onSaveProxy({
         id: proxy ? proxy.id : undefined,
         name: name.trim() || `${type.toUpperCase()} (${host.trim()}:${pNum})`,
         type,
@@ -49,8 +66,16 @@ function ProxyFormModal({
         username: username.trim(),
         password: password.trim()
       });
-      if (onSaved) onSaved();
-      if (onClose) onClose();
+
+      if (res && res.success) {
+        if (onSaved) onSaved();
+        if (onClose) onClose();
+      } else if (res && res.errors && typeof res.errors === 'object') {
+        // 2. Nhận errors từ Backend
+        setFieldErrors(res.errors);
+      } else if (res && res.message) {
+        setError(res.message);
+      }
     } catch (err) {
       setError(err.message || 'Lỗi khi lưu proxy!');
     } finally {
@@ -86,35 +111,65 @@ function ProxyFormModal({
           <label>Tên gợi nhớ Proxy:</label>
           <input
             type="text"
-            className="form-control"
+            className={`form-control ${fieldErrors.name ? 'input-error' : ''}`}
             placeholder="VD: Proxy SOCKS5 VN 1, Proxy Xoay..."
             value={name}
-            onChange={(e) => setName(e.target.value)}
+            onChange={(e) => {
+              setName(e.target.value);
+              clearFieldError('name');
+            }}
             autoFocus
           />
+          {fieldErrors.name && (
+            <div className="field-error-msg">
+              <window.Icon name="alert-circle" size={13} color="var(--apple-red)" />
+              <span>{fieldErrors.name}</span>
+            </div>
+          )}
         </div>
 
         <div className="form-row">
           <div className="form-group">
             <label>Giao thức (Type):</label>
-            <select className="form-control" value={type} onChange={(e) => setType(e.target.value)}>
+            <select
+              className={`form-control ${fieldErrors.type ? 'input-error' : ''}`}
+              value={type}
+              onChange={(e) => {
+                setType(e.target.value);
+                clearFieldError('type');
+              }}
+            >
               <option value="socks">SOCKS5 / SOCKS4</option>
               <option value="http">HTTP / HTTPS</option>
             </select>
+            {fieldErrors.type && (
+              <div className="field-error-msg">
+                <window.Icon name="alert-circle" size={13} color="var(--apple-red)" />
+                <span>{fieldErrors.type}</span>
+              </div>
+            )}
           </div>
 
           <div className="form-group">
             <label>Cổng Port <span style={{ color: 'var(--apple-red)' }}>*</span>:</label>
             <input
               type="number"
-              className="form-control"
+              className={`form-control ${fieldErrors.port ? 'input-error' : ''}`}
               placeholder="VD: 1080, 52686"
               value={port}
-              onChange={(e) => setPort(e.target.value)}
+              onChange={(e) => {
+                setPort(e.target.value);
+                clearFieldError('port');
+              }}
               min="1"
               max="65535"
-              required
             />
+            {fieldErrors.port && (
+              <div className="field-error-msg">
+                <window.Icon name="alert-circle" size={13} color="var(--apple-red)" />
+                <span>{fieldErrors.port}</span>
+              </div>
+            )}
           </div>
         </div>
 
@@ -122,12 +177,20 @@ function ProxyFormModal({
           <label>Host / IP <span style={{ color: 'var(--apple-red)' }}>*</span>:</label>
           <input
             type="text"
-            className="form-control"
+            className={`form-control ${fieldErrors.host ? 'input-error' : ''}`}
             placeholder="VD: 171.241.76.244 hoặc vn.proxy.com"
             value={host}
-            onChange={(e) => setHost(e.target.value)}
-            required
+            onChange={(e) => {
+              setHost(e.target.value);
+              clearFieldError('host');
+            }}
           />
+          {fieldErrors.host && (
+            <div className="field-error-msg">
+              <window.Icon name="alert-circle" size={13} color="var(--apple-red)" />
+              <span>{fieldErrors.host}</span>
+            </div>
+          )}
         </div>
 
         <div className="form-row">
@@ -135,22 +198,40 @@ function ProxyFormModal({
             <label>Tài khoản (Username):</label>
             <input
               type="text"
-              className="form-control"
+              className={`form-control ${fieldErrors.username ? 'input-error' : ''}`}
               placeholder="Bỏ trống nếu không có"
               value={username}
-              onChange={(e) => setUsername(e.target.value)}
+              onChange={(e) => {
+                setUsername(e.target.value);
+                clearFieldError('username');
+              }}
             />
+            {fieldErrors.username && (
+              <div className="field-error-msg">
+                <window.Icon name="alert-circle" size={13} color="var(--apple-red)" />
+                <span>{fieldErrors.username}</span>
+              </div>
+            )}
           </div>
 
           <div className="form-group">
             <label>Mật khẩu (Password):</label>
             <input
               type="password"
-              className="form-control"
+              className={`form-control ${fieldErrors.password ? 'input-error' : ''}`}
               placeholder="Bỏ trống nếu không có"
               value={password}
-              onChange={(e) => setPassword(e.target.value)}
+              onChange={(e) => {
+                setPassword(e.target.value);
+                clearFieldError('password');
+              }}
             />
+            {fieldErrors.password && (
+              <div className="field-error-msg">
+                <window.Icon name="alert-circle" size={13} color="var(--apple-red)" />
+                <span>{fieldErrors.password}</span>
+              </div>
+            )}
           </div>
         </div>
       </form>

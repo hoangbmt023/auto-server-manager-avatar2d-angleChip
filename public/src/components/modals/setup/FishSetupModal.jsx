@@ -65,7 +65,6 @@ window.FishSetupModal = function FishSetupModal({
 
       const res = await window.ApiClient.updateAccountSetup(account.id, payload);
       if (res.success) {
-        if (window.showAlert) window.showAlert('Đã lưu cấu hình Auto Câu Cá thành công!', 'Thành Công', 'success');
         if (res.account && res.account.fishSettings) {
           setFishState({
             ...defaultFish,

@@ -1,12 +1,26 @@
+const ApiResponse = require('../../../application/dtos/common/ApiResponse');
+const ErrorResponse = require('../../../application/dtos/common/ErrorResponse');
+const SaveAccountRequestDto = require('../../../application/dtos/account/SaveAccountRequestDto');
+const SwitchServerRequestDto = require('../../../application/dtos/account/SwitchServerRequestDto');
+const UpdateAccountSetupRequestDto = require('../../../application/dtos/account/UpdateAccountSetupRequestDto');
+const { BadRequestException } = require('../../../domain/errors');
+const { sendErrorResponse } = require('../helpers/errorHandler');
+
 /**
  * AccountController (Interface Layer)
- * Handles HTTP requests related to Avatar accounts.
+ * Handles HTTP requests related to Avatar accounts with DTOs and clean architecture.
+ * Automatically wraps responses with standard ApiResponse and maps Custom Exceptions.
  */
 class AccountController {
-  constructor(accountService, configRepo, sseEventBus = null) {
+  constructor(accountService, settingRepo, fileRepo, sseEventBus = null) {
     this.accountService = accountService;
-    this.configRepo = configRepo;
+    this.settingRepo = settingRepo;
+    this.fileRepo = fileRepo;
     this.sseEventBus = sseEventBus;
+  }
+
+  _sendError(res, sendJson, err) {
+    return sendErrorResponse(res, sendJson, err);
   }
 
   broadcastChange() {
@@ -18,153 +32,180 @@ class AccountController {
   }
 
   async getAccounts(req, res, sendJson) {
-    const config = this.configRepo.get();
-    const accounts = this.accountService.getAccounts();
-    const currentFileId = config.activeFileId || 'file_1';
+    try {
+      const activeFileId = (await this.fileRepo.getActiveFileId()) || 'file_1';
+      const activeAccountId = await this.settingRepo.get('activeAccountId');
+      const accounts = await this.accountService.getAccounts();
 
-    const currentFileAccs = accounts.filter(a => a.fileId === currentFileId);
-    const hmCount = currentFileAccs.filter(a => a.serverId === 0).length;
-    const dkCount = currentFileAccs.filter(a => a.serverId === 1).length;
+      const currentFileAccs = accounts.filter(a => a.fileId === activeFileId);
+      const hmCount = currentFileAccs.filter(a => a.serverId === 0).length;
+      const dkCount = currentFileAccs.filter(a => a.serverId === 1).length;
 
-    const runningHmCount = currentFileAccs.filter(a => a.serverId === 0 && a.isRunning).length;
-    const runningDkCount = currentFileAccs.filter(a => a.serverId === 1 && a.isRunning).length;
-    const runningTotal = currentFileAccs.filter(a => a.isRunning).length;
+      const runningHmCount = currentFileAccs.filter(a => a.serverId === 0 && a.isRunning).length;
+      const runningDkCount = currentFileAccs.filter(a => a.serverId === 1 && a.isRunning).length;
+      const runningTotal = currentFileAccs.filter(a => a.isRunning).length;
 
-    return sendJson(res, 200, {
-      success: true,
-      activeAccountId: config.activeAccountId,
-      activeFileId: currentFileId,
-      accounts,
-      servers: config.servers || [
-        { id: 0, name: 'Hoàn Mỹ' },
-        { id: 1, name: 'Diệu Kỳ' }
-      ],
-      fileStats: {
-        fileId: currentFileId,
-        totalAccounts: currentFileAccs.length,
-        hmCount,
-        dkCount,
-        runningHmCount,
-        runningDkCount,
-        runningTotal,
-        maxTotal: 6,
-        maxPerServer: 3
-      }
-    });
+      const payload = {
+        activeAccountId,
+        activeFileId,
+        accounts,
+        servers: [
+          { id: 0, name: 'Hoàn Mỹ' },
+          { id: 1, name: 'Diệu Kỳ' }
+        ],
+        fileStats: {
+          fileId: activeFileId,
+          totalAccounts: currentFileAccs.length,
+          hmCount,
+          dkCount,
+          runningHmCount,
+          runningDkCount,
+          runningTotal,
+          maxTotal: 6,
+          maxPerServer: 3
+        }
+      };
+
+      const resp = ApiResponse.success(payload, 'Lấy danh sách tài khoản thành công!');
+      Object.assign(resp, payload); // Ensure backward compatibility with legacy frontend
+      return sendJson(res, 200, resp);
+    } catch (err) {
+      return this._sendError(res, sendJson, err);
+    }
   }
 
   async saveAccount(req, res, sendJson, parseJsonBody) {
     try {
       const body = await parseJsonBody(req);
-      const saved = this.accountService.saveAccount(body);
+      if (req.params && req.params.id && !body.id) {
+        body.id = req.params.id;
+      }
+      const dto = new SaveAccountRequestDto(body);
+      dto.validate(); // Chặn ngay tầng đầu tiên (Validation layer)
+
+      const saved = await this.accountService.saveAccount(dto);
       this.broadcastChange();
-      return sendJson(res, 200, {
-        success: true,
-        message: 'Đã lưu tài khoản thành công!',
-        account: saved
-      });
+      const resp = ApiResponse.success(saved, 'Đã lưu tài khoản thành công!');
+      resp.account = saved;
+      return sendJson(res, 200, resp);
     } catch (err) {
-      return sendJson(res, 400, {
-        success: false,
-        message: err.message
-      });
+      return this._sendError(res, sendJson, err);
     }
   }
 
   async deleteAccount(req, res, sendJson, parseJsonBody) {
     try {
-      const body = await parseJsonBody(req);
-      if (!body.id) {
-        return sendJson(res, 400, { success: false, message: 'Thiếu ID tài khoản!' });
+      let accountId = req.params?.id || null;
+      if (!accountId) {
+        try {
+          const body = await parseJsonBody(req);
+          accountId = body?.id || null;
+        } catch (e) {}
       }
-      this.accountService.deleteAccount(body.id);
+      if (!accountId) {
+        const urlObj = new URL(req.url, 'http://localhost');
+        accountId = urlObj.searchParams.get('id');
+      }
+      if (!accountId) {
+        throw new BadRequestException('Thiếu ID tài khoản!', 'MISSING_ACCOUNT_ID');
+      }
+      await this.accountService.deleteAccount(accountId);
       this.broadcastChange();
-      return sendJson(res, 200, { success: true, message: 'Đã xóa tài khoản.' });
+      return sendJson(res, 200, ApiResponse.success(null, 'Đã xóa tài khoản.'));
     } catch (err) {
-      return sendJson(res, 400, { success: false, message: err.message });
+      return this._sendError(res, sendJson, err);
     }
   }
 
   async switchServer(req, res, sendJson, parseJsonBody) {
     try {
       const body = await parseJsonBody(req);
-      if (!body.id) {
-        return sendJson(res, 400, { success: false, message: 'Thiếu ID tài khoản!' });
+      if (req.params && req.params.id && !body.id) {
+        body.id = req.params.id;
       }
-      const updated = this.accountService.switchServer(body.id, body.newServerId);
+      const dto = new SwitchServerRequestDto(body);
+      dto.validate(); // Chặn ngay tầng đầu tiên
+
+      const updated = await this.accountService.switchServer(dto.id, dto.newServerId);
       this.broadcastChange();
-      return sendJson(res, 200, {
-        success: true,
-        message: `Đã chuyển tài khoản [${updated.username}] sang Server [${updated.serverName}]!`,
-        account: updated
-      });
+      const resp = ApiResponse.success(updated, `Đã chuyển tài khoản [${updated.username}] sang Server [${updated.serverName}]!`);
+      resp.account = updated;
+      return sendJson(res, 200, resp);
     } catch (err) {
-      return sendJson(res, 400, { success: false, message: err.message });
+      return this._sendError(res, sendJson, err);
     }
   }
 
   async updateSetup(req, res, sendJson, parseJsonBody) {
     try {
       const body = await parseJsonBody(req);
-      if (!body.id) {
-        return sendJson(res, 400, { success: false, message: 'Thiếu ID tài khoản!' });
+      const accountId = req.params?.id || body?.id;
+      if (!accountId) {
+        throw new BadRequestException('Thiếu ID tài khoản!');
       }
-      const updated = this.accountService.updateSetup(body.id, {
-        targetCoins: body.targetCoins,
-        upDays: body.upDays,
-        farmSettings: body.farmSettings,
-        diamondSettings: body.diamondSettings,
-        fishSettings: body.fishSettings,
-        sellOreSettings: body.sellOreSettings
+
+      const dto = new UpdateAccountSetupRequestDto(body);
+      dto.validate(); // Chặn lỗi ngay tầng đầu tiên
+
+      const updated = await this.accountService.updateSetup(accountId, {
+        targetCoins: dto.targetCoins,
+        upDays: dto.upDays,
+        farmSettings: dto.farmSettings,
+        diamondSettings: dto.diamondSettings,
+        fishSettings: dto.fishSettings,
+        sellOreSettings: dto.sellOreSettings
       });
       this.broadcastChange();
-      return sendJson(res, 200, {
-        success: true,
-        message: `Đã cập nhật cài đặt cho [${updated.username}]!`,
-        account: updated
-      });
+      const resp = ApiResponse.success(updated, `Đã cập nhật cài đặt cho [${updated.username}]!`);
+      resp.account = updated;
+      return sendJson(res, 200, resp);
     } catch (err) {
-      return sendJson(res, 400, { success: false, message: err.message });
+      return this._sendError(res, sendJson, err);
     }
   }
 
   async resetData(req, res, sendJson, parseJsonBody) {
     try {
-      const body = await parseJsonBody(req);
-      if (!body.id) {
-        return sendJson(res, 400, { success: false, message: 'Thiếu ID tài khoản!' });
+      let body = {};
+      try {
+        body = await parseJsonBody(req);
+      } catch (e) {}
+
+      const accountId = req.params?.id || body?.id;
+      if (!accountId) {
+        throw new BadRequestException('Thiếu ID tài khoản!');
       }
-      const result = this.accountService.resetData(body.id);
+      const result = await this.accountService.resetData(accountId);
       this.broadcastChange();
-      return sendJson(res, 200, result);
+      return sendJson(res, 200, ApiResponse.success(result, 'Đã reset dữ liệu tài khoản!'));
     } catch (err) {
-      return sendJson(res, 400, { success: false, message: err.message });
+      return this._sendError(res, sendJson, err);
     }
   }
 
   async randomTestRms(req, res, sendJson, parseJsonBody) {
     try {
       const body = await parseJsonBody(req);
-      if (!body.id) {
-        return sendJson(res, 400, { success: false, message: 'Thiếu ID tài khoản!' });
+      if (!body || !body.id) {
+        throw new BadRequestException('Thiếu ID tài khoản!');
       }
-      const result = this.accountService.randomTestRms(body.id, body.rounds || 1);
-      return sendJson(res, 200, result);
+      const result = await this.accountService.randomTestRms(body.id, body.rounds || 1);
+      return sendJson(res, 200, ApiResponse.success(result, 'Kiểm thử RMS thành công!'));
     } catch (err) {
-      return sendJson(res, 400, { success: false, message: err.message });
+      return this._sendError(res, sendJson, err);
     }
   }
 
   async restoreOriginalRms(req, res, sendJson, parseJsonBody) {
     try {
       const body = await parseJsonBody(req);
-      if (!body.id) {
-        return sendJson(res, 400, { success: false, message: 'Thiếu ID tài khoản!' });
+      if (!body || !body.id) {
+        throw new BadRequestException('Thiếu ID tài khoản!');
       }
-      const result = this.accountService.restoreOriginalRms(body.id);
-      return sendJson(res, 200, result);
+      const result = await this.accountService.restoreOriginalRms(body.id);
+      return sendJson(res, 200, ApiResponse.success(result, 'Đã khôi phục RMS gốc thành công!'));
     } catch (err) {
-      return sendJson(res, 400, { success: false, message: err.message });
+      return this._sendError(res, sendJson, err);
     }
   }
 
@@ -173,12 +214,12 @@ class AccountController {
       const url = new URL(req.url, 'http://localhost');
       const id = url.searchParams.get('id');
       if (!id) {
-        return sendJson(res, 400, { success: false, message: 'Thiếu ID tài khoản!' });
+        throw new BadRequestException('Thiếu ID tài khoản!');
       }
-      const result = this.accountService.inspectRms(id);
-      return sendJson(res, 200, { success: true, ...result });
+      const result = await this.accountService.inspectRms(id);
+      return sendJson(res, 200, ApiResponse.success(result, 'Kiểm tra RMS thành công!'));
     } catch (err) {
-      return sendJson(res, 400, { success: false, message: err.message });
+      return this._sendError(res, sendJson, err);
     }
   }
 
@@ -187,26 +228,26 @@ class AccountController {
       const url = new URL(req.url, 'http://localhost');
       const id = url.searchParams.get('id');
       if (!id) {
-        return sendJson(res, 400, { success: false, message: 'Thiếu ID tài khoản!' });
+        throw new BadRequestException('Thiếu ID tài khoản!');
       }
-      const result = this.accountService.auditRms(id);
-      return sendJson(res, 200, { success: true, ...result });
+      const result = await this.accountService.auditRms(id);
+      return sendJson(res, 200, ApiResponse.success(result, 'Audit RMS hoàn tất!'));
     } catch (err) {
-      return sendJson(res, 400, { success: false, message: err.message });
+      return this._sendError(res, sendJson, err);
     }
   }
 
   async fixRms(req, res, sendJson, parseJsonBody) {
     try {
       const body = await parseJsonBody(req);
-      if (!body.id) {
-        return sendJson(res, 400, { success: false, message: 'Thiếu ID tài khoản!' });
+      if (!body || !body.id) {
+        throw new BadRequestException('Thiếu ID tài khoản!');
       }
-      const result = this.accountService.fixAndSyncRms(body.id);
+      const result = await this.accountService.fixAndSyncRms(body.id);
       this.broadcastChange();
-      return sendJson(res, 200, result);
+      return sendJson(res, 200, ApiResponse.success(result, 'Sửa RMS và đồng bộ hoàn tất!'));
     } catch (err) {
-      return sendJson(res, 400, { success: false, message: err.message });
+      return this._sendError(res, sendJson, err);
     }
   }
 }

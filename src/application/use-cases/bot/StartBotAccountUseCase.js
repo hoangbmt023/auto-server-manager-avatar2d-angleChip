@@ -7,38 +7,44 @@ const ProxyChecker = require('../../../infrastructure/network/ProxyChecker');
  * StartBotAccountUseCase (Application Layer - Use Case)
  * Encapsulates validation, quota checking, proxy testing, and instantiation
  * of a bot process for a single game account.
+ * Powered 100% by MySQL Repositories (Database-Driven, zero config.json dependency).
  */
 class StartBotAccountUseCase {
-  constructor(multiBotManager, configRepo, sseEventBus) {
+  constructor(multiBotManager, accountRepo, fileRepo, proxyRepo, settingRepo, sseEventBus) {
     this.multiBotManager = multiBotManager;
-    this.configRepo = configRepo;
+    this.accountRepo = accountRepo;
+    this.fileRepo = fileRepo;
+    this.proxyRepo = proxyRepo;
+    this.settingRepo = settingRepo;
     this.sseEventBus = sseEventBus;
   }
 
   async execute(accountId) {
-    const config = this.configRepo.get();
-    const account = (config.accounts || []).find(a => a.id === accountId);
+    // 1. Fetch Account directly from MySQL
+    const account = await this.accountRepo.findById(accountId);
     if (!account) {
       throw new Error(`Không tìm thấy tài khoản với ID [${accountId}]!`);
     }
 
-    const fileId = account.fileId || 'file_1';
-    const fileProfile = (config.botFiles || []).find(f => f.id === fileId);
+    // 2. Fetch File Profile directly from MySQL
+    const fileId = account.fileId || (await this.fileRepo.getActiveFileId()) || 'file_1';
+    const fileProfile = await this.fileRepo.findById(fileId);
     if (!fileProfile) {
       throw new Error(`Không tìm thấy cấu hình File/Profile cho tài khoản này!`);
     }
 
-    // Cross-worker check: if already running in local RAM or on OS, return idempotent success
+    // 3. Cross-worker check: if already running in local RAM or on OS, return idempotent success
     if (this.multiBotManager.isAccountRunning(accountId)) {
       return { success: true, message: `Tài khoản [${account.username}] đang chạy rồi.` };
     }
 
-    // Check server / file limits
-    const allRunning = this.multiBotManager.getRunningAccounts().filter(a => a.id !== accountId);
-    const proxy = account.proxyId ? (config.proxies || []).find(p => p.id === account.proxyId) : null;
-    ServerLimitRule.validateCanRun(allRunning, account, proxy, fileProfile?.maxAccounts || 6);
+    // 4. Check server / file limits
+    const allRunning = await this.multiBotManager.getRunningAccounts();
+    const otherRunning = allRunning.filter(a => a.id !== accountId);
+    const proxy = account.proxyId ? await this.proxyRepo.findById(account.proxyId) : null;
+    ServerLimitRule.validateCanRun(otherRunning, account, proxy, fileProfile?.maxAccounts || 6);
 
-    // Check proxy limits and liveness
+    // 5. Check proxy limits and liveness
     if (account.proxyId && proxy) {
       if (proxy.isExpired) {
         throw new Error(`❌ Proxy [${proxy.name || proxy.host}] gán cho nick [${account.username}] ĐÃ BỊ ĐÁNH DẤU HẾT HẠN! Vui lòng đổi proxy khác.`);
@@ -47,20 +53,23 @@ class StartBotAccountUseCase {
       // Live Health Test before spawning process
       const testRes = await ProxyChecker.testProxy(proxy, 3500);
       if (testRes.isExpired) {
-        this.multiBotManager.markProxyExpired(account.proxyId, testRes.message, account.id);
+        await this.multiBotManager.markProxyExpired(account.proxyId, testRes.message, account.id);
         throw new Error(`❌ Proxy [${proxy.name || proxy.host}] của nick [${account.username}] ĐÃ HẾT HẠN hoặc LỖI KẾT NỐI (${testRes.message})! Đã tự động đánh dấu cờ.`);
       }
 
-      ServerLimitRule.validateProxyLimit(allRunning, account, proxy);
+      ServerLimitRule.validateProxyLimit(otherRunning, account, proxy);
     }
 
-    // Locate Java runtime
+    // 6. Fetch Global System Settings from MySQL
+    const config = await this.settingRepo.getCompleteConfig();
+
+    // 7. Locate Java runtime
     const javaBin = JavaDetector.findJavaExecutable(config.javaPath);
     if (!javaBin) {
       throw new Error('Không tìm thấy Java runtime. Vui lòng cài đặt Java hoặc Portable JRE!');
     }
 
-    // Instantiate SingleBotProcess
+    // 8. Instantiate SingleBotProcess
     const botProcess = new SingleBotProcess(account, fileProfile, config);
 
     botProcess.on('log', (entry) => {
@@ -82,20 +91,21 @@ class StartBotAccountUseCase {
       this.sseEventBus.broadcast('bot-auto-status', data);
     });
 
-    botProcess.on('proxy-expired', ({ proxyId, reason }) => {
-      this.multiBotManager.markProxyExpired(proxyId, reason, accountId);
+    botProcess.on('proxy-expired', async ({ proxyId, reason }) => {
+      await this.multiBotManager.markProxyExpired(proxyId, reason, accountId);
     });
 
-    botProcess.on('stopped', ({ accountId: stoppedId, wasManual }) => {
+    botProcess.on('stopped', async ({ accountId: stoppedId, wasManual }) => {
       this.multiBotManager.processRegistry.unregister(stoppedId);
       if (wasManual) {
         this.multiBotManager.runningBots.delete(stoppedId);
-        this.multiBotManager.persistRunningState();
+        await this.multiBotManager.persistRunningState();
       }
+      const runningCount = (await this.multiBotManager.getRunningAccounts()).length;
       this.sseEventBus.broadcast('bot-status-changed', {
         accountId: stoppedId,
         running: false,
-        runningCount: this.multiBotManager.getRunningAccounts().length
+        runningCount
       });
     });
 
@@ -116,11 +126,12 @@ class StartBotAccountUseCase {
         autoState: botProcess.autoState
       });
 
-      this.multiBotManager.persistRunningState();
+      await this.multiBotManager.persistRunningState();
+      const runningCount = (await this.multiBotManager.getRunningAccounts()).length;
       this.sseEventBus.broadcast('bot-status-changed', {
         accountId,
         running: true,
-        runningCount: this.multiBotManager.getRunningAccounts().length
+        runningCount
       });
     }
 

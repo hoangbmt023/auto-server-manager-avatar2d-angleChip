@@ -14,6 +14,10 @@ module.exports = function createSystemRoutes(systemController) {
     return systemController.saveConfig(req, res, sendJson, parseJsonBody);
   });
 
+  router.put('/api/config', (req, res, { sendJson, parseJsonBody }) => {
+    return systemController.saveConfig(req, res, sendJson, parseJsonBody);
+  });
+
   router.post('/api/jre/install', (req, res, { sendJson }) => {
     return systemController.installJre(req, res, sendJson);
   });

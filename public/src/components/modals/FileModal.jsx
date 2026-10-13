@@ -28,6 +28,16 @@ function FileFormModal({
   const [uploadStatus, setUploadStatus] = useFileModalState('');
   const [loading, setLoading] = useFileModalState(false);
   const [error, setError] = useFileModalState('');
+  const [fieldErrors, setFieldErrors] = useFileModalState({});
+
+  const clearFieldError = (f) => {
+    setFieldErrors(prev => {
+      if (!prev || !prev[f]) return prev;
+      const next = { ...prev };
+      delete next[f];
+      return next;
+    });
+  };
 
   const handleFileUpload = async (e) => {
     const uploaded = e.target.files[0];
@@ -63,17 +73,29 @@ function FileFormModal({
 
   const handleSubmit = async (e) => {
     if (e) e.preventDefault();
+
+    // 1. Validate Frontend
+    const feErrors = {};
     if (!name.trim()) {
-      setError('Vui lòng nhập tên File!');
+      feErrors.name = 'Tên File / Profile không được để trống!';
+    }
+    const maxAccNum = parseInt(maxAccounts, 10);
+    if (isNaN(maxAccNum) || maxAccNum < 6) {
+      feErrors.maxAccounts = 'Số nick tối đa phải từ 6 trở lên!';
+    }
+
+    if (Object.keys(feErrors).length > 0) {
+      setFieldErrors(feErrors);
       return;
     }
 
+    setFieldErrors({});
     const payload = {
       id: file ? file.id : undefined,
       name: name.trim(),
       gameJar,
       modType,
-      maxAccounts: Math.max(6, parseInt(maxAccounts || 6, 10))
+      maxAccounts: maxAccNum
     };
 
     setLoading(true);
@@ -81,12 +103,15 @@ function FileFormModal({
     try {
       const data = await window.ApiClient.saveFile(payload);
       if (data.success) {
-        const notifyAlert = window.showAlert || alert;
-        notifyAlert(data.message || (isEditing ? 'Đã cập nhật File thành công!' : 'Đã thêm File mới thành công!'), 'Thành Công', 'success');
         if (onSaved) onSaved();
         if (onClose) onClose();
       } else {
-        setError(data.message || 'Lỗi lưu File');
+        // 2. Validate Backend
+        if (data.errors && typeof data.errors === 'object') {
+          setFieldErrors(data.errors);
+        } else {
+          setError(data.message || 'Lỗi lưu File');
+        }
       }
     } catch (err) {
       setError('Lỗi: ' + err.message);
@@ -125,13 +150,21 @@ function FileFormModal({
           <label>Tên File / Nhóm tài khoản <span style={{ color: 'var(--apple-red)' }}>*</span>:</label>
           <input
             type="text"
-            className="form-control"
+            className={`form-control ${fieldErrors.name ? 'input-error' : ''}`}
             placeholder="VD: File 1 - Kim Cương, File 2 - Câu Cá..."
             value={name}
-            onChange={e => setName(e.target.value)}
-            required
+            onChange={e => {
+              setName(e.target.value);
+              clearFieldError('name');
+            }}
             autoFocus
           />
+          {fieldErrors.name && (
+            <div className="field-error-msg">
+              <window.Icon name="alert-circle" size={13} color="var(--apple-red)" />
+              <span>{fieldErrors.name}</span>
+            </div>
+          )}
         </div>
 
         <div className="form-group">
@@ -139,11 +172,14 @@ function FileFormModal({
           <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
             <input
               type="number"
-              className="form-control"
+              className={`form-control ${fieldErrors.maxAccounts ? 'input-error' : ''}`}
               min="6"
               step="6"
               value={maxAccounts}
-              onChange={e => setMaxAccounts(e.target.value)}
+              onChange={e => {
+                setMaxAccounts(e.target.value);
+                clearFieldError('maxAccounts');
+              }}
               style={{ width: '120px' }}
             />
             <div style={{ fontSize: '0.82rem', color: 'var(--text-secondary)' }}>
@@ -151,6 +187,12 @@ function FileFormModal({
               {' '}(Tối đa <strong style={{ color: 'var(--apple-blue)' }}>{calculatedIps * 3} Hoàn Mỹ</strong> + <strong style={{ color: 'var(--apple-purple)' }}>{calculatedIps * 3} Diệu Kỳ</strong>)
             </div>
           </div>
+          {fieldErrors.maxAccounts && (
+            <div className="field-error-msg">
+              <window.Icon name="alert-circle" size={13} color="var(--apple-red)" />
+              <span>{fieldErrors.maxAccounts}</span>
+            </div>
+          )}
           <small style={{ color: 'var(--text-tertiary)', display: 'block', marginTop: '4px' }}>
             * Mỗi IP quản lý tối đa 6 tài khoản (3 Hoàn Mỹ + 3 Diệu Kỳ). Ví dụ: 12 nick sẽ có 2 Tab IP.
           </small>

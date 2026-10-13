@@ -1,6 +1,7 @@
 const fs = require('fs');
 const path = require('path');
 const { encrypt, decrypt } = require('../security/EncryptionService');
+const config = require('../../config');
 
 /**
  * ConfigRepository (Infrastructure Layer)
@@ -17,18 +18,18 @@ class ConfigRepository {
 
   getDefaultConfig() {
     return {
-      port: parseInt(process.env.PORT, 10) || 3001,
+      port: config.app.port,
       password: '',
       emulatorJar: 'AngelChipEmulator_V2Proxy.jar',
       gameJar: 'avatar_fish_build40.jar',
       javaPath: '',
-      rmsMode: process.env.DEFAULT_RMS_MODE || 'file',
-      appId: process.env.DEFAULT_APP_ID || 'avatar_main',
+      rmsMode: config.app.rmsMode,
+      appId: config.app.appId,
       activeAccountId: null,
       runningAccountIds: [],
       autoRestart: true,
       autoStart: true,
-      maxMemoryMb: parseInt(process.env.DEFAULT_MAX_MEMORY, 10) || 256,
+      maxMemoryMb: config.app.maxMemoryMb,
       extraArgs: [],
       servers: [
         { id: 0, name: 'Hoàn Mỹ' },

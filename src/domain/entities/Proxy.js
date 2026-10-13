@@ -1,6 +1,11 @@
+const { BadRequestException } = require('../errors');
+const { uuidv7 } = require('../../shared/utils/uuid');
+const { DateTimeUtil } = require('../../shared/utils/dateTime');
+
 /**
  * Proxy Entity (Domain Layer)
  * Represents a Network Proxy instance with validation and status rules.
+ * Enums stored in SQL as UPPERCASE ('SOCKS5', 'HTTP'), response to client as lowercase.
  */
 class Proxy {
   constructor({
@@ -10,20 +15,20 @@ class Proxy {
     port,
     username = '',
     password = '',
-    type = 'socks5',
+    type = 'SOCKS5',
     isActive = true,
     isExpired = false,
     lastChecked = null,
     latencyMs = null,
     failCount = 0
   }) {
-    this.id = id || `proxy_${Date.now()}_${Math.random().toString(36).substr(2, 4)}`;
+    this.id = id || uuidv7();
     this.name = (name || '').trim() || `${host}:${port}`;
     this.host = (host || '').trim();
     this.port = parseInt(port, 10);
     this.username = (username || '').trim();
     this.password = (password || '').trim();
-    this.type = (type || 'socks5').toLowerCase() === 'http' ? 'http' : 'socks5';
+    this.type = String(type || 'SOCKS5').toUpperCase() === 'HTTP' ? 'HTTP' : 'SOCKS5';
     this.isActive = Boolean(isActive);
     this.isExpired = Boolean(isExpired);
     this.lastChecked = lastChecked || null;
@@ -33,10 +38,10 @@ class Proxy {
 
   validate() {
     if (!this.host) {
-      throw new Error('Địa chỉ IP / Host của Proxy không được để trống!');
+      throw new BadRequestException('Địa chỉ IP / Host của Proxy không được để trống!');
     }
     if (isNaN(this.port) || this.port < 1 || this.port > 65535) {
-      throw new Error(`Cổng Port [${this.port}] không hợp lệ (1-65535)!`);
+      throw new BadRequestException(`Cổng Port [${this.port}] không hợp lệ (1-65535)!`);
     }
   }
 
@@ -45,16 +50,33 @@ class Proxy {
     this.isExpired = false;
     this.failCount = 0;
     this.latencyMs = latencyMs;
-    this.lastChecked = new Date().toISOString();
+    this.lastChecked = DateTimeUtil.formatIso();
   }
 
   markFailed() {
     this.failCount += 1;
-    this.lastChecked = new Date().toISOString();
+    this.lastChecked = DateTimeUtil.formatIso();
     if (this.failCount >= 3) {
       this.isExpired = true;
       this.isActive = false;
     }
+  }
+
+  toPersistenceJson() {
+    return {
+      id: this.id,
+      name: this.name,
+      host: this.host,
+      port: this.port,
+      username: this.username,
+      password: this.password,
+      type: this.type, // UPPERCASE for SQL
+      isActive: this.isActive,
+      isExpired: this.isExpired,
+      lastChecked: this.lastChecked,
+      latencyMs: this.latencyMs,
+      failCount: this.failCount
+    };
   }
 
   toJSON() {
@@ -65,7 +87,7 @@ class Proxy {
       port: this.port,
       username: this.username,
       password: this.password,
-      type: this.type,
+      type: this.type.toLowerCase(), // lowercase for client response
       isActive: this.isActive,
       isExpired: this.isExpired,
       lastChecked: this.lastChecked,

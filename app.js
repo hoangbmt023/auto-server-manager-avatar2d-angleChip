@@ -1,3 +1,3 @@
 // Entry point cho cPanel Setup Node.js App
-require('./utils/envLoader');
+require('./src/config');
 require('./server.js');

@@ -72,7 +72,6 @@ window.FarmSetupModal = function FarmSetupModal({
         farmSettings: cleanedFarmState
       });
       if (res.success) {
-        if (window.showAlert) window.showAlert('Đã lưu cấu hình Auto Farm thành công!', 'Thành Công', 'success');
         if (onAccountUpdated) onAccountUpdated();
         if (onClose) onClose();
       } else {

@@ -1,137 +1,137 @@
 const Account = require('../../domain/entities/Account');
 const ServerLimitRule = require('../../domain/rules/ServerLimitRule');
 const RmsWriter = require('../../infrastructure/storage/RmsWriter');
-const JsonAccountRepository = require('../../infrastructure/persistence/JsonAccountRepository');
+const AccountMapper = require('../mappers/AccountMapper');
+const { NotFoundException, BadRequestException } = require('../../domain/errors');
 
 /**
  * AccountService (Application Layer)
- * Manages Account CRUD and business logic validation.
+ * Manages Account CRUD, validations, and RMS sync.
+ * Single-table operations (1 table) -> Bypasses transaction to maximize performance.
  */
 class AccountService {
-  constructor(configRepo, multiBotManager, accountRepo = null) {
-    this.configRepo = configRepo;
+  constructor(accountRepo, fileRepo, proxyRepo, settingRepo, multiBotManager) {
+    this.accountRepo = accountRepo;
+    this.fileRepo = fileRepo;
+    this.proxyRepo = proxyRepo;
+    this.settingRepo = settingRepo;
     this.multiBotManager = multiBotManager;
-    this.accountRepo = accountRepo || new JsonAccountRepository(configRepo);
   }
 
-  getAccounts(fileId = null) {
-    const config = this.configRepo.get();
-    const accounts = (config.accounts || []).map(a => new Account(a).toPublicJson());
-    const runningStatuses = this.multiBotManager.getAllStatuses();
+  async getAccounts(fileId = null) {
+    const accounts = await this.accountRepo.findAll();
+    const runningStatuses = this.multiBotManager ? this.multiBotManager.getAllStatuses() : { instances: {} };
 
-    return accounts.map(acc => {
+    const filtered = fileId ? accounts.filter(a => a.fileId === fileId) : accounts;
+
+    return filtered.map(acc => {
       const runningInfo = runningStatuses.instances[acc.id] || null;
-      return {
-        ...acc,
-        isRunning: Boolean(runningInfo && runningInfo.running),
-        runningPid: runningInfo ? runningInfo.pid : null,
-        uptimeSeconds: runningInfo ? runningInfo.uptimeSeconds : 0,
-        accountState: runningInfo ? (runningInfo.accountState || { state: 'online', message: 'Đang Treo Online', isError: false }) : { state: 'offline', message: 'Đang tắt', isError: false },
-        autoState: runningInfo ? (runningInfo.autoState || { isRunning: false, autoType: null, status: 'idle', message: '' }) : { isRunning: false, autoType: null, status: 'idle', message: '' },
-        stats: runningInfo ? runningInfo.stats : {
-          coins: 0,
-          gold: 0,
-          lockedGold: 0,
-          targetCoins: 0,
-          earnedCoins: 0,
-          collectedHearts: 0,
-          startedAt: '--',
-          expiresAt: 'Vĩnh viễn'
-        }
-      };
+      return AccountMapper.toResponseDto(acc, runningInfo);
     });
   }
 
-  saveAccount(data) {
-    const config = this.configRepo.get();
-    if (!config.accounts) config.accounts = [];
+  async getAccountById(id) {
+    const account = await this.accountRepo.findById(id);
+    if (!account) {
+      throw new NotFoundException(`Không tìm thấy tài khoản với ID [${id}]!`);
+    }
+    const runningStatuses = this.multiBotManager ? this.multiBotManager.getAllStatuses() : { instances: {} };
+    const runningInfo = runningStatuses.instances[account.id] || null;
+    return AccountMapper.toResponseDto(account, runningInfo);
+  }
 
-    const account = new Account(data);
+  async saveAccount(data) {
+    // 1. Validation & Mapping
+    const existing = data.id ? await this.accountRepo.findById(data.id) : null;
+    const account = AccountMapper.toEntityFromSaveDto(data, existing ? existing.password : null);
     account.validate();
 
-    const targetFileId = account.fileId || config.activeFileId || 'file_1';
+    const activeFileId = await this.fileRepo.getActiveFileId();
+    const targetFileId = account.fileId || activeFileId || 'file_1';
     account.fileId = targetFileId;
 
-    // Validate account limits within the file and IP/Proxy
-    const targetFile = (config.botFiles || []).find(f => f.id === targetFileId);
+    // 2. Validate account limits within the file and IP/Proxy
+    const targetFile = await this.fileRepo.findById(targetFileId);
     const maxAccounts = targetFile ? (targetFile.maxAccounts || 6) : 6;
-    const accountsInFile = config.accounts.filter(a => a.fileId === targetFileId);
-    const proxyObj = account.proxyId ? (config.proxies || []).find(p => p.id === account.proxyId) : null;
+    const accountsInFile = await this.accountRepo.findByFileId(targetFileId);
+
+    const proxyObj = account.proxyId ? await this.proxyRepo.findById(account.proxyId) : null;
     const proxyName = proxyObj ? proxyObj.name : '';
-    ServerLimitRule.validateAccountAddition(accountsInFile, account.serverId, data.id || null, account.proxyId || null, maxAccounts, proxyName);
+    ServerLimitRule.validateAccountAddition(
+      accountsInFile,
+      account.serverId,
+      data.id || null,
+      account.proxyId || null,
+      maxAccounts,
+      proxyName
+    );
 
-    const existingIndex = config.accounts.findIndex(a => a.id === account.id);
-    if (existingIndex !== -1) {
-      // Keep existing password if not updated
-      if (!data.password || data.password === '******') {
-        account.password = config.accounts[existingIndex].password;
-      }
-      config.accounts[existingIndex] = account.toPersistenceJson();
-    } else {
-      config.accounts.push(account.toPersistenceJson());
+    // 3. Save to database (Single table: accounts -> NO transaction needed)
+    const saved = await this.accountRepo.save(account);
+
+    // Update activeAccountId if none set
+    const currentActiveAcc = await this.settingRepo.get('activeAccountId');
+    if (!currentActiveAcc) {
+      await this.settingRepo.set('activeAccountId', saved.id);
     }
 
-    if (!config.activeAccountId) {
-      config.activeAccountId = account.id;
-    }
-
-    this.configRepo.save(config);
-
-    // If account was already running online, automatically restart with new configuration
-    const wasRunning = this.multiBotManager.isAccountRunning(account.id);
-    if (wasRunning) {
-      this.multiBotManager.stopAccount(account.id);
+    // 4. Auto-restart bot process if running
+    if (this.multiBotManager && this.multiBotManager.isAccountRunning(saved.id)) {
+      this.multiBotManager.stopAccount(saved.id);
       setTimeout(async () => {
         try {
-          await this.multiBotManager.startAccount(account.id);
+          await this.multiBotManager.startAccount(saved.id);
         } catch (e) {}
       }, 1200);
     }
 
-    return account.toPublicJson();
+    return AccountMapper.toResponseDto(saved);
   }
 
-  deleteAccount(accountId) {
-    const config = this.configRepo.get();
-    if (!config.accounts) return false;
-
+  async deleteAccount(accountId) {
     // Stop bot if running
-    this.multiBotManager.stopAccount(accountId);
-
-    config.accounts = config.accounts.filter(a => a.id !== accountId);
-    if (config.activeAccountId === accountId) {
-      config.activeAccountId = config.accounts.length > 0 ? config.accounts[0].id : null;
+    if (this.multiBotManager) {
+      this.multiBotManager.stopAccount(accountId);
     }
 
-    this.configRepo.save(config);
-    return true;
+    // Single table deletion (accounts) -> NO transaction needed
+    const deleted = await this.accountRepo.delete(accountId);
+
+    // Reset activeAccountId if it was this account
+    const activeAccId = await this.settingRepo.get('activeAccountId');
+    if (activeAccId === accountId) {
+      const remaining = await this.accountRepo.findAll();
+      await this.settingRepo.set('activeAccountId', remaining.length > 0 ? remaining[0].id : null);
+    }
+
+    return deleted;
   }
 
-  switchServer(accountId, newServerId) {
-    const config = this.configRepo.get();
-    const targetAcc = (config.accounts || []).find(a => a.id === accountId);
+  async switchServer(accountId, newServerId) {
+    const targetAcc = await this.accountRepo.findById(accountId);
     if (!targetAcc) {
-      throw new Error(`Không tìm thấy tài khoản với ID [${accountId}]!`);
+      throw new NotFoundException(`Không tìm thấy tài khoản với ID [${accountId}]!`);
     }
 
     const sId = parseInt(newServerId !== undefined ? newServerId : (targetAcc.serverId === 0 ? 1 : 0), 10) === 1 ? 1 : 0;
     const serverName = sId === 0 ? 'Hoàn Mỹ' : 'Diệu Kỳ';
 
-    const targetFileId = targetAcc.fileId || config.activeFileId || 'file_1';
-    const otherAccsInFile = (config.accounts || []).filter(a => a.fileId === targetFileId && a.id !== accountId);
+    const targetFileId = targetAcc.fileId || (await this.fileRepo.getActiveFileId()) || 'file_1';
+    const otherAccsInFile = (await this.accountRepo.findByFileId(targetFileId)).filter(a => a.id !== accountId);
     const serverCount = otherAccsInFile.filter(a => parseInt(a.serverId, 10) === sId).length;
 
     if (serverCount >= ServerLimitRule.MAX_PER_SERVER) {
-      throw new Error(`❌ Server [${serverName}] trong file này đã đủ ${ServerLimitRule.MAX_PER_SERVER} tài khoản!`);
+      throw new BadRequestException(`❌ Server [${serverName}] trong file này đã đủ ${ServerLimitRule.MAX_PER_SERVER} tài khoản!`);
     }
 
     targetAcc.serverId = sId;
     targetAcc.serverName = serverName;
-    this.configRepo.save(config);
+
+    // Single table update (accounts) -> NO transaction needed
+    await this.accountRepo.save(targetAcc);
 
     // If running, restart the bot with the new server
-    const wasRunning = this.multiBotManager.isAccountRunning(accountId);
-    if (wasRunning) {
+    if (this.multiBotManager && this.multiBotManager.isAccountRunning(accountId)) {
       this.multiBotManager.stopAccount(accountId);
       setTimeout(async () => {
         try {
@@ -140,14 +140,13 @@ class AccountService {
       }, 1500);
     }
 
-    return targetAcc;
+    return AccountMapper.toResponseDto(targetAcc);
   }
 
-  updateSetup(accountId, { targetCoins, upDays, farmSettings, diamondSettings, fishSettings, sellOreSettings }) {
-    const config = this.configRepo.get();
-    const targetAcc = (config.accounts || []).find(a => a.id === accountId);
+  async updateSetup(accountId, { targetCoins, upDays, farmSettings, diamondSettings, fishSettings, sellOreSettings }) {
+    const targetAcc = await this.accountRepo.findById(accountId);
     if (!targetAcc) {
-      throw new Error(`Không tìm thấy tài khoản với ID [${accountId}]!`);
+      throw new NotFoundException(`Không tìm thấy tài khoản với ID [${accountId}]!`);
     }
 
     if (targetCoins !== undefined && targetCoins !== null && targetCoins !== '') {
@@ -157,94 +156,83 @@ class AccountService {
       targetAcc.upDays = Math.max(0, parseInt(upDays, 10) || 0);
     }
     if (farmSettings !== undefined && farmSettings !== null && typeof farmSettings === 'object') {
-      targetAcc.farmSettings = {
-        ...(targetAcc.farmSettings || {}),
-        ...farmSettings
-      };
+      targetAcc.farmSettings = { ...(targetAcc.farmSettings || {}), ...farmSettings };
     }
     if (diamondSettings !== undefined && diamondSettings !== null && typeof diamondSettings === 'object') {
-      targetAcc.diamondSettings = {
-        ...(targetAcc.diamondSettings || {}),
-        ...diamondSettings
-      };
+      targetAcc.diamondSettings = { ...(targetAcc.diamondSettings || {}), ...diamondSettings };
     }
     if (fishSettings !== undefined && fishSettings !== null && typeof fishSettings === 'object') {
-      targetAcc.fishSettings = {
-        ...(targetAcc.fishSettings || {}),
-        ...fishSettings
-      };
+      targetAcc.fishSettings = { ...(targetAcc.fishSettings || {}), ...fishSettings };
     }
     if (sellOreSettings !== undefined && sellOreSettings !== null && typeof sellOreSettings === 'object') {
-      targetAcc.sellOreSettings = {
-        ...(targetAcc.sellOreSettings || {}),
-        ...sellOreSettings
-      };
+      targetAcc.sellOreSettings = { ...(targetAcc.sellOreSettings || {}), ...sellOreSettings };
     }
-    this.configRepo.save(config);
 
-    // Immediate synchronization to disk RMS files
+    // Single table update -> NO transaction needed
+    await this.accountRepo.save(targetAcc);
+
+    // Sync to disk RMS files
+    const activeFileId = targetAcc.fileId || (await this.fileRepo.getActiveFileId());
     if (targetCoins !== undefined || upDays !== undefined) {
-      RmsWriter.writeUpThueRms(targetAcc, { targetCoins: targetAcc.targetCoins, upDays: targetAcc.upDays }, targetAcc.fileId || config.activeFileId);
+      RmsWriter.writeUpThueRms(targetAcc, { targetCoins: targetAcc.targetCoins, upDays: targetAcc.upDays }, activeFileId);
     }
     if (farmSettings !== undefined) {
-      RmsWriter.writeFarmRms(targetAcc, targetAcc.farmSettings, targetAcc.fileId || config.activeFileId);
+      RmsWriter.writeFarmRms(targetAcc, targetAcc.farmSettings, activeFileId);
     }
     if (diamondSettings !== undefined) {
-      RmsWriter.writeDiamondRms(targetAcc, targetAcc.diamondSettings, targetAcc.fileId || config.activeFileId);
+      RmsWriter.writeDiamondRms(targetAcc, targetAcc.diamondSettings, activeFileId);
     }
     if (fishSettings !== undefined) {
-      RmsWriter.writeFishRms(targetAcc, targetAcc.fishSettings, targetAcc.fileId || config.activeFileId);
+      RmsWriter.writeFishRms(targetAcc, targetAcc.fishSettings, activeFileId);
     }
     if (sellOreSettings !== undefined) {
-      RmsWriter.writeSellOreRms(targetAcc, targetAcc.sellOreSettings, targetAcc.fileId || config.activeFileId);
+      RmsWriter.writeSellOreRms(targetAcc, targetAcc.sellOreSettings, activeFileId);
     }
 
-    // Apply directly to running bot process if active
-    if (targetCoins !== undefined || upDays !== undefined) {
-      this.multiBotManager.applySetupToBot(accountId, targetAcc.targetCoins || 0, targetAcc.upDays || 0);
-    }
-    if (farmSettings !== undefined) {
-      this.multiBotManager.applyFarmSettingsToBot(accountId, targetAcc.farmSettings);
-    }
-    if (diamondSettings !== undefined) {
-      this.multiBotManager.applyDiamondSettingsToBot(accountId, targetAcc.diamondSettings);
-    }
-    if (fishSettings !== undefined) {
-      this.multiBotManager.applyFishSettingsToBot(accountId, targetAcc.fishSettings);
-    }
-    if (sellOreSettings !== undefined) {
-      this.multiBotManager.applySellOreSettingsToBot(accountId, targetAcc.sellOreSettings);
+    // Apply to running bot process if active
+    if (this.multiBotManager) {
+      if (targetCoins !== undefined || upDays !== undefined) {
+        this.multiBotManager.applySetupToBot(accountId, targetAcc.targetCoins || 0, targetAcc.upDays || 0);
+      }
+      if (farmSettings !== undefined) {
+        this.multiBotManager.applyFarmSettingsToBot(accountId, targetAcc.farmSettings);
+      }
+      if (diamondSettings !== undefined) {
+        this.multiBotManager.applyDiamondSettingsToBot(accountId, targetAcc.diamondSettings);
+      }
+      if (fishSettings !== undefined) {
+        this.multiBotManager.applyFishSettingsToBot(accountId, targetAcc.fishSettings);
+      }
+      if (sellOreSettings !== undefined) {
+        this.multiBotManager.applySellOreSettingsToBot(accountId, targetAcc.sellOreSettings);
+      }
     }
 
-    return targetAcc;
+    return AccountMapper.toResponseDto(targetAcc);
   }
 
-  resetData(accountId) {
-    const config = this.configRepo.get();
-    const targetAcc = (config.accounts || []).find(a => a.id === accountId);
+  async resetData(accountId) {
+    const targetAcc = await this.accountRepo.findById(accountId);
     if (!targetAcc) {
-      throw new Error(`Không tìm thấy tài khoản với ID [${accountId}]!`);
+      throw new NotFoundException(`Không tìm thấy tài khoản với ID [${accountId}]!`);
     }
 
-    // Mark pending reset for next startup if offline
     targetAcc.pendingReset = true;
     targetAcc.targetCoins = 0;
     targetAcc.upDays = 0;
-    this.configRepo.save(config);
 
-    // Sync reset to RMS files
-    RmsWriter.resetUpThueRms(targetAcc, targetAcc.fileId || config.activeFileId);
+    await this.accountRepo.save(targetAcc);
 
-    // If bot process is currently running, send live reset command
-    const isRunning = this.multiBotManager.isAccountRunning(accountId);
-    if (isRunning) {
+    const activeFileId = targetAcc.fileId || (await this.fileRepo.getActiveFileId());
+    RmsWriter.resetUpThueRms(targetAcc, activeFileId);
+
+    if (this.multiBotManager && this.multiBotManager.isAccountRunning(accountId)) {
       this.multiBotManager.resetBotData(accountId);
     } else {
-      // Offline: delete cached Data/Coin RMS files directly
       try {
         const fs = require('fs');
         const path = require('path');
-        const safeAppId = `avatar_${targetAcc.username || targetAcc.id}_${targetAcc.fileId || 'def'}`;
+        const safeAppId = `avatar_${targetAcc.username || targetAcc.id}_${activeFileId || 'def'}`;
         const rmsDir = path.resolve(__dirname, '../../../.microemulator', `suite-${safeAppId}`);
         if (fs.existsSync(rmsDir)) {
           const files = fs.readdirSync(rmsDir);
@@ -260,51 +248,25 @@ class AccountService {
     return { success: true, message: `Đã reset dữ liệu up thuê cho tài khoản [${targetAcc.username}].` };
   }
 
-  randomTestRms(accountId, rounds = 1) {
-    const config = this.configRepo.get();
-    const targetAcc = (config.accounts || []).find(a => a.id === accountId);
+  async inspectRms(accountId) {
+    const targetAcc = await this.accountRepo.findById(accountId);
     if (!targetAcc) {
-      throw new Error(`Không tìm thấy tài khoản với ID [${accountId}]!`);
+      throw new NotFoundException(`Không tìm thấy tài khoản với ID [${accountId}]!`);
     }
 
-    const RmsAuditService = require('./RmsAuditService');
-    const auditor = new RmsAuditService(this.configRepo);
-    return auditor.randomTestAccount(targetAcc, rounds);
-  }
-
-  restoreOriginalRms(accountId) {
-    const config = this.configRepo.get();
-    const targetAcc = (config.accounts || []).find(a => a.id === accountId);
-    if (!targetAcc) {
-      throw new Error(`Không tìm thấy tài khoản với ID [${accountId}]!`);
-    }
-
-    const RmsAuditService = require('./RmsAuditService');
-    const auditor = new RmsAuditService(this.configRepo);
-    return auditor.restoreOriginalAccount(targetAcc);
-  }
-
-  inspectRms(accountId) {
-    const config = this.configRepo.get();
-    const targetAcc = (config.accounts || []).find(a => a.id === accountId);
-    if (!targetAcc) {
-      throw new Error(`Không tìm thấy tài khoản với ID [${accountId}]!`);
-    }
-
-    const targetFileId = targetAcc.fileId || config.activeFileId || 'file_1';
-    const targetFile = (config.botFiles || []).find(f => f.id === targetFileId);
-
-    const rmsInfo = RmsWriter.inspectRms(targetAcc, targetFileId);
+    const activeFileId = targetAcc.fileId || (await this.fileRepo.getActiveFileId()) || 'file_1';
+    const targetFile = await this.fileRepo.findById(activeFileId);
+    const rmsInfo = RmsWriter.inspectRms(targetAcc, activeFileId);
 
     return {
       account: {
         id: targetAcc.id,
         username: targetAcc.username,
         serverId: targetAcc.serverId,
-        fileId: targetFileId,
-        fileName: targetFile?.name || targetFileId,
-        gameJar: targetFile?.gameJar || config.gameJar || 'avatar_upxu_build34.jar',
-        modType: targetFile?.modType || 'upxu',
+        fileId: activeFileId,
+        fileName: targetFile?.name || activeFileId,
+        gameJar: targetFile?.gameJar || 'avatar_upxu_build34.jar',
+        modType: targetFile?.modType ? targetFile.modType.toLowerCase() : 'upxu',
         webSettings: {
           farmSettings: targetAcc.farmSettings || {},
           diamondSettings: targetAcc.diamondSettings || {},
@@ -318,38 +280,38 @@ class AccountService {
     };
   }
 
-  auditRms(accountId) {
-    const config = this.configRepo.get();
-    const targetAcc = (config.accounts || []).find(a => a.id === accountId);
+  async auditRms(accountId) {
+    const targetAcc = await this.accountRepo.findById(accountId);
     if (!targetAcc) {
-      throw new Error(`Không tìm thấy tài khoản với ID [${accountId}]!`);
+      throw new NotFoundException(`Không tìm thấy tài khoản với ID [${accountId}]!`);
     }
     const RmsAuditService = require('./RmsAuditService');
-    const auditor = new RmsAuditService(this.configRepo);
+    const auditor = new RmsAuditService(this.settingRepo, this.fileRepo);
     return auditor.auditAccount(targetAcc);
   }
 
-  fixAndSyncRms(accountId) {
-    const config = this.configRepo.get();
-    const targetAcc = (config.accounts || []).find(a => a.id === accountId);
+  async fixAndSyncRms(accountId) {
+    const targetAcc = await this.accountRepo.findById(accountId);
     if (!targetAcc) {
-      throw new Error(`Không tìm thấy tài khoản với ID [${accountId}]!`);
+      throw new NotFoundException(`Không tìm thấy tài khoản với ID [${accountId}]!`);
     }
 
-    const targetFileId = targetAcc.fileId || config.activeFileId || 'file_1';
-    RmsWriter.writeUpThueRms(targetAcc, { targetCoins: targetAcc.targetCoins, upDays: targetAcc.upDays }, targetFileId);
-    if (targetAcc.farmSettings) RmsWriter.writeFarmRms(targetAcc, targetAcc.farmSettings, targetFileId);
-    if (targetAcc.diamondSettings) RmsWriter.writeDiamondRms(targetAcc, targetAcc.diamondSettings, targetFileId);
-    if (targetAcc.fishSettings) RmsWriter.writeFishRms(targetAcc, targetAcc.fishSettings, targetFileId);
-    if (targetAcc.sellOreSettings) RmsWriter.writeSellOreRms(targetAcc, targetAcc.sellOreSettings, targetFileId);
+    const activeFileId = targetAcc.fileId || (await this.fileRepo.getActiveFileId()) || 'file_1';
+    RmsWriter.writeUpThueRms(targetAcc, { targetCoins: targetAcc.targetCoins, upDays: targetAcc.upDays }, activeFileId);
+    if (targetAcc.farmSettings) RmsWriter.writeFarmRms(targetAcc, targetAcc.farmSettings, activeFileId);
+    if (targetAcc.diamondSettings) RmsWriter.writeDiamondRms(targetAcc, targetAcc.diamondSettings, activeFileId);
+    if (targetAcc.fishSettings) RmsWriter.writeFishRms(targetAcc, targetAcc.fishSettings, activeFileId);
+    if (targetAcc.sellOreSettings) RmsWriter.writeSellOreRms(targetAcc, targetAcc.sellOreSettings, activeFileId);
 
-    if (targetAcc.farmSettings) this.multiBotManager.applyFarmSettingsToBot(accountId, targetAcc.farmSettings);
-    if (targetAcc.diamondSettings) this.multiBotManager.applyDiamondSettingsToBot(accountId, targetAcc.diamondSettings);
-    if (targetAcc.fishSettings) this.multiBotManager.applyFishSettingsToBot(accountId, targetAcc.fishSettings);
-    if (targetAcc.sellOreSettings) this.multiBotManager.applySellOreSettingsToBot(accountId, targetAcc.sellOreSettings);
+    if (this.multiBotManager) {
+      if (targetAcc.farmSettings) this.multiBotManager.applyFarmSettingsToBot(accountId, targetAcc.farmSettings);
+      if (targetAcc.diamondSettings) this.multiBotManager.applyDiamondSettingsToBot(accountId, targetAcc.diamondSettings);
+      if (targetAcc.fishSettings) this.multiBotManager.applyFishSettingsToBot(accountId, targetAcc.fishSettings);
+      if (targetAcc.sellOreSettings) this.multiBotManager.applySellOreSettingsToBot(accountId, targetAcc.sellOreSettings);
+    }
 
     const RmsAuditService = require('./RmsAuditService');
-    const auditor = new RmsAuditService(this.configRepo);
+    const auditor = new RmsAuditService(this.settingRepo, this.fileRepo);
     const auditReport = auditor.auditAccount(targetAcc);
 
     return {

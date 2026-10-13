@@ -142,7 +142,17 @@ window.AccountModal = function AccountModal({
   const [password, setPassword] = useAccModalState('');
   const [serverId, setServerId] = useAccModalState(account?.serverId !== undefined ? String(account.serverId) : '0');
   const [note, setNote] = useAccModalState(account?.note || '');
-  const [ipSlot, setIpSlot] = useAccModalState(account?.ipSlot !== undefined ? String(account.ipSlot) : String(defaultIpSlot || 1));
+  const [ipSlot, setIpSlot] = useAccModalState(account?.ipSlot !== undefined ? String(account?.ipSlot) : String(defaultIpSlot || 1));
+  const [fieldErrors, setFieldErrors] = useAccModalState({});
+
+  const clearFieldError = (fieldName) => {
+    setFieldErrors(prev => {
+      if (!prev || !prev[fieldName]) return prev;
+      const next = { ...prev };
+      delete next[fieldName];
+      return next;
+    });
+  };
 
   const selectedFile = files.find(f => f.id === fileId) || files.find(f => f.id === activeFileId);
   const totalIps = selectedFile ? Math.max(1, Math.ceil((selectedFile.maxAccounts || 6) / 6)) : 1;
@@ -188,18 +198,35 @@ window.AccountModal = function AccountModal({
     e.preventDefault();
     const notifyAlert = window.showAlert || alert;
 
+    // 1. Validate ngay tại tầng Frontend
+    const feErrors = {};
     if (!username.trim()) {
-      notifyAlert('Vui lòng nhập tên tài khoản!', 'Thiếu Thông Tin', 'warning');
-      return;
+      feErrors.username = 'Tên tài khoản không được để trống!';
+    }
+    if (!isEditing && !password) {
+      feErrors.password = 'Vui lòng nhập mật khẩu tài khoản!';
+    }
+    const sId = parseInt(serverId, 10);
+    if (sId !== 0 && sId !== 1) {
+      feErrors.serverId = 'Vui lòng chọn Server hợp lệ (0: Hoàn Mỹ, 1: Diệu Kỳ)!';
+    }
+    const slotNum = parseInt(ipSlot, 10);
+    if (isNaN(slotNum) || slotNum < 1) {
+      feErrors.ipSlot = 'Vị trí IP Slot phải là số nguyên >= 1!';
     }
 
     const chosenProxy = proxies.find(p => p.id === proxyId);
     if (chosenProxy && chosenProxy.isExpired) {
-      notifyAlert(`Proxy [${chosenProxy.name}] đã bị đánh dấu hết hạn! Vui lòng chọn proxy khác còn hoạt động hoặc "Không dùng Proxy".`, 'Proxy Hết Hạn', 'error');
+      feErrors.proxyId = `Proxy [${chosenProxy.name}] đã hết hạn! Vui lòng chọn proxy khác.`;
+    }
+
+    if (Object.keys(feErrors).length > 0) {
+      setFieldErrors(feErrors);
       return;
     }
 
-    const sId = parseInt(serverId, 10);
+    setFieldErrors({});
+
     const payload = {
       id: account?.id || undefined,
       fileId,
@@ -208,20 +235,24 @@ window.AccountModal = function AccountModal({
       password,
       serverId: sId,
       serverName: sId === 0 ? 'Hoàn Mỹ' : 'Diệu Kỳ',
-      ipSlot: parseInt(ipSlot, 10) || 1,
+      ipSlot: slotNum || 1,
       note: note.trim()
     };
 
     try {
       const data = await window.ApiClient.saveAccount(payload);
       if (data.success) {
-        notifyAlert(data.message || (isEditing ? 'Đã cập nhật thông tin tài khoản thành công!' : 'Đã thêm tài khoản mới thành công!'), 'Thành Công', 'success');
         onSaved(fileId);
       } else {
-        notifyAlert(data.message || 'Lỗi lưu tài khoản', 'Lỗi Lưu Tài Khoản', 'error');
+        // 2. Nếu Backend chặn và trả về field-level errors (Map errors)
+        if (data.errors && typeof data.errors === 'object') {
+          setFieldErrors(data.errors);
+        } else {
+          setFieldErrors({ username: data.message || 'Lỗi lưu tài khoản' });
+        }
       }
     } catch (err) {
-      notifyAlert('Lỗi: ' + err.message, 'Lỗi Hệ Thống', 'error');
+      setFieldErrors({ username: 'Lỗi hệ thống: ' + err.message });
     }
   };
 
@@ -269,10 +300,19 @@ window.AccountModal = function AccountModal({
             </label>
             <CustomSelect
               value={fileId}
-              onChange={setFileId}
+              onChange={(val) => {
+                setFileId(val);
+                clearFieldError('fileId');
+              }}
               options={fileOptions}
               placeholder="Chọn File / Profile..."
             />
+            {fieldErrors.fileId && (
+              <div className="field-error-msg">
+                <window.Icon name="alert-circle" size={13} color="var(--apple-red)" />
+                <span>{fieldErrors.fileId}</span>
+              </div>
+            )}
           </div>
 
           <div className="form-group">
@@ -282,10 +322,19 @@ window.AccountModal = function AccountModal({
             </label>
             <CustomSelect
               value={proxyId}
-              onChange={setProxyId}
+              onChange={(val) => {
+                setProxyId(val);
+                clearFieldError('proxyId');
+              }}
               options={proxyOptions}
               placeholder="Chọn Tab IP / Proxy..."
             />
+            {fieldErrors.proxyId && (
+              <div className="field-error-msg">
+                <window.Icon name="alert-circle" size={13} color="var(--apple-red)" />
+                <span>{fieldErrors.proxyId}</span>
+              </div>
+            )}
           </div>
         </div>
 
@@ -293,29 +342,46 @@ window.AccountModal = function AccountModal({
           <div className="form-group">
             <label style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
               <window.Icon name="user" size={14} color="var(--apple-blue)" />
-              <span>Tên tài khoản (Username):</span>
+              <span>Tên tài khoản (Username) <span style={{ color: 'var(--apple-red)' }}>*</span>:</span>
             </label>
             <input
               type="text"
-              className="form-control"
+              className={`form-control ${fieldErrors.username ? 'input-error' : ''}`}
               placeholder="Nhập nick avatar"
               value={username}
-              onChange={e => setUsername(e.target.value)}
-              required
+              onChange={e => {
+                setUsername(e.target.value);
+                clearFieldError('username');
+              }}
             />
+            {fieldErrors.username && (
+              <div className="field-error-msg">
+                <window.Icon name="alert-circle" size={13} color="var(--apple-red)" />
+                <span>{fieldErrors.username}</span>
+              </div>
+            )}
           </div>
           <div className="form-group">
             <label style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
               <window.Icon name="shield" size={14} color="var(--apple-blue)" />
-              <span>Mật khẩu (Password):</span>
+              <span>Mật khẩu (Password) {!isEditing && <span style={{ color: 'var(--apple-red)' }}>*</span>}:</span>
             </label>
             <input
               type="password"
-              className="form-control"
+              className={`form-control ${fieldErrors.password ? 'input-error' : ''}`}
               placeholder={isEditing ? '(Giữ nguyên nếu không đổi)' : 'Nhập mật khẩu'}
               value={password}
-              onChange={e => setPassword(e.target.value)}
+              onChange={e => {
+                setPassword(e.target.value);
+                clearFieldError('password');
+              }}
             />
+            {fieldErrors.password && (
+              <div className="field-error-msg">
+                <window.Icon name="alert-circle" size={13} color="var(--apple-red)" />
+                <span>{fieldErrors.password}</span>
+              </div>
+            )}
           </div>
         </div>
 
@@ -327,10 +393,19 @@ window.AccountModal = function AccountModal({
             </label>
             <CustomSelect
               value={serverId}
-              onChange={setServerId}
+              onChange={(val) => {
+                setServerId(val);
+                clearFieldError('serverId');
+              }}
               options={serverOptions}
               placeholder="Chọn Server..."
             />
+            {fieldErrors.serverId && (
+              <div className="field-error-msg">
+                <window.Icon name="alert-circle" size={13} color="var(--apple-red)" />
+                <span>{fieldErrors.serverId}</span>
+              </div>
+            )}
           </div>
 
           <div className="form-group">
@@ -340,28 +415,24 @@ window.AccountModal = function AccountModal({
             </label>
             <input
               type="text"
-              className="form-control"
+              className={`form-control ${fieldErrors.note ? 'input-error' : ''}`}
               placeholder="VD: Nick câu cá farm chính"
               value={note}
-              onChange={e => setNote(e.target.value)}
+              onChange={e => {
+                setNote(e.target.value);
+                clearFieldError('note');
+              }}
             />
+            {fieldErrors.note && (
+              <div className="field-error-msg">
+                <window.Icon name="alert-circle" size={13} color="var(--apple-red)" />
+                <span>{fieldErrors.note}</span>
+              </div>
+            )}
           </div>
-        </div>
-
-        <div className="form-group">
-          <label style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-            <window.Icon name="edit" size={14} color="var(--apple-blue)" />
-            <span>Ghi chú:</span>
-          </label>
-          <input
-            type="text"
-            className="form-control"
-            placeholder="VD: Nick câu cá farm chính"
-            value={note}
-            onChange={e => setNote(e.target.value)}
-          />
         </div>
       </form>
     </window.ModalBase>
   );
 };
+

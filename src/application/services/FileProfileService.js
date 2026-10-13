@@ -1,22 +1,25 @@
 const BotFile = require('../../domain/entities/BotFile');
-const JsonBotFileRepository = require('../../infrastructure/persistence/JsonBotFileRepository');
+const BotFileMapper = require('../mappers/BotFileMapper');
+const { BadRequestException, NotFoundException } = require('../../domain/errors');
 
 /**
  * FileProfileService (Application Layer)
- * Manages Bot Profiles/Files and their JAR configurations.
+ * Manages Bot Profiles/Files.
+ * Multi-table delete uses MySQL Transaction; Single-table operations bypass transaction.
  */
 class FileProfileService {
-  constructor(configRepo, multiBotManager, fileRepo = null) {
-    this.configRepo = configRepo;
+  constructor(fileRepo, accountRepo, settingRepo, multiBotManager, transactionManager = null) {
+    this.fileRepo = fileRepo;
+    this.accountRepo = accountRepo;
+    this.settingRepo = settingRepo;
     this.multiBotManager = multiBotManager;
-    this.fileRepo = fileRepo || new JsonBotFileRepository(configRepo);
+    this.transactionManager = transactionManager;
   }
 
-  getFiles() {
-    const config = this.configRepo.get();
-    const files = config.botFiles || [];
-    const accounts = config.accounts || [];
-    const runningStatuses = this.multiBotManager.getAllStatuses();
+  async getFiles() {
+    const files = await this.fileRepo.findAll();
+    const accounts = await this.accountRepo.findAll();
+    const runningStatuses = this.multiBotManager ? this.multiBotManager.getAllStatuses() : { instances: {} };
 
     return files.map((f) => {
       const accsInFile = accounts.filter(a => a.fileId === f.id);
@@ -43,81 +46,102 @@ class FileProfileService {
         });
       }
 
-      const entity = new BotFile(f);
+      const dto = BotFileMapper.toResponseDto(f, {
+        totalAccounts: accsInFile.length,
+        hmCount,
+        dkCount,
+        runningCount: runningAccs.length,
+        runningHmCount,
+        runningDkCount
+      });
+
       return {
-        ...entity.toPublicJson({
-          totalAccounts: accsInFile.length,
-          hmCount,
-          dkCount,
-          runningCount: runningAccs.length,
-          runningHmCount,
-          runningDkCount
-        }),
+        ...dto,
         ipSlots
       };
     });
   }
 
-  saveFile(data) {
-    const config = this.configRepo.get();
-    if (!config.botFiles) config.botFiles = [];
-
-    const file = new BotFile(data);
+  async saveFile(data) {
+    const file = BotFileMapper.toEntityFromSaveDto(data);
     file.validate();
 
-    const existingIdx = config.botFiles.findIndex(f => f.id === file.id);
-    if (existingIdx !== -1) {
-      config.botFiles[existingIdx] = file.toPersistenceJson();
+    // Single table operation (bot_files) -> NO transaction needed
+    const saved = await this.fileRepo.save(file);
+
+    const activeFileId = await this.fileRepo.getActiveFileId();
+    if (!activeFileId) {
+      await this.fileRepo.setActiveFileId(file.id);
+    }
+
+    return BotFileMapper.toResponseDto(saved);
+  }
+
+  /**
+   * Delete BotFile: Modifies >= 2 tables (bot_files, accounts, system_settings)
+   * -> MANDATORY TRANSACTION USED
+   */
+  async deleteFile(fileId) {
+    if (fileId === 'file_1') {
+      throw new BadRequestException('❌ Không thể xóa File mặc định (file_1)!');
+    }
+
+    const allFiles = await this.fileRepo.findAll();
+    if (allFiles.length <= 1) {
+      throw new BadRequestException('❌ Hệ thống cần giữ lại tối thiểu 1 File!');
+    }
+
+    // Stop all running bots belonging to this file first
+    const accsInFile = await this.accountRepo.findByFileId(fileId);
+    if (this.multiBotManager) {
+      accsInFile.forEach(a => this.multiBotManager.stopAccount(a.id));
+    }
+
+    // MULTI-TABLE OPERATION -> Use MySQL Transaction
+    if (this.transactionManager) {
+      return await this.transactionManager.withTransaction(async (conn) => {
+        // 1. Delete associated accounts in `accounts` table
+        await this.accountRepo.deleteByFileId(fileId, conn);
+
+        // 2. Delete bot file in `bot_files` table
+        await this.fileRepo.delete(fileId, conn);
+
+        // 3. Update active file in `system_settings` table if necessary
+        const activeFileId = await this.fileRepo.getActiveFileId();
+        if (activeFileId === fileId) {
+          const remainingFiles = (await this.fileRepo.findAll()).filter(f => f.id !== fileId);
+          const fallbackFileId = remainingFiles.length > 0 ? remainingFiles[0].id : 'file_1';
+          await this.fileRepo.setActiveFileId(fallbackFileId, conn);
+
+          const fallbackAccs = await this.accountRepo.findByFileId(fallbackFileId);
+          await this.settingRepo.set('activeAccountId', fallbackAccs.length > 0 ? fallbackAccs[0].id : null, null, conn);
+        }
+        return true;
+      });
     } else {
-      config.botFiles.push(file.toPersistenceJson());
+      // Fallback if no transaction manager
+      await this.accountRepo.deleteByFileId(fileId);
+      await this.fileRepo.delete(fileId);
+      return true;
     }
-
-    if (!config.activeFileId) {
-      config.activeFileId = file.id;
-    }
-
-    this.configRepo.save(config);
-    return file.toPublicJson();
   }
 
-  deleteFile(fileId) {
-    const config = this.configRepo.get();
-    if (!config.botFiles || config.botFiles.length <= 1) {
-      throw new Error('❌ Hệ thống cần giữ lại tối thiểu 1 File!');
-    }
-
-    // Stop all bots in this file
-    const accsInFile = (config.accounts || []).filter(a => a.fileId === fileId);
-    accsInFile.forEach(a => this.multiBotManager.stopAccount(a.id));
-
-    config.botFiles = config.botFiles.filter(f => f.id !== fileId);
-    config.accounts = (config.accounts || []).filter(a => a.fileId !== fileId);
-
-    if (config.activeFileId === fileId) {
-      config.activeFileId = config.botFiles[0].id;
-      const remainingAccs = config.accounts.filter(a => a.fileId === config.activeFileId);
-      config.activeAccountId = remainingAccs.length > 0 ? remainingAccs[0].id : null;
-    }
-
-    this.configRepo.save(config);
-    return true;
-  }
-
-  switchFile(fileId) {
-    const config = this.configRepo.get();
-    const targetFile = (config.botFiles || []).find(f => f.id === fileId);
+  async switchFile(fileId) {
+    const targetFile = await this.fileRepo.findById(fileId);
     if (!targetFile) {
-      throw new Error('Không tìm thấy File/Profile!');
+      throw new NotFoundException('Không tìm thấy File/Profile!');
     }
 
-    config.activeFileId = fileId;
-    const fileAccs = (config.accounts || []).filter(a => a.fileId === fileId);
-    if (fileAccs.length > 0 && !fileAccs.some(a => a.id === config.activeAccountId)) {
-      config.activeAccountId = fileAccs[0].id;
+    // Single table update (system_settings) -> NO transaction needed
+    await this.fileRepo.setActiveFileId(fileId);
+
+    const fileAccs = await this.accountRepo.findByFileId(fileId);
+    const activeAccId = await this.settingRepo.get('activeAccountId');
+    if (fileAccs.length > 0 && !fileAccs.some(a => a.id === activeAccId)) {
+      await this.settingRepo.set('activeAccountId', fileAccs[0].id);
     }
 
-    this.configRepo.save(config);
-    return targetFile;
+    return BotFileMapper.toResponseDto(targetFile);
   }
 }
 
