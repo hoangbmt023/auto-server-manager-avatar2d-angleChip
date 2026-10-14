@@ -5,10 +5,11 @@ const { ValidationException } = require('../../../domain/errors');
  * Sanitizes and validates user login credentials.
  */
 class LoginUserRequestDto {
-  constructor({ email = '', phone = '', password = '' } = {}) {
+  constructor({ email = '', phone = '', password = '', remember = true } = {}) {
     this.email = (email || '').trim().toLowerCase();
     this.phone = (phone || '').trim();
     this.password = String(password || '');
+    this.remember = remember !== false && remember !== 'false';
   }
 
   validate() {

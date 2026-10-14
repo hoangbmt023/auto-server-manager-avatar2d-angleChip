@@ -1,311 +1,126 @@
 /**
- * API Client Service (Frontend) - RESTful & Axios Engine
- * Centralizes all RESTful API interactions using Axios with interceptors,
- * authentication token injection, and unified ApiResponse error unwrapping.
+ * ApiClient Facade & Compatibility Layer
+ * Delegates all domain operations to modular frontend services:
+ * - window.authService
+ * - window.accountService
+ * - window.botService
+ * - window.fileService
+ * - window.proxyService
+ * - window.systemService
+ * - window.rmsService
+ * - window.tokenManager (RAM-only token storage, Zero localStorage)
  */
 (function (window) {
-  // 1. Khởi tạo Axios Instance
-  const axiosInstance = (window.axios ? window.axios.create : null) ? window.axios.create({
-    baseURL: '',
-    timeout: 15000,
-    headers: {
-      'Content-Type': 'application/json'
-    }
-  }) : null;
-
-  // 2. Request Interceptor: Tự động đính kèm Bearer Token nếu có
-  if (axiosInstance) {
-    axiosInstance.interceptors.request.use(
-      (config) => {
-        const token = localStorage.getItem('avatar_bot_token');
-        if (token) {
-          config.headers = config.headers || {};
-          config.headers['Authorization'] = `Bearer ${token}`;
-        }
-        return config;
-      },
-      (error) => Promise.reject(error)
-    );
-
-    // 3. Response Interceptor: Tự động unwrap response và chuẩn hóa lỗi theo ApiResponse format
-    axiosInstance.interceptors.response.use(
-      (response) => {
-        // Trả về data trực tiếp từ ApiResponse { success, message, data, ... }
-        return response.data;
-      },
-      (error) => {
-        // Bắt lỗi HTTP 4xx, 5xx: Giữ nguyên cấu trúc ErrorResponse từ Backend
-        if (error.response && error.response.data) {
-          const errData = error.response.data;
-          // Nếu có lỗi validation theo trường (errors: { field: msg }), format message trực quan cho UI
-          if (errData.errors && typeof errData.errors === 'object') {
-            const fieldMsgs = Object.values(errData.errors);
-            if (fieldMsgs.length > 0 && (!errData.message || errData.message === 'Không hợp lệ')) {
-              errData.message = fieldMsgs.join('; ');
-            }
-          }
-          return Promise.resolve(errData);
-        }
-        // Lỗi timeout hoặc network không thể kết nối server
-        return Promise.resolve({
-          success: false,
-          message: error.message || 'Không thể kết nối đến máy chủ bot!',
-          errors: null
-        });
-      }
-    );
-  }
-
-  // 4. API Client Object
   window.ApiClient = {
-    axiosInstance,
-
+    // RAM Token Accessors
     getAuthToken() {
-      return localStorage.getItem('avatar_bot_token') || '';
+      return window.tokenManager ? window.tokenManager.getAccessToken() : '';
     },
 
     setAuthToken(token) {
-      if (token) {
-        localStorage.setItem('avatar_bot_token', token);
-      } else {
-        localStorage.removeItem('avatar_bot_token');
+      if (window.tokenManager) {
+        window.tokenManager.setAccessToken(token);
       }
     },
 
-    getHeaders() {
-      const headers = { 'Content-Type': 'application/json' };
-      const token = this.getAuthToken();
-      if (token) headers['Authorization'] = `Bearer ${token}`;
-      return headers;
+    getRefreshToken() {
+      // Refresh token is in HttpOnly Cookie, not accessible or stored in JS
+      return '';
     },
 
-    // Hàm gọi tổng quát (sử dụng Axios với fallback Fetch an toàn)
-    async request(url, config = {}) {
-      if (axiosInstance) {
-        return axiosInstance({ url, ...config });
-      }
-      // Fallback nếu vì lý do nào đó Axios CDN chưa tải xong
+    setRefreshToken(_token) {
+      // No-op: Refresh token is securely managed via Set-Cookie HttpOnly by the server
+    },
+
+    getCurrentUser() {
+      // User profile cached in sessionStorage for UI state restoration across page refreshes
+      const userStr = sessionStorage.getItem('avatar_bot_user');
       try {
-        const headers = { ...this.getHeaders(), ...(config.headers || {}) };
-        const res = await fetch(url, {
-          method: config.method || 'GET',
-          headers,
-          body: config.data ? JSON.stringify(config.data) : undefined
-        });
-        return await res.json();
-      } catch (err) {
-        return { success: false, message: err.message || 'Lỗi mạng' };
+        return userStr ? JSON.parse(userStr) : null;
+      } catch (e) {
+        return null;
       }
     },
 
-    // ==========================================
-    // 1. SYSTEM & BOT STATUS
-    // ==========================================
-    getStatus() {
-      return this.request('/api/status', { method: 'GET' });
-    },
-
-    getConfig() {
-      return this.request('/api/config', { method: 'GET' });
-    },
-
-    saveConfig(payload) {
-      return this.request('/api/config', { method: 'PUT', data: payload });
-    },
-
-    getLogs() {
-      return this.request('/api/logs', { method: 'GET' });
-    },
-
-    clearLogs() {
-      return this.request('/api/clear-logs', { method: 'POST' });
-    },
-
-    // ==========================================
-    // 2. FILE & PROFILE MANAGEMENT (RESTful)
-    // ==========================================
-    getFiles() {
-      return this.request('/api/files', { method: 'GET' });
-    },
-
-    saveFile(payload) {
-      if (payload && payload.id) {
-        return this.request(`/api/files/${encodeURIComponent(payload.id)}`, { method: 'PUT', data: payload });
+    setCurrentUser(user) {
+      if (user) {
+        sessionStorage.setItem('avatar_bot_user', JSON.stringify(user));
+      } else {
+        sessionStorage.removeItem('avatar_bot_user');
       }
-      return this.request('/api/files', { method: 'POST', data: payload });
     },
 
-    deleteFile(id) {
-      return this.request(`/api/files/${encodeURIComponent(id)}`, { method: 'DELETE' });
-    },
-
-    switchFile(id) {
-      return this.request(`/api/files/${encodeURIComponent(id)}/switch`, { method: 'POST' });
-    },
-
-    // ==========================================
-    // 3. PROXY MANAGEMENT (RESTful)
-    // ==========================================
-    getProxies() {
-      return this.request('/api/proxies', { method: 'GET' });
-    },
-
-    saveProxy(payload) {
-      if (payload && payload.id) {
-        return this.request(`/api/proxies/${encodeURIComponent(payload.id)}`, { method: 'PUT', data: payload });
+    // Auth methods delegated to authService
+    async login(email, password) {
+      const res = await window.authService.login({ email, password });
+      if (res && res.success && res.data) {
+        if (res.data.user) this.setCurrentUser(res.data.user);
       }
-      return this.request('/api/proxies', { method: 'POST', data: payload });
+      return res;
     },
 
-    deleteProxy(id) {
-      return this.request(`/api/proxies/${encodeURIComponent(id)}`, { method: 'DELETE' });
-    },
-
-    testProxy(id) {
-      return this.request(`/api/proxies/${encodeURIComponent(id)}/test`, { method: 'POST' });
-    },
-
-    testAllProxies() {
-      return this.request('/api/proxies/test-all', { method: 'POST' });
-    },
-
-    // ==========================================
-    // 4. ACCOUNT MANAGEMENT (RESTful)
-    // ==========================================
-    getAccounts() {
-      return this.request('/api/accounts', { method: 'GET' });
-    },
-
-    saveAccount(payload) {
-      if (payload && payload.id) {
-        return this.request(`/api/accounts/${encodeURIComponent(payload.id)}`, { method: 'PUT', data: payload });
+    async register(data) {
+      const res = await window.authService.register(data);
+      if (res && res.success && res.data && res.data.user) {
+        this.setCurrentUser(res.data.user);
       }
-      return this.request('/api/accounts', { method: 'POST', data: payload });
+      return res;
     },
 
-    deleteAccount(id) {
-      return this.request(`/api/accounts/${encodeURIComponent(id)}`, { method: 'DELETE' });
+    async getMe() {
+      return await window.authService.getMe();
     },
 
-    switchAccountServer(id, newServerId) {
-      return this.request(`/api/accounts/${encodeURIComponent(id)}/switch-server`, {
-        method: 'POST',
-        data: { newServerId }
-      });
+    async logout() {
+      await window.authService.logout();
+      this.setCurrentUser(null);
     },
 
-    updateAccountSetup(id, payload = {}) {
-      return this.request(`/api/accounts/${encodeURIComponent(id)}/setup`, {
-        method: 'PUT',
-        data: payload
-      });
-    },
+    // Bot & System methods
+    getStatus: () => window.botService.getStatus(),
+    getConfig: () => window.systemService.getConfig(),
+    saveConfig: (p) => window.systemService.saveConfig(p),
+    getLogs: () => window.systemService.getLogs(),
+    clearLogs: () => window.systemService.clearLogs(),
 
-    resetAccountData(id) {
-      return this.request(`/api/accounts/${encodeURIComponent(id)}/reset-data`, {
-        method: 'POST'
-      });
-    },
+    // File methods
+    getFiles: () => window.fileService.getFiles(),
+    saveFile: (p) => window.fileService.saveFile(p),
+    deleteFile: (id) => window.fileService.deleteFile(id),
+    switchFile: (id) => window.fileService.switchFile(id),
 
-    // ==========================================
-    // 5. BOT EXECUTION & AUTOMATION (RESTful)
-    // ==========================================
-    startAccount(id) {
-      return this.request(`/api/accounts/${encodeURIComponent(id)}/start`, {
-        method: 'POST'
-      });
-    },
+    // Proxy methods
+    getProxies: () => window.proxyService.getProxies(),
+    saveProxy: (p) => window.proxyService.saveProxy(p),
+    deleteProxy: (id) => window.proxyService.deleteProxy(id),
+    testProxy: (id) => window.proxyService.testProxy(id),
+    testAllProxies: () => window.proxyService.testAllProxies(),
 
-    stopAccount(id) {
-      return this.request(`/api/accounts/${encodeURIComponent(id)}/stop`, {
-        method: 'POST'
-      });
-    },
+    // Account methods
+    getAccounts: () => window.accountService.getAccounts(),
+    saveAccount: (p) => window.accountService.saveAccount(p),
+    deleteAccount: (id) => window.accountService.deleteAccount(id),
+    switchAccountServer: (id, s) => window.accountService.switchAccountServer(id, s),
+    updateAccountSetup: (id, p) => window.accountService.updateAccountSetup(id, p),
+    resetAccountData: (id) => window.accountService.resetAccountData(id),
 
-    triggerAuto(id, autoType = 'farm', action = 'start') {
-      return this.request(`/api/accounts/${encodeURIComponent(id)}/auto`, {
-        method: 'POST',
-        data: { autoType, action }
-      });
-    },
+    // Bot execution methods
+    startAccount: (id) => window.accountService.startAccount(id),
+    stopAccount: (id) => window.accountService.stopAccount(id),
+    triggerAuto: (id, t, a) => window.accountService.triggerAuto(id, t, a),
+    startAllFile: () => window.botService.startAllFile(),
+    stopAll: () => window.botService.stopAll(),
+    restartAll: () => window.botService.restartAll(),
+    getAvailableJars: () => window.botService.getAvailableJars(),
+    uploadJar: (f) => window.botService.uploadJar(f),
+    installJre: () => window.botService.installJre(),
+    getJreProgress: () => window.botService.getJreProgress(),
 
-    startAllFile() {
-      return this.request('/api/start', { method: 'POST' });
-    },
-
-    stopAll() {
-      return this.request('/api/stop', { method: 'POST' });
-    },
-
-    restartAll() {
-      return this.request('/api/restart', { method: 'POST' });
-    },
-
-    // ==========================================
-    // 6. JAR FILES & RUNTIME
-    // ==========================================
-    getAvailableJars() {
-      return this.request('/api/available-jars', { method: 'GET' });
-    },
-
-    async uploadJar(file) {
-      if (axiosInstance) {
-        return axiosInstance.post('/api/upload-jar', file, {
-          headers: {
-            'x-filename': encodeURIComponent(file.name),
-            'Content-Type': 'application/octet-stream'
-          }
-        });
-      }
-      return fetch('/api/upload-jar', {
-        method: 'POST',
-        headers: {
-          ...this.getHeaders(),
-          'x-filename': encodeURIComponent(file.name),
-          'Content-Type': 'application/octet-stream'
-        },
-        body: file
-      }).then(r => r.json());
-    },
-
-    installJre() {
-      return this.request('/api/jre/install', { method: 'POST' });
-    },
-
-    getJreProgress() {
-      return this.request('/api/jre/progress', { method: 'GET' });
-    },
-
-    // ==========================================
-    // 7. RMS DIAGNOSTICS & AUDITING
-    // ==========================================
-    inspectRms(accountId) {
-      return this.request(`/api/accounts/inspect-rms?id=${encodeURIComponent(accountId)}`, { method: 'GET' });
-    },
-
-    auditRms(accountId) {
-      return this.request(`/api/accounts/audit-rms?id=${encodeURIComponent(accountId)}`, { method: 'GET' });
-    },
-
-    fixRms(accountId) {
-      return this.request('/api/accounts/fix-rms', {
-        method: 'POST',
-        data: { id: accountId }
-      });
-    },
-
-    randomTestRms(accountId, rounds = 5) {
-      return this.request('/api/accounts/random-test-rms', {
-        method: 'POST',
-        data: { id: accountId, rounds }
-      });
-    },
-
-    restoreOriginalRms(accountId) {
-      return this.request('/api/accounts/restore-original-rms', {
-        method: 'POST',
-        data: { id: accountId }
-      });
-    }
+    // RMS Diagnostics methods
+    inspectRms: (id) => window.rmsService.inspectRms(id),
+    auditRms: (id) => window.rmsService.auditRms(id),
+    fixRms: (id) => window.rmsService.fixRms(id),
+    randomTestRms: (id, r) => window.rmsService.randomTestRms(id, r),
+    restoreOriginalRms: (id) => window.rmsService.restoreOriginalRms(id)
   };
 })(window);

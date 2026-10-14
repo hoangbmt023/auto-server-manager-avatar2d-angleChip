@@ -1,13 +1,14 @@
 const RegisterUserRequestDto = require('../../../application/dtos/auth/RegisterUserRequestDto');
 const LoginUserRequestDto = require('../../../application/dtos/auth/LoginUserRequestDto');
 const ApiResponse = require('../../../application/dtos/common/ApiResponse');
-const ErrorResponse = require('../../../application/dtos/common/ErrorResponse');
+const { UnauthorizedException } = require('../../../domain/errors');
 const { sendErrorResponse } = require('../helpers/errorHandler');
+const cookieHelper = require('../helpers/cookieHelper');
 
 /**
  * AuthController (Interface Layer)
- * Handles user registration, login, and profile requests.
- * Automatically wraps responses with standard ApiResponse and maps Custom Exceptions.
+ * Handles user registration, activation, login, token refresh via HttpOnly cookies,
+ * password recovery, and profile queries.
  */
 class AuthController {
   constructor(authService) {
@@ -22,9 +23,39 @@ class AuthController {
     try {
       const body = await parseJsonBody(req);
       const dto = new RegisterUserRequestDto(body);
-      const user = await this.authService.register(dto);
+      const result = await this.authService.register(dto);
 
-      return sendJson(res, 201, ApiResponse.success(user, 'Đăng ký tài khoản thành công!'));
+      return sendJson(res, 201, ApiResponse.success(result, result.message || 'Đăng ký tài khoản thành công!'));
+    } catch (err) {
+      return this._sendError(res, sendJson, err);
+    }
+  }
+
+  async sendOtp(req, res, sendJson, parseJsonBody) {
+    try {
+      const body = await parseJsonBody(req);
+      const result = await this.authService.sendOtp(body);
+
+      return sendJson(res, 200, ApiResponse.success(result, result.message || 'Gửi mã OTP thành công!'));
+    } catch (err) {
+      return this._sendError(res, sendJson, err);
+    }
+  }
+
+  async activate(req, res, sendJson, parseJsonBody) {
+    try {
+      const body = await parseJsonBody(req);
+      const result = await this.authService.activateAccount(body);
+
+      // Set HttpOnly refresh token cookie
+      if (result.refreshToken) {
+        cookieHelper.setCookie(res, 'refreshToken', result.refreshToken);
+      }
+
+      return sendJson(res, 200, ApiResponse.success({
+        user: result.user,
+        accessToken: result.accessToken
+      }, result.message || 'Kích hoạt tài khoản thành công!'));
     } catch (err) {
       return this._sendError(res, sendJson, err);
     }
@@ -34,9 +65,103 @@ class AuthController {
     try {
       const body = await parseJsonBody(req);
       const dto = new LoginUserRequestDto(body);
-      const user = await this.authService.login(dto);
+      const result = await this.authService.login(dto);
 
-      return sendJson(res, 200, ApiResponse.success(user, 'Đăng nhập thành công!'));
+      // Set HttpOnly refresh token cookie (Persistent vs Session cookie based on remember checkbox)
+      if (result.refreshToken) {
+        const config = require('../../../../config');
+        const rememberDays = (config.security && config.security.cookieRememberDays) || 7;
+        const cookieOpts = dto.remember ? { maxAge: rememberDays * 24 * 60 * 60 } : { maxAge: null };
+        cookieHelper.setCookie(res, 'refreshToken', result.refreshToken, cookieOpts);
+      }
+
+      return sendJson(res, 200, ApiResponse.success({
+        user: result.user,
+        accessToken: result.accessToken
+      }, 'Đăng nhập thành công!'));
+    } catch (err) {
+      return this._sendError(res, sendJson, err);
+    }
+  }
+
+  async refresh(req, res, sendJson, parseJsonBody) {
+    try {
+      const cookies = cookieHelper.parseCookies(req);
+      let refreshToken = cookies.refreshToken;
+
+      // Fallback to body refreshToken if cookie not sent (e.g. non-browser API clients)
+      if (!refreshToken) {
+        const body = await parseJsonBody(req).catch(() => ({}));
+        refreshToken = body?.refreshToken || '';
+      }
+
+      const result = await this.authService.refresh(refreshToken);
+
+      // Token rotation: Set newly issued refresh token in HttpOnly cookie
+      if (result.refreshToken) {
+        cookieHelper.setCookie(res, 'refreshToken', result.refreshToken);
+      }
+
+      return sendJson(res, 200, ApiResponse.success(result, 'Làm mới token thành công!'));
+    } catch (err) {
+      return this._sendError(res, sendJson, err);
+    }
+  }
+
+  async logout(req, res, sendJson) {
+    try {
+      const cookies = cookieHelper.parseCookies(req);
+      if (cookies.refreshToken) {
+        await this.authService.logout(cookies.refreshToken);
+      }
+      cookieHelper.clearCookie(res, 'refreshToken');
+      return sendJson(res, 200, ApiResponse.success(null, 'Đăng xuất thành công!'));
+    } catch (err) {
+      return this._sendError(res, sendJson, err);
+    }
+  }
+
+
+  async forgotPassword(req, res, sendJson, parseJsonBody) {
+    try {
+      const body = await parseJsonBody(req);
+      const result = await this.authService.forgotPassword(body);
+
+      return sendJson(res, 200, ApiResponse.success(result, result.message || 'Mã xác thực đã được gửi!'));
+    } catch (err) {
+      return this._sendError(res, sendJson, err);
+    }
+  }
+
+  async verifyForgotPassword(req, res, sendJson, parseJsonBody) {
+    try {
+      const body = await parseJsonBody(req);
+      const result = await this.authService.verifyForgotPassword(body);
+
+      return sendJson(res, 200, ApiResponse.success(result, result.message || 'Mã xác thực OTP hợp lệ!'));
+    } catch (err) {
+      return this._sendError(res, sendJson, err);
+    }
+  }
+
+  async resetPassword(req, res, sendJson, parseJsonBody) {
+    try {
+      const body = await parseJsonBody(req);
+      const result = await this.authService.resetPassword(body);
+
+      return sendJson(res, 200, ApiResponse.success(result, result.message || 'Đặt lại mật khẩu thành công!'));
+    } catch (err) {
+      return this._sendError(res, sendJson, err);
+    }
+  }
+
+  async me(req, res, sendJson) {
+    try {
+      if (!req.user || !req.user.sub) {
+        throw new UnauthorizedException('Bạn chưa đăng nhập!');
+      }
+      const user = await this.authService.getUserById(req.user.sub);
+      return sendJson(res, 200, ApiResponse.success(user, 'Lấy thông tin người dùng thành công!'));
     } catch (err) {
       return this._sendError(res, sendJson, err);
     }

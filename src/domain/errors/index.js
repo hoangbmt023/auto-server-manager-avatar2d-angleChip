@@ -6,6 +6,7 @@ const UnauthorizedException = require('./UnauthorizedException');
 const ForbiddenException = require('./ForbiddenException');
 const ConflictException = require('./ConflictException');
 const InternalServerErrorException = require('./InternalServerErrorException');
+const TooManyRequestsException = require('./TooManyRequestsException');
 
 module.exports = {
   AppException,
@@ -15,5 +16,7 @@ module.exports = {
   UnauthorizedException,
   ForbiddenException,
   ConflictException,
-  InternalServerErrorException
+  InternalServerErrorException,
+  TooManyRequestsException
 };
+

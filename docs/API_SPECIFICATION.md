@@ -123,3 +123,10 @@ Incoming Request
 * `GET /api/settings/config` - Get safe system configuration.
 * `POST /api/settings/config` - Update memory, port, and security tokens (`SaveSystemConfigRequestDto`).
 * `POST /api/system/install-jre` - 1-Click download and extract Portable OpenJDK 17 on Linux.
+
+### 7. Authentication & JWT (`/api/auth`)
+* `POST /api/auth/register` - Register new user account with bcrypt password hashing and issue JWT tokens (`RegisterUserRequestDto`).
+* `POST /api/auth/login` - Authenticate credentials and return signed access & refresh JWT tokens (`LoginUserRequestDto`).
+* `POST /api/auth/refresh` - Issue a fresh access token using a valid refresh token.
+* `GET /api/auth/me` - Retrieve user profile for the authenticated bearer token (`UserResponseDto`).
+

@@ -114,9 +114,30 @@ const systemSettings = mysqlTable('system_settings', {
   updatedAt: timestamp('updated_at').defaultNow().onUpdateNow()
 });
 
+// 6. Refresh Tokens Table (Secure Session & Token Rotation Store)
+const refreshTokens = mysqlTable('refresh_tokens', {
+  id: varchar('id', { length: 50 }).primaryKey(),
+  userId: varchar('user_id', { length: 50 }).notNull(),
+  tokenHash: varchar('token_hash', { length: 64 }).notNull(),
+  expiresAt: datetime('expires_at').notNull(),
+  revokedAt: datetime('revoked_at'),
+  createdAt: timestamp('created_at').defaultNow().notNull()
+}, (table) => [
+  index('idx_refresh_tokens_user_id').on(table.userId),
+  index('idx_refresh_tokens_token_hash').on(table.tokenHash)
+]);
+
 // Relations Definitions
 const usersRelations = relations(users, ({ many }) => ({
-  accounts: many(accounts)
+  accounts: many(accounts),
+  refreshTokens: many(refreshTokens)
+}));
+
+const refreshTokensRelations = relations(refreshTokens, ({ one }) => ({
+  user: one(users, {
+    fields: [refreshTokens.userId],
+    references: [users.id]
+  })
 }));
 
 const botFilesRelations = relations(botFiles, ({ many }) => ({
@@ -148,8 +169,11 @@ module.exports = {
   proxies,
   accounts,
   systemSettings,
+  refreshTokens,
   usersRelations,
+  refreshTokensRelations,
   botFilesRelations,
   proxiesRelations,
   accountsRelations
 };
+

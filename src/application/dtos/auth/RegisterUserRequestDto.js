@@ -1,4 +1,5 @@
 const { ValidationException } = require('../../../domain/errors');
+const { validatePassword } = require('../../../domain/validation/passwordPolicy');
 
 /**
  * RegisterUserRequestDto (Application Layer - DTO)
@@ -23,8 +24,9 @@ class RegisterUserRequestDto {
       }
     }
 
-    if (!this.password || this.password.length < 6) {
-      errors.password = 'Mật khẩu phải có tối thiểu 6 ký tự!';
+    const passwordCheck = validatePassword(this.password);
+    if (!passwordCheck.isValid) {
+      errors.password = passwordCheck.message;
     }
 
     if (this.phone) {

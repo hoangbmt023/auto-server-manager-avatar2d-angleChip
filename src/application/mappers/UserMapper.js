@@ -12,7 +12,7 @@ class UserMapper {
       password: hashedPassword,
       phone: dto.phone,
       role: dto.role,
-      status: 'active'
+      status: dto.status || 'INACTIVE'
     });
   }
 

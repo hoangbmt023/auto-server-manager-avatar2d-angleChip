@@ -25,9 +25,75 @@ window.AppProvider = function AppProvider({ children }) {
   const [uptime, setUptime] = useState(0);
   const [availableJars, setAvailableJars] = useState(['avatar_fish_build40.jar']);
   const [theme, setTheme] = useState(() => localStorage.getItem('app_theme') || 'dark');
+  const [currentUser, setCurrentUser] = useState(() => window.ApiClient.getCurrentUser());
+  const [isAuthenticated, setIsAuthenticated] = useState(() => !!(window.tokenManager && window.tokenManager.getAccessToken()));
+  const [isAuthLoading, setIsAuthLoading] = useState(true);
 
   const sseRef = useRef(null);
   const terminalRef = useRef(null);
+
+  // Check session via HttpOnly Cookie refresh on mount
+  useEffect(() => {
+    let isMounted = true;
+    async function initAuth() {
+      try {
+        if (window.authService) {
+          const refRes = await window.authService.refresh();
+          if (refRes && refRes.success && refRes.data && refRes.data.accessToken) {
+            const meRes = await window.authService.getMe();
+            if (isMounted && meRes && meRes.success && meRes.data) {
+              setCurrentUser(meRes.data);
+              setIsAuthenticated(true);
+              window.ApiClient.setCurrentUser(meRes.data);
+              setIsAuthLoading(false);
+              return;
+            }
+          }
+        }
+      } catch (err) {}
+
+      if (isMounted) {
+        setIsAuthenticated(false);
+        setCurrentUser(null);
+        window.ApiClient.setCurrentUser(null);
+        setIsAuthLoading(false);
+      }
+    }
+
+    initAuth();
+
+    // Listen to unauthorized event
+    const handleUnauthorized = () => {
+      if (isMounted) {
+        setIsAuthenticated(false);
+        setCurrentUser(null);
+        window.ApiClient.setCurrentUser(null);
+      }
+    };
+    window.addEventListener('auth:unauthorized', handleUnauthorized);
+    return () => {
+      isMounted = false;
+      window.removeEventListener('auth:unauthorized', handleUnauthorized);
+    };
+  }, []);
+
+  const loginUser = useCallback((user, token) => {
+    if (token && window.tokenManager) {
+      window.tokenManager.setAccessToken(token);
+    }
+    setCurrentUser(user);
+    setIsAuthenticated(true);
+    if (user) window.ApiClient.setCurrentUser(user);
+  }, []);
+
+  const logoutUser = useCallback(async () => {
+    try {
+      if (window.authService) await window.authService.logout();
+    } catch (e) {}
+    setCurrentUser(null);
+    setIsAuthenticated(false);
+    window.ApiClient.setCurrentUser(null);
+  }, []);
 
   // Theme Sync
   useEffect(() => {
@@ -521,6 +587,11 @@ window.AppProvider = function AppProvider({ children }) {
     runningDk,
     runningTotal,
     isAnyRunning,
+    currentUser,
+    isAuthenticated,
+    isAuthLoading,
+    loginUser,
+    logoutUser,
     // Fetchers
     fetchStatus,
     fetchFiles,

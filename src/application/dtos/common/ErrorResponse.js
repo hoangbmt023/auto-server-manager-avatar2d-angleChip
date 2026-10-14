@@ -15,12 +15,14 @@ class ErrorResponse {
    * Java: public static ErrorResponse message(String msg)
    * @param {string} msg
    */
-  static message(msg) {
-    return {
+  static message(msg, data = null) {
+    const res = {
       success: false,
       message: msg || 'Đã xảy ra lỗi!',
       errors: null
     };
+    if (data) res.data = data;
+    return res;
   }
 
   /**
