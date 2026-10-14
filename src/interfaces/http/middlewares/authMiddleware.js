@@ -21,7 +21,7 @@ function safeCompare(a, b) {
  * Supports both JWT Bearer Authentication and legacy Dashboard Password.
  * Sets req.user when a valid JWT token is presented.
  */
-function createAuthMiddleware(settingRepo, sendJson) {
+function createAuthMiddleware(settingRepo, sendJson, userRepo = null) {
   return async function authMiddleware(req, res) {
     const authHeader = req.headers['authorization'] || req.headers['x-dashboard-auth'];
 
@@ -31,6 +31,20 @@ function createAuthMiddleware(settingRepo, sendJson) {
       // 1. Try JWT Bearer Token validation
       try {
         const decoded = defaultJwtService.verifyAccessToken(token);
+
+        // Security check: Verify user is not BANNED or INACTIVE
+        if (userRepo && decoded.sub) {
+          const user = await userRepo.findById(decoded.sub);
+          if (!user || user.status === 'BANNED') {
+            sendJson(res, 403, ErrorResponse.message('Tài khoản của bạn đã bị khóa bởi quản trị viên!'));
+            return false;
+          }
+          if (user.status === 'INACTIVE') {
+            sendJson(res, 403, ErrorResponse.message('Tài khoản chưa được kích hoạt!'));
+            return false;
+          }
+        }
+
         req.user = decoded;
         return true;
       } catch (jwtErr) {
@@ -40,6 +54,7 @@ function createAuthMiddleware(settingRepo, sendJson) {
           return false;
         }
       }
+
 
       // 2. Fallback to system password check (Timing-safe)
       let password = '';

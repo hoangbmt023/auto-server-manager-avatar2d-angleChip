@@ -16,6 +16,7 @@ const MySqlAccountRepository = require('../../infrastructure/persistence/mysql/M
 const MySqlBotFileRepository = require('../../infrastructure/persistence/mysql/MySqlBotFileRepository');
 const MySqlProxyRepository = require('../../infrastructure/persistence/mysql/MySqlProxyRepository');
 const MySqlSystemSettingRepository = require('../../infrastructure/persistence/mysql/MySqlSystemSettingRepository');
+const MySqlRefreshTokenRepository = require('../../infrastructure/persistence/mysql/MySqlRefreshTokenRepository');
 
 // Application Services
 const MultiBotManager = require('../../application/services/MultiBotManager');
@@ -78,6 +79,7 @@ class HttpServer {
     this.fileRepo = new MySqlBotFileRepository(this.dbPool, this.drizzleDb);
     this.proxyRepo = new MySqlProxyRepository(this.dbPool, this.drizzleDb);
     this.settingRepo = new MySqlSystemSettingRepository(this.dbPool, this.drizzleDb);
+    this.refreshTokenRepo = new MySqlRefreshTokenRepository(this.dbPool, this.drizzleDb);
 
     // Application Services (100% Database-Driven)
     this.multiBotManager = new MultiBotManager(
@@ -87,7 +89,7 @@ class HttpServer {
       this.settingRepo,
       this.sseEventBus
     );
-    this.authService = new AuthService(this.userRepo);
+    this.authService = new AuthService(this.userRepo, undefined, undefined, undefined, this.refreshTokenRepo);
     this.accountService = new AccountService(
       this.accountRepo,
       this.fileRepo,
@@ -121,7 +123,7 @@ class HttpServer {
     this.publicDir = path.resolve(__dirname, '../../../public');
     this.server = null;
     this.router = this.initRouter();
-    this.authMiddleware = createAuthMiddleware(this.settingRepo, this.sendJson.bind(this));
+    this.authMiddleware = createAuthMiddleware(this.settingRepo, this.sendJson.bind(this), this.userRepo);
     this.parseJsonBody = parseJsonBody;
   }
 
@@ -227,8 +229,19 @@ class HttpServer {
         }
       }
 
-      // 4. Public User Registration, Login, and Refresh endpoints
-      if (pathname === '/api/auth/register' || pathname === '/api/auth/login' || pathname === '/api/auth/refresh') {
+      // 4. Public User Authentication & OTP endpoints
+      const publicAuthEndpoints = [
+        '/api/auth/register',
+        '/api/auth/send-otp',
+        '/api/auth/activate',
+        '/api/auth/login',
+        '/api/auth/refresh',
+        '/api/auth/logout',
+        '/api/auth/forgot-password',
+        '/api/auth/verify-forgot-password',
+        '/api/auth/reset-password'
+      ];
+      if (publicAuthEndpoints.includes(pathname)) {
         const handled = await this.router.handle(req, res, parsedUrl, helpers);
         if (handled) return;
       }

@@ -20,7 +20,7 @@ function sendErrorResponse(res, sendJson, err) {
     if (err.errors && typeof err.errors === 'object') {
       return sendJson(res, statusCode, ErrorResponse.validation(err.errors, err.message || 'Không hợp lệ'));
     }
-    return sendJson(res, statusCode, ErrorResponse.message(err.message || 'Yêu cầu không hợp lệ!'));
+    return sendJson(res, statusCode, ErrorResponse.message(err.message || 'Yêu cầu không hợp lệ!', err.data));
   }
 
   // 2. Lỗi nằm ngoài các trường hợp bắt (Uncaught Exception, Crash, DB error, Syntax/TypeError...) -> Trả về HTTP 500

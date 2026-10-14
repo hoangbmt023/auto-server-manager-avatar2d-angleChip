@@ -21,8 +21,8 @@ class DatabaseMigrator {
     const dbName = this.dbPool.config.database;
 
     try {
-      // 1. Đồng bộ từng bảng theo thứ tự (users, bot_files, proxies trước; accounts sau do có FK)
-      const tableKeys = ['users', 'bot_files', 'proxies', 'accounts', 'system_settings'];
+      // 1. Đồng bộ từng bảng theo thứ tự (users, bot_files, proxies trước; accounts, refresh_tokens sau do có FK)
+      const tableKeys = ['users', 'bot_files', 'proxies', 'accounts', 'system_settings', 'refresh_tokens'];
 
       for (const key of tableKeys) {
         const schema = TABLES[key];

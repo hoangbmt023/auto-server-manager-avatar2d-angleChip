@@ -5,7 +5,6 @@ const { UnauthorizedException } = require('../../domain/errors');
 /**
  * JwtService (Infrastructure Layer - Security)
  * Manages JWT generation and verification for authenticated users.
- * Compatible with GienPhim_Be_Netflix token specifications.
  */
 class JwtService {
   constructor() {

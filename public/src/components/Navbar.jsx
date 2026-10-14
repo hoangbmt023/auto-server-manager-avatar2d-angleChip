@@ -20,10 +20,11 @@ window.Navbar = function Navbar({
     <header className="navbar">
       <div className="brand">
         <div className="brand-icon">
-          <window.Icon name="bot" size={20} color="var(--apple-blue)" />
+          <img src="assets/logo.png" className="app-logo-img" alt="AVATAR2D Logo" />
         </div>
+
         <div className="brand-text">
-          <h1>AVATAR BOT MANAGER</h1>
+          <h1>AVATAR2D AUTO</h1>
           <span className="badge-cpanel">Precision Architecture • Node.js React 18</span>
         </div>
       </div>
@@ -44,7 +45,7 @@ window.Navbar = function Navbar({
           <span>{isAnyRunning ? `${runningCount} Online` : 'Đã Dừng'}</span>
         </div>
 
-        {/* User Profile Badge (GienPhim Auth) */}
+        {/* User Profile Badge (JWT Auth) */}
         {currentUser && (
           <div className="navbar-user-profile" title={`Đăng nhập với ${currentUser.email}`}>
             <div className="navbar-user-avatar">
@@ -53,10 +54,13 @@ window.Navbar = function Navbar({
             <span className="navbar-user-email">{currentUser.email}</span>
             {onLogout && (
               <button
+                type="button"
                 className="navbar-logout-btn"
                 onClick={onLogout}
                 title="Đăng xuất khỏi hệ thống"
+                aria-label="Đăng xuất"
               >
+
                 <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                   <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path>
                   <polyline points="16 17 21 12 16 7"></polyline>

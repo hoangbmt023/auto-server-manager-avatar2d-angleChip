@@ -26,38 +26,73 @@ window.AppProvider = function AppProvider({ children }) {
   const [availableJars, setAvailableJars] = useState(['avatar_fish_build40.jar']);
   const [theme, setTheme] = useState(() => localStorage.getItem('app_theme') || 'dark');
   const [currentUser, setCurrentUser] = useState(() => window.ApiClient.getCurrentUser());
-  const [isAuthenticated, setIsAuthenticated] = useState(() => !!window.ApiClient.getAuthToken());
+  const [isAuthenticated, setIsAuthenticated] = useState(() => !!(window.tokenManager && window.tokenManager.getAccessToken()));
+  const [isAuthLoading, setIsAuthLoading] = useState(true);
 
   const sseRef = useRef(null);
   const terminalRef = useRef(null);
 
-  // Check token on mount
+  // Check session via HttpOnly Cookie refresh on mount
   useEffect(() => {
-    const token = window.ApiClient.getAuthToken();
-    if (token) {
-      window.ApiClient.getMe().then(res => {
-        if (res && res.success && res.data) {
-          setCurrentUser(res.data);
-          setIsAuthenticated(true);
-          window.ApiClient.setCurrentUser(res.data);
-        } else if (res && (res.status === 401 || !res.success)) {
-          window.ApiClient.logout();
-          setCurrentUser(null);
-          setIsAuthenticated(false);
+    let isMounted = true;
+    async function initAuth() {
+      try {
+        if (window.authService) {
+          const refRes = await window.authService.refresh();
+          if (refRes && refRes.success && refRes.data && refRes.data.accessToken) {
+            const meRes = await window.authService.getMe();
+            if (isMounted && meRes && meRes.success && meRes.data) {
+              setCurrentUser(meRes.data);
+              setIsAuthenticated(true);
+              window.ApiClient.setCurrentUser(meRes.data);
+              setIsAuthLoading(false);
+              return;
+            }
+          }
         }
-      }).catch(() => {});
+      } catch (err) {}
+
+      if (isMounted) {
+        setIsAuthenticated(false);
+        setCurrentUser(null);
+        window.ApiClient.setCurrentUser(null);
+        setIsAuthLoading(false);
+      }
     }
+
+    initAuth();
+
+    // Listen to unauthorized event
+    const handleUnauthorized = () => {
+      if (isMounted) {
+        setIsAuthenticated(false);
+        setCurrentUser(null);
+        window.ApiClient.setCurrentUser(null);
+      }
+    };
+    window.addEventListener('auth:unauthorized', handleUnauthorized);
+    return () => {
+      isMounted = false;
+      window.removeEventListener('auth:unauthorized', handleUnauthorized);
+    };
   }, []);
 
-  const loginUser = useCallback((user) => {
+  const loginUser = useCallback((user, token) => {
+    if (token && window.tokenManager) {
+      window.tokenManager.setAccessToken(token);
+    }
     setCurrentUser(user);
     setIsAuthenticated(true);
+    if (user) window.ApiClient.setCurrentUser(user);
   }, []);
 
-  const logoutUser = useCallback(() => {
-    window.ApiClient.logout();
+  const logoutUser = useCallback(async () => {
+    try {
+      if (window.authService) await window.authService.logout();
+    } catch (e) {}
     setCurrentUser(null);
     setIsAuthenticated(false);
+    window.ApiClient.setCurrentUser(null);
   }, []);
 
   // Theme Sync
@@ -554,6 +589,7 @@ window.AppProvider = function AppProvider({ children }) {
     isAnyRunning,
     currentUser,
     isAuthenticated,
+    isAuthLoading,
     loginUser,
     logoutUser,
     // Fetchers

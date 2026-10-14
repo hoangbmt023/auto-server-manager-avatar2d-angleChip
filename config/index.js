@@ -55,7 +55,9 @@ const config = {
     jwtSecret: env.get('JWT_SECRET', env.get('APP_SECRET', 'avatar_jwt_super_secret_key_2026')),
     jwtExpiresIn: env.get('JWT_EXPIRES_IN', '24h'),
     jwtRefreshExpiresIn: env.get('JWT_REFRESH_EXPIRES_IN', '7d'),
-    maxPayloadSizeMb: env.getNumber('MAX_PAYLOAD_SIZE_MB', 5)
+    cookieRememberDays: env.getNumber('COOKIE_REMEMBER_DAYS', 7),
+    maxPayloadSizeMb: env.getNumber('MAX_PAYLOAD_SIZE_MB', 5),
+    maxActiveDevices: env.getNumber('MAX_ACTIVE_DEVICES', 5)
   },
 
   cors: {
@@ -68,6 +70,15 @@ const config = {
 
   java: {
     javaHome: env.get('JAVA_HOME', null)
+  },
+
+  email: {
+    host: env.get('SMTP_HOST', ''),
+    port: env.getNumber('SMTP_PORT', 587),
+    user: env.get('SMTP_USER', ''),
+    pass: env.get('SMTP_PASS', ''),
+    from: env.get('SMTP_FROM', 'Avatar Bot Manager <noreply@avatarbot.com>'),
+    logoUrl: env.get('EMAIL_LOGO_URL', '')
   },
 
   // Export intermediate Env helper for dynamic queries

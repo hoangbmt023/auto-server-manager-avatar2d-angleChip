@@ -116,8 +116,28 @@ const TABLES = {
       updated_at: { type: 'TIMESTAMP', default: 'CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP' }
     },
     indexes: []
+  },
+
+  refresh_tokens: {
+    tableName: 'refresh_tokens',
+    columns: {
+      id: { type: 'VARCHAR(50)', primaryKey: true, notNull: true },
+      user_id: { type: 'VARCHAR(50)', notNull: true },
+      token_hash: { type: 'VARCHAR(64)', notNull: true },
+      expires_at: { type: 'DATETIME', notNull: true },
+      revoked_at: { type: 'DATETIME', null: true },
+      created_at: { type: 'TIMESTAMP', default: 'CURRENT_TIMESTAMP' }
+    },
+    indexes: [
+      { name: 'idx_refresh_tokens_user_id', columns: ['user_id'] },
+      { name: 'idx_refresh_tokens_token_hash', columns: ['token_hash'] }
+    ],
+    foreignKeys: [
+      { name: 'fk_refresh_tokens_user', column: 'user_id', refTable: 'users', refColumn: 'id', onDelete: 'CASCADE' }
+    ]
   }
 };
+
 
 module.exports = {
   TABLES

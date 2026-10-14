@@ -4,7 +4,8 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Avatar Fish Bot Manager - React Dashboard</title>
+  <title>AVATAR2D AUTO - Web Dashboard</title>
+  <link rel="icon" type="image/png" href="assets/logo.png">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link
@@ -12,13 +13,13 @@
     rel="stylesheet">
 
   <!-- Modular Stylesheets -->
-  <link rel="stylesheet" href="style.css?v=69">
+  <link rel="stylesheet" href="style.css?v=70">
   <link rel="stylesheet" href="src/styles/navbar.css?v=69">
   <link rel="stylesheet" href="src/styles/terminal.css?v=69">
   <link rel="stylesheet" href="src/styles/accounts.css?v=69">
   <link rel="stylesheet" href="src/styles/modals.css?v=78">
   <link rel="stylesheet" href="src/styles/dialog.css?v=69">
-  <link rel="stylesheet" href="src/styles/auth.css?v=1">
+  <link rel="stylesheet" href="src/styles/auth.css?v=4">
   <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
   <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
   <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
@@ -31,8 +32,16 @@
   <!-- Constants & Data Layer -->
   <script src="src/constants/farmItemsData.js?v=68"></script>
 
-  <!-- API Layer -->
-  <script src="src/api/api.js?v=68"></script>
+  <!-- Services & API Layer -->
+  <script src="src/services/httpClient.js?v=2"></script>
+  <script src="src/services/authService.js?v=2"></script>
+  <script src="src/services/accountService.js?v=2"></script>
+  <script src="src/services/botService.js?v=2"></script>
+  <script src="src/services/fileService.js?v=2"></script>
+  <script src="src/services/proxyService.js?v=2"></script>
+  <script src="src/services/systemService.js?v=2"></script>
+  <script src="src/services/rmsService.js?v=2"></script>
+  <script src="src/api/api.js?v=2"></script>
 
   <!-- Hooks Layer -->
   <script type="text/babel" src="src/hooks/useCapacityLimits.js?v=68"></script>
@@ -71,11 +80,18 @@
   <script type="text/babel" src="src/components/modals/setup/SellOreSetupModal.jsx?v=70"></script>
   <script type="text/babel" src="src/components/modals/AccountSetupModal.jsx?v=70"></script>
   <script type="text/babel" src="src/components/modals/RmsInspectorModal.jsx?v=78"></script>
-  <!-- Auth Layer (GienPhim & Netflix UI) -->
-  <script type="text/babel" src="src/components/auth/AuthInput.jsx?v=1"></script>
-  <script type="text/babel" src="src/components/auth/AuthPage.jsx?v=1"></script>
 
-  <!-- Pages Layer -->
+  <!-- Auth Components Layer -->
+  <script type="text/babel" src="src/components/auth/AuthInput.jsx?v=4"></script>
+  <script type="text/babel" src="src/components/auth/LoginForm.jsx?v=4"></script>
+  <script type="text/babel" src="src/components/auth/RegisterForm.jsx?v=4"></script>
+  <script type="text/babel" src="src/components/auth/VerifyOtpForm.jsx?v=4"></script>
+  <script type="text/babel" src="src/components/auth/ForgotPasswordForm.jsx?v=4"></script>
+  <script type="text/babel" src="src/components/auth/VerifyForgotPasswordForm.jsx?v=4"></script>
+  <script type="text/babel" src="src/components/auth/ResetPasswordForm.jsx?v=4"></script>
+
+  <!-- Pages Layer (AuthPage & DashboardPage at same level) -->
+  <script type="text/babel" src="src/pages/AuthPage.jsx?v=4"></script>
   <script type="text/babel" src="src/pages/DashboardPage.jsx?v=70"></script>
 
   <!-- Application Root Layer -->

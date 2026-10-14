@@ -49,7 +49,9 @@ Thumbs.db
 # Scratch & Temporary Analysis
 # ==========================================
 scratch/
-temp*
+temp/
+tmp/
 *.tmp
+!templates/
 *.class.txt
 *_disasm.txt
