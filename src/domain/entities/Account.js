@@ -24,7 +24,9 @@ class Account {
     diamondSettings = null,
     fishSettings = null,
     sellOreSettings = null,
-    ipSlot = 1
+    ipSlot = 1,
+    rentalExpiresAt = null,
+    rentalPlan = 'UPXU'
   }) {
     this.id = id || uuidv7();
     this.userId = userId || null;
@@ -40,6 +42,8 @@ class Account {
     this.targetCoins = parseInt(targetCoins || 0, 10);
     this.upDays = parseInt(upDays || 0, 10);
     this.pendingReset = Boolean(pendingReset);
+    this.rentalExpiresAt = rentalExpiresAt ? new Date(rentalExpiresAt) : null;
+    this.rentalPlan = String(rentalPlan || 'UPXU').toUpperCase();
     this.farmSettings = farmSettings || {
       mode: 0,
       animal: 3,
@@ -104,6 +108,16 @@ class Account {
     }
   }
 
+  isRentalExpired() {
+    if (!this.rentalExpiresAt) return false;
+    return this.rentalExpiresAt.getTime() < Date.now();
+  }
+
+  getRentalRemainingMs() {
+    if (!this.rentalExpiresAt) return null;
+    return Math.max(0, this.rentalExpiresAt.getTime() - Date.now());
+  }
+
   toPublicJson() {
     return {
       id: this.id,
@@ -120,6 +134,10 @@ class Account {
       targetCoins: this.targetCoins,
       upDays: this.upDays,
       pendingReset: this.pendingReset,
+      rentalExpiresAt: this.rentalExpiresAt ? this.rentalExpiresAt.toISOString() : null,
+      rentalPlan: this.rentalPlan,
+      isExpired: this.isRentalExpired(),
+      remainingMs: this.getRentalRemainingMs(),
       farmSettings: this.farmSettings,
       diamondSettings: this.diamondSettings,
       fishSettings: this.fishSettings,
@@ -142,6 +160,8 @@ class Account {
       targetCoins: this.targetCoins,
       upDays: this.upDays,
       pendingReset: this.pendingReset,
+      rental_expires_at: this.rentalExpiresAt,
+      rental_plan: this.rentalPlan,
       farmSettings: this.farmSettings,
       diamondSettings: this.diamondSettings,
       fishSettings: this.fishSettings,

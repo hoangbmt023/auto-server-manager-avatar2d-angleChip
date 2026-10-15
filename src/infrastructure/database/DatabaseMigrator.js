@@ -21,8 +21,8 @@ class DatabaseMigrator {
     const dbName = this.dbPool.config.database;
 
     try {
-      // 1. Đồng bộ từng bảng theo thứ tự (users, bot_files, proxies trước; accounts, refresh_tokens sau do có FK)
-      const tableKeys = ['users', 'bot_files', 'proxies', 'accounts', 'system_settings', 'refresh_tokens'];
+      // 1. Đồng bộ từng bảng theo thứ tự (users, bot_files, proxies trước; accounts, transactions, vouchers, refresh_tokens sau do có FK)
+      const tableKeys = ['users', 'bot_files', 'proxies', 'accounts', 'transactions', 'vouchers', 'system_settings', 'refresh_tokens'];
 
       for (const key of tableKeys) {
         const schema = TABLES[key];
@@ -282,6 +282,49 @@ class DatabaseMigrator {
           );
         }
         console.log('  🌱 [Seed] Đã nạp cài đặt hệ thống vào bảng system_settings.');
+      }
+
+      // 6. Seed Vouchers nếu trống
+      const [voucherRows] = await pool.query('SELECT COUNT(*) as count FROM vouchers');
+      if (voucherRows[0].count === 0) {
+        const sampleVouchers = [
+          { id: 'vch_welcome', code: 'CHAOBANMOI', discountPercent: 20, discountAmount: 0, minOrder: 30000, maxUses: 500 },
+          { id: 'vch_10k', code: 'GIAM10K', discountPercent: 0, discountAmount: 10000, minOrder: 50000, maxUses: 200 },
+          { id: 'vch_vip', code: 'VIP2026', discountPercent: 15, discountAmount: 0, minOrder: 100000, maxUses: 1000 }
+        ];
+        for (const v of sampleVouchers) {
+          await pool.query(
+            `INSERT INTO vouchers (id, code, discount_percent, discount_amount, min_order, max_uses, used_count, is_active)
+             VALUES (?, ?, ?, ?, ?, ?, 0, 1)`,
+            [v.id, v.code, v.discountPercent, v.discountAmount, v.minOrder, v.maxUses]
+          );
+        }
+        console.log(`  🌱 [Seed] Đã nạp ${sampleVouchers.length} mã Voucher mẫu vào MySQL.`);
+      }
+
+      // 7. Seed Rental Allocation Rules nếu chưa có
+      const [allocSetting] = await pool.query("SELECT * FROM system_settings WHERE setting_key = 'rental_allocation_rules'");
+      if (allocSetting.length === 0) {
+        const defaultAllocationRules = {
+          plans: {
+            UPXU: { name: 'Auto Up Xu Nông Trại', priceMonth: 50000, modType: 'UPXU', defaultFileId: 'file_1', desc: 'Chăm farm, thu hoạch, giao đơn hàng, bán nông sản' },
+            FULL: { name: 'Full Chức Năng ChipMix', priceMonth: 90000, modType: 'CHIPMIX', defaultFileId: 'file_1', desc: 'Đầy đủ Farm + Câu cá + Đập đá + Bán quặng' },
+            FISH: { name: 'Auto Câu Cá Chuyên Nghiệp', priceMonth: 60000, modType: 'FISH', defaultFileId: 'file_1', desc: 'Auto câu các map, tự mua vé & bán cá thông minh' }
+          },
+          durationDiscounts: {
+            1: 0,
+            3: 10,
+            6: 20,
+            12: 30
+          },
+          proxyStrategy: 'least_loaded', // 'least_loaded' | 'round_robin' | 'direct_first' | 'none'
+          serverBalanceStrategy: 'auto_balance' // 'auto_balance' | 'prefer_hoan_my' | 'prefer_dieu_ky'
+        };
+        await pool.query(
+          `INSERT INTO system_settings (setting_key, setting_value, description) VALUES (?, ?, ?)`,
+          ['rental_allocation_rules', JSON.stringify(defaultAllocationRules), 'Cấu hình bảng giá và quy tắc phân bổ bot tự động']
+        );
+        console.log('  🌱 [Seed] Đã nạp cấu hình phân bổ thuê bot (rental_allocation_rules) vào MySQL.');
       }
     } catch (seedErr) {
       console.warn('⚠️ [Code-First Migrator] Cảnh báo khi seed dữ liệu ban đầu:', seedErr.message);

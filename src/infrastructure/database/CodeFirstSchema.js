@@ -13,6 +13,7 @@ const TABLES = {
       phone: { type: 'VARCHAR(20)', unique: true, null: true },
       role: { type: "ENUM('USER', 'ADMIN')", notNull: true, default: "'USER'" },
       status: { type: "ENUM('ACTIVE', 'INACTIVE', 'BANNED')", notNull: true, default: "'ACTIVE'" },
+      balance: { type: 'BIGINT', notNull: true, default: 0 },
       last_login_at: { type: 'DATETIME', null: true },
       created_at: { type: 'TIMESTAMP', default: 'CURRENT_TIMESTAMP' },
       updated_at: { type: 'TIMESTAMP', default: 'CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP' }
@@ -85,6 +86,8 @@ const TABLES = {
       target_coins: { type: 'BIGINT', notNull: true, default: 0 },
       up_days: { type: 'INT', notNull: true, default: 0 },
       pending_reset: { type: 'BOOLEAN', notNull: true, default: 0 },
+      rental_expires_at: { type: 'DATETIME', null: true },
+      rental_plan: { type: 'VARCHAR(50)', notNull: true, default: "'UPXU'" },
       farm_settings: { type: 'JSON', null: true },
       diamond_settings: { type: 'JSON', null: true },
       fish_settings: { type: 'JSON', null: true },
@@ -98,12 +101,57 @@ const TABLES = {
       { name: 'idx_accounts_proxy_id', columns: ['proxy_id'] },
       { name: 'idx_accounts_server_id', columns: ['server_id'] },
       { name: 'idx_accounts_username', columns: ['username'] },
-      { name: 'idx_accounts_file_server', columns: ['file_id', 'server_id'] }
+      { name: 'idx_accounts_file_server', columns: ['file_id', 'server_id'] },
+      { name: 'idx_accounts_rental_expires', columns: ['rental_expires_at'] }
     ],
     foreignKeys: [
       { name: 'fk_accounts_user', column: 'user_id', refTable: 'users', refColumn: 'id', onDelete: 'SET NULL' },
       { name: 'fk_accounts_file', column: 'file_id', refTable: 'bot_files', refColumn: 'id', onDelete: 'CASCADE' },
       { name: 'fk_accounts_proxy', column: 'proxy_id', refTable: 'proxies', refColumn: 'id', onDelete: 'SET NULL' }
+    ]
+  },
+
+  transactions: {
+    tableName: 'transactions',
+    columns: {
+      id: { type: 'VARCHAR(50)', primaryKey: true, notNull: true },
+      user_id: { type: 'VARCHAR(50)', notNull: true },
+      type: { type: "ENUM('TOPUP', 'RENTAL', 'RENEWAL', 'REFUND')", notNull: true, default: "'TOPUP'" },
+      amount: { type: 'BIGINT', notNull: true, default: 0 },
+      balance_before: { type: 'BIGINT', notNull: true, default: 0 },
+      balance_after: { type: 'BIGINT', notNull: true, default: 0 },
+      description: { type: 'TEXT', null: true },
+      voucher_code: { type: 'VARCHAR(50)', null: true },
+      status: { type: "ENUM('SUCCESS', 'PENDING', 'FAILED')", notNull: true, default: "'SUCCESS'" },
+      created_at: { type: 'TIMESTAMP', default: 'CURRENT_TIMESTAMP' }
+    },
+    indexes: [
+      { name: 'idx_transactions_user_id', columns: ['user_id'] },
+      { name: 'idx_transactions_type', columns: ['type'] },
+      { name: 'idx_transactions_created_at', columns: ['created_at'] }
+    ],
+    foreignKeys: [
+      { name: 'fk_transactions_user', column: 'user_id', refTable: 'users', refColumn: 'id', onDelete: 'CASCADE' }
+    ]
+  },
+
+  vouchers: {
+    tableName: 'vouchers',
+    columns: {
+      id: { type: 'VARCHAR(50)', primaryKey: true, notNull: true },
+      code: { type: 'VARCHAR(50)', unique: true, notNull: true },
+      discount_percent: { type: 'INT', notNull: true, default: 0 },
+      discount_amount: { type: 'BIGINT', notNull: true, default: 0 },
+      min_order: { type: 'BIGINT', notNull: true, default: 0 },
+      max_uses: { type: 'INT', notNull: true, default: 100 },
+      used_count: { type: 'INT', notNull: true, default: 0 },
+      expires_at: { type: 'DATETIME', null: true },
+      is_active: { type: 'BOOLEAN', notNull: true, default: 1 },
+      created_at: { type: 'TIMESTAMP', default: 'CURRENT_TIMESTAMP' }
+    },
+    indexes: [
+      { name: 'idx_vouchers_code', columns: ['code'] },
+      { name: 'idx_vouchers_active', columns: ['is_active'] }
     ]
   },
 

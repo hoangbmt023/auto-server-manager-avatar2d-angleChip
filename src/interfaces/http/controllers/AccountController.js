@@ -35,7 +35,12 @@ class AccountController {
     try {
       const activeFileId = (await this.fileRepo.getActiveFileId()) || 'file_1';
       const activeAccountId = await this.settingRepo.get('activeAccountId');
-      const accounts = await this.accountService.getAccounts();
+      const allAccounts = await this.accountService.getAccounts();
+
+      const isUser = req.user && String(req.user.role || '').toUpperCase() !== 'ADMIN';
+      const accounts = isUser
+        ? allAccounts.filter(a => a.userId === req.user.sub)
+        : allAccounts;
 
       const currentFileAccs = accounts.filter(a => a.fileId === activeFileId);
       const hmCount = currentFileAccs.filter(a => a.serverId === 0).length;
@@ -44,6 +49,11 @@ class AccountController {
       const runningHmCount = currentFileAccs.filter(a => a.serverId === 0 && a.isRunning).length;
       const runningDkCount = currentFileAccs.filter(a => a.serverId === 1 && a.isRunning).length;
       const runningTotal = currentFileAccs.filter(a => a.isRunning).length;
+
+      // User-specific total online stats across all their rented files
+      const userRunningHm = accounts.filter(a => (a.serverId === 0 || !a.serverId) && a.isRunning).length;
+      const userRunningDk = accounts.filter(a => a.serverId === 1 && a.isRunning).length;
+      const userRunningTotal = accounts.filter(a => a.isRunning).length;
 
       const payload = {
         activeAccountId,
@@ -61,6 +71,9 @@ class AccountController {
           runningHmCount,
           runningDkCount,
           runningTotal,
+          userRunningHm,
+          userRunningDk,
+          userRunningTotal,
           maxTotal: 6,
           maxPerServer: 3
         }
@@ -80,6 +93,23 @@ class AccountController {
       if (req.params && req.params.id && !body.id) {
         body.id = req.params.id;
       }
+
+      const isUser = req.user && String(req.user.role || '').toUpperCase() !== 'ADMIN';
+      if (isUser) {
+        if (!body.id) {
+          throw new BadRequestException('Vui lòng sử dụng tính năng Thuê Nick Bot để thêm tài khoản mới!');
+        }
+        const existing = await this.accountService.accountRepo.findById(body.id);
+        if (!existing || existing.userId !== req.user.sub) {
+          throw new BadRequestException('Bạn không có quyền chỉnh sửa tài khoản này!');
+        }
+        // Protect system assigned fields from tampering by regular user
+        body.fileId = existing.fileId;
+        body.proxyId = existing.proxyId;
+        body.serverId = existing.serverId;
+        body.userId = existing.userId;
+      }
+
       const dto = new SaveAccountRequestDto(body);
       dto.validate(); // Chặn ngay tầng đầu tiên (Validation layer)
 
@@ -109,6 +139,15 @@ class AccountController {
       if (!accountId) {
         throw new BadRequestException('Thiếu ID tài khoản!', 'MISSING_ACCOUNT_ID');
       }
+
+      const isUser = req.user && String(req.user.role || '').toUpperCase() !== 'ADMIN';
+      if (isUser) {
+        const existing = await this.accountService.accountRepo.findById(accountId);
+        if (!existing || existing.userId !== req.user.sub) {
+          throw new BadRequestException('Bạn không có quyền xóa tài khoản này!');
+        }
+      }
+
       await this.accountService.deleteAccount(accountId);
       this.broadcastChange();
       return sendJson(res, 200, ApiResponse.success(null, 'Đã xóa tài khoản.'));

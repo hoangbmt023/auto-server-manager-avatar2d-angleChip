@@ -33,6 +33,7 @@ class MySqlUserRepository extends IUserRepository {
       phone: row.phone,
       role: row.role,
       status: row.status,
+      balance: row.balance,
       lastLoginAt: row.lastLoginAt ? DateTimeUtil.formatIso(row.lastLoginAt) : null,
       createdAt: row.createdAt ? DateTimeUtil.formatIso(row.createdAt) : null,
       updatedAt: row.updatedAt ? DateTimeUtil.formatIso(row.updatedAt) : null
@@ -78,6 +79,7 @@ class MySqlUserRepository extends IUserRepository {
       phone: entity.phone,
       role: entity.role,
       status: entity.status,
+      balance: entity.balance,
       lastLoginAt: entity.lastLoginAt ? new Date(entity.lastLoginAt) : null
     };
 
@@ -86,6 +88,15 @@ class MySqlUserRepository extends IUserRepository {
     });
 
     return entity;
+  }
+
+  async updateBalance(id, amountChange, connection = null) {
+    const pool = connection || this.dbPool.getPool();
+    await pool.query(
+      `UPDATE users SET balance = GREATEST(0, balance + ?) WHERE id = ?`,
+      [amountChange, id]
+    );
+    return this.findById(id);
   }
 
   async delete(id, connection = null) {

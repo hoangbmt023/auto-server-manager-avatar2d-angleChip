@@ -28,6 +28,7 @@ const users = mysqlTable('users', {
   phone: varchar('phone', { length: 20 }),
   role: mysqlEnum('role', ['USER', 'ADMIN']).notNull().default('USER'),
   status: mysqlEnum('status', ['ACTIVE', 'INACTIVE', 'BANNED']).notNull().default('ACTIVE'),
+  balance: bigint('balance', { mode: 'number' }).notNull().default(0),
   lastLoginAt: datetime('last_login_at'),
   createdAt: timestamp('created_at').defaultNow().notNull(),
   updatedAt: timestamp('updated_at').defaultNow().onUpdateNow()
@@ -91,6 +92,8 @@ const accounts = mysqlTable('accounts', {
   targetCoins: bigint('target_coins', { mode: 'number' }).notNull().default(0),
   upDays: int('up_days').notNull().default(0),
   pendingReset: boolean('pending_reset').notNull().default(false),
+  rentalExpiresAt: datetime('rental_expires_at'),
+  rentalPlan: varchar('rental_plan', { length: 50 }).notNull().default('UPXU'),
   farmSettings: json('farm_settings'),
   diamondSettings: json('diamond_settings'),
   fishSettings: json('fish_settings'),
@@ -103,10 +106,46 @@ const accounts = mysqlTable('accounts', {
   index('idx_accounts_proxy_id').on(table.proxyId),
   index('idx_accounts_server_id').on(table.serverId),
   index('idx_accounts_username').on(table.username),
-  index('idx_accounts_file_server').on(table.fileId, table.serverId)
+  index('idx_accounts_file_server').on(table.fileId, table.serverId),
+  index('idx_accounts_rental_expires').on(table.rentalExpiresAt)
 ]);
 
-// 5. System Settings Table
+// 5. Transactions Table
+const transactions = mysqlTable('transactions', {
+  id: varchar('id', { length: 50 }).primaryKey(),
+  userId: varchar('user_id', { length: 50 }).notNull(),
+  type: mysqlEnum('type', ['TOPUP', 'RENTAL', 'RENEWAL', 'REFUND']).notNull().default('TOPUP'),
+  amount: bigint('amount', { mode: 'number' }).notNull().default(0),
+  balanceBefore: bigint('balance_before', { mode: 'number' }).notNull().default(0),
+  balanceAfter: bigint('balance_after', { mode: 'number' }).notNull().default(0),
+  description: text('description'),
+  voucherCode: varchar('voucher_code', { length: 50 }),
+  status: mysqlEnum('status', ['SUCCESS', 'PENDING', 'FAILED']).notNull().default('SUCCESS'),
+  createdAt: timestamp('created_at').defaultNow().notNull()
+}, (table) => [
+  index('idx_transactions_user_id').on(table.userId),
+  index('idx_transactions_type').on(table.type),
+  index('idx_transactions_created_at').on(table.createdAt)
+]);
+
+// 6. Vouchers Table
+const vouchers = mysqlTable('vouchers', {
+  id: varchar('id', { length: 50 }).primaryKey(),
+  code: varchar('code', { length: 50 }).notNull().unique(),
+  discountPercent: int('discount_percent').notNull().default(0),
+  discountAmount: bigint('discount_amount', { mode: 'number' }).notNull().default(0),
+  minOrder: bigint('min_order', { mode: 'number' }).notNull().default(0),
+  maxUses: int('max_uses').notNull().default(100),
+  usedCount: int('used_count').notNull().default(0),
+  expiresAt: datetime('expires_at'),
+  isActive: boolean('is_active').notNull().default(true),
+  createdAt: timestamp('created_at').defaultNow().notNull()
+}, (table) => [
+  index('idx_vouchers_code').on(table.code),
+  index('idx_vouchers_active').on(table.isActive)
+]);
+
+// 7. System Settings Table
 const systemSettings = mysqlTable('system_settings', {
   settingKey: varchar('setting_key', { length: 100 }).primaryKey(),
   settingValue: text('setting_value').notNull(),
@@ -114,7 +153,7 @@ const systemSettings = mysqlTable('system_settings', {
   updatedAt: timestamp('updated_at').defaultNow().onUpdateNow()
 });
 
-// 6. Refresh Tokens Table (Secure Session & Token Rotation Store)
+// 8. Refresh Tokens Table (Secure Session & Token Rotation Store)
 const refreshTokens = mysqlTable('refresh_tokens', {
   id: varchar('id', { length: 50 }).primaryKey(),
   userId: varchar('user_id', { length: 50 }).notNull(),
@@ -130,7 +169,15 @@ const refreshTokens = mysqlTable('refresh_tokens', {
 // Relations Definitions
 const usersRelations = relations(users, ({ many }) => ({
   accounts: many(accounts),
+  transactions: many(transactions),
   refreshTokens: many(refreshTokens)
+}));
+
+const transactionsRelations = relations(transactions, ({ one }) => ({
+  user: one(users, {
+    fields: [transactions.userId],
+    references: [users.id]
+  })
 }));
 
 const refreshTokensRelations = relations(refreshTokens, ({ one }) => ({
@@ -168,9 +215,12 @@ module.exports = {
   botFiles,
   proxies,
   accounts,
+  transactions,
+  vouchers,
   systemSettings,
   refreshTokens,
   usersRelations,
+  transactionsRelations,
   refreshTokensRelations,
   botFilesRelations,
   proxiesRelations,

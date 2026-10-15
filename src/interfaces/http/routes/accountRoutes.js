@@ -60,25 +60,33 @@ module.exports = function createAccountRoutes(accountController) {
     return accountController.resetData(req, res, sendJson, parseJsonBody);
   });
 
-  // 3. RMS Diagnostic endpoints
-  router.get('/api/accounts/inspect-rms', (req, res, { sendJson }) => {
-    return accountController.inspectRms(req, res, sendJson);
+  // 3. RMS Diagnostic endpoints (Admin Only)
+  const { requireRole } = require('../middlewares/roleMiddleware');
+  const adminOnly = requireRole('ADMIN');
+
+  router.get('/api/accounts/inspect-rms', (req, res, helpers) => {
+    if (!adminOnly(req, res, helpers)) return;
+    return accountController.inspectRms(req, res, helpers.sendJson);
   });
 
-  router.get('/api/accounts/audit-rms', (req, res, { sendJson }) => {
-    return accountController.auditRms(req, res, sendJson);
+  router.get('/api/accounts/audit-rms', (req, res, helpers) => {
+    if (!adminOnly(req, res, helpers)) return;
+    return accountController.auditRms(req, res, helpers.sendJson);
   });
 
-  router.post('/api/accounts/fix-rms', (req, res, { sendJson, parseJsonBody }) => {
-    return accountController.fixRms(req, res, sendJson, parseJsonBody);
+  router.post('/api/accounts/fix-rms', (req, res, helpers) => {
+    if (!adminOnly(req, res, helpers)) return;
+    return accountController.fixRms(req, res, helpers.sendJson, helpers.parseJsonBody);
   });
 
-  router.post('/api/accounts/random-test-rms', (req, res, { sendJson, parseJsonBody }) => {
-    return accountController.randomTestRms(req, res, sendJson, parseJsonBody);
+  router.post('/api/accounts/random-test-rms', (req, res, helpers) => {
+    if (!adminOnly(req, res, helpers)) return;
+    return accountController.randomTestRms(req, res, helpers.sendJson, helpers.parseJsonBody);
   });
 
-  router.post('/api/accounts/restore-original-rms', (req, res, { sendJson, parseJsonBody }) => {
-    return accountController.restoreOriginalRms(req, res, sendJson, parseJsonBody);
+  router.post('/api/accounts/restore-original-rms', (req, res, helpers) => {
+    if (!adminOnly(req, res, helpers)) return;
+    return accountController.restoreOriginalRms(req, res, helpers.sendJson, helpers.parseJsonBody);
   });
 
   return router;
