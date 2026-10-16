@@ -1,7 +1,7 @@
 const IUserRepository = require('../../../domain/repositories/IUserRepository');
 const User = require('../../../domain/entities/User');
 const { users } = require('../../database/drizzleSchema');
-const { eq, desc } = require('drizzle-orm');
+const { eq, desc, sql } = require('drizzle-orm');
 const { DateTimeUtil } = require('../../../shared/utils/dateTime');
 
 /**
@@ -33,6 +33,7 @@ class MySqlUserRepository extends IUserRepository {
       phone: row.phone,
       role: row.role,
       status: row.status,
+      balance: row.balance,
       lastLoginAt: row.lastLoginAt ? DateTimeUtil.formatIso(row.lastLoginAt) : null,
       createdAt: row.createdAt ? DateTimeUtil.formatIso(row.createdAt) : null,
       updatedAt: row.updatedAt ? DateTimeUtil.formatIso(row.updatedAt) : null
@@ -78,6 +79,7 @@ class MySqlUserRepository extends IUserRepository {
       phone: entity.phone,
       role: entity.role,
       status: entity.status,
+      balance: entity.balance,
       lastLoginAt: entity.lastLoginAt ? new Date(entity.lastLoginAt) : null
     };
 
@@ -86,6 +88,17 @@ class MySqlUserRepository extends IUserRepository {
     });
 
     return entity;
+  }
+
+  async updateBalance(id, amountChange, connection = null) {
+    const db = this._getDb(connection);
+    await db
+      .update(users)
+      .set({
+        balance: sql`GREATEST(0, ${users.balance} + ${amountChange})`
+      })
+      .where(eq(users.id, id));
+    return this.findById(id, connection);
   }
 
   async delete(id, connection = null) {

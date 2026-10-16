@@ -24,7 +24,16 @@ function uuidv7() {
   return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-${hex.slice(12, 16)}-${hex.slice(16, 20)}-${hex.slice(20, 32)}`;
 }
 
+function getTimestampFromUuidv7(uuid) {
+  if (!uuid || typeof uuid !== 'string') return null;
+  const hex = uuid.replace(/-/g, '').slice(0, 12);
+  const ms = parseInt(hex, 16);
+  if (isNaN(ms)) return null;
+  return new Date(ms);
+}
+
 module.exports = {
   uuidv7,
-  generateUuidV7: uuidv7
+  generateUuidV7: uuidv7,
+  getTimestampFromUuidv7
 };

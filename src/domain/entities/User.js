@@ -1,5 +1,6 @@
 const { BadRequestException } = require('../errors');
 const { uuidv7 } = require('../../shared/utils/uuid');
+const { formatMoney } = require('../../shared/utils/formatters');
 
 /**
  * User Entity (Domain Layer)
@@ -14,6 +15,7 @@ class User {
     phone = null,
     role = 'USER',
     status = 'ACTIVE',
+    balance = 0,
     lastLoginAt = null,
     createdAt = null,
     updatedAt = null
@@ -29,6 +31,7 @@ class User {
     const sUpper = String(status || 'ACTIVE').toUpperCase();
     this.status = ['ACTIVE', 'INACTIVE', 'BANNED'].includes(sUpper) ? sUpper : 'ACTIVE';
 
+    this.balance = Math.max(0, parseInt(balance || 0, 10));
     this.lastLoginAt = lastLoginAt || null;
     this.createdAt = createdAt || null;
     this.updatedAt = updatedAt || null;
@@ -63,6 +66,27 @@ class User {
     return this.status === 'ACTIVE';
   }
 
+  hasSufficientBalance(amount) {
+    return this.balance >= amount;
+  }
+
+  deductBalance(amount) {
+    const val = parseInt(amount, 10);
+    if (val < 0) throw new BadRequestException('Số tiền trừ không hợp lệ!');
+    if (this.balance < val) {
+      throw new BadRequestException(`Số dư tài khoản không đủ (${formatMoney(this.balance)}đ < ${formatMoney(val)}đ)!`);
+    }
+    this.balance -= val;
+    return this.balance;
+  }
+
+  addBalance(amount) {
+    const val = parseInt(amount, 10);
+    if (val < 0) throw new BadRequestException('Số tiền cộng không hợp lệ!');
+    this.balance += val;
+    return this.balance;
+  }
+
   toPersistenceJson() {
     return {
       id: this.id,
@@ -71,6 +95,7 @@ class User {
       phone: this.phone,
       role: this.role, // UPPERCASE for SQL
       status: this.status, // UPPERCASE for SQL
+      balance: this.balance,
       lastLoginAt: this.lastLoginAt
     };
   }
@@ -82,6 +107,7 @@ class User {
       phone: this.phone,
       role: this.role.toLowerCase(), // lowercase for response
       status: this.status.toLowerCase(), // lowercase for response
+      balance: this.balance,
       lastLoginAt: this.lastLoginAt,
       createdAt: this.createdAt,
       updatedAt: this.updatedAt

@@ -1,57 +1,110 @@
 /**
- * App Root Component (Application Layer)
- * Wraps providers (AppContext, ModalContext) and conditionally renders
- * Modern AuthPage or DashboardPage based on JWT authentication.
+ * App Root Component (Presentation Layer)
+ * Clean Architecture compliant:
+ * - Single Responsibility Principle (SRP): App acts strictly as Root Router & Provider orchestrator.
+ * - Presentation Separation: Loading, Access Denied, and Admin Banner extracted into clean sub-components.
+ * - Zero Inline Style Pollution: Powered 100% by Apple Liquid Glass design tokens.
  */
+
+// 1. Session Loading Screen
+function AppLoadingScreen() {
+  return (
+    <div className="app-loading-screen">
+      <div className="app-loading-spinner" />
+      <span className="app-loading-text">Đang kết nối phiên bảo mật...</span>
+    </div>
+  );
+}
+
+// 2. Access Denied / 404 Guard Screen
+function AccessDeniedScreen({ onBack }) {
+  return (
+    <div className="app-access-denied">
+      <div className="app-access-denied-code">404</div>
+      <h2 className="app-access-denied-title">Không Tìm Thấy Trang Hoặc Bị Chặn</h2>
+      <p className="app-access-denied-desc">
+        Trang quản trị hệ thống chỉ dành riêng cho Quản trị viên máy chủ. Bạn không có quyền truy cập vào đường dẫn này.
+      </p>
+      <button type="button" className="btn btn-primary app-access-denied-btn" onClick={onBack}>
+        <window.Icon name="arrow-left" size={15} />
+        <span>Quay Lại Cổng Khách Hàng</span>
+      </button>
+    </div>
+  );
+}
+
+// 3. Admin Preview Banner
+function AdminPreviewBanner({ onExit }) {
+  return (
+    <div className="admin-preview-banner">
+      <div className="admin-preview-left">
+        <window.Icon name="eye" size={15} color="var(--apple-gold)" />
+        <span>Chế độ xem trước Cổng Khách Hàng (Tài khoản Quản Trị Viên)</span>
+      </div>
+      <button type="button" className="btn btn-secondary btn-xs admin-preview-exit-btn" onClick={onExit}>
+        <window.Icon name="shield" size={13} />
+        <span>Về Dashboard Admin</span>
+      </button>
+    </div>
+  );
+}
+
+// 4. Main App Routing Engine
 function App() {
   const { dialog, closeDialog } = window.useModals();
-  const { isAuthenticated, isAuthLoading, loginUser } = window.useApp();
+  const { isAuthenticated, isAuthLoading, loginUser, currentUser } = window.useApp();
+  const [currentHash, setCurrentHash] = React.useState(() => window.location.hash || '');
 
-  // 0. Initial Session Silent Refresh in progress
+  React.useEffect(() => {
+    const handleHashChange = () => setCurrentHash(window.location.hash || '');
+    window.addEventListener('hashchange', handleHashChange);
+    return () => window.removeEventListener('hashchange', handleHashChange);
+  }, []);
+
+  // 1. Loading State
   if (isAuthLoading) {
-    return (
-      <div style={{
-        minHeight: '100vh',
-        background: '#141414',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        flexDirection: 'column',
-        gap: '16px',
-        color: '#8c8c8c'
-      }}>
-        <div style={{
-          width: '42px',
-          height: '42px',
-          border: '3px solid rgba(229, 9, 20, 0.2)',
-          borderTopColor: '#e50914',
-          borderRadius: '50%',
-          animation: 'spin 0.8s linear infinite'
-        }} />
-        <span style={{ fontSize: '13px', letterSpacing: '0.5px' }}>Đang kết nối phiên bảo mật...</span>
-      </div>
-    );
+    return <AppLoadingScreen />;
   }
 
-  // 1. If not authenticated, present the Modern Cinematic Auth Screen
+  // 2. Unauthenticated State
   if (!isAuthenticated) {
     return <window.AuthPage onLoginSuccess={loginUser} />;
   }
 
-  // 2. Authenticated Dashboard Experience
+  // 3. RBAC & View Routing
+  const isAdmin = currentUser && String(currentUser.role || '').toLowerCase() === 'admin';
+
+  // Security barrier: Regular user attempting to access admin hash
+  if (!isAdmin && (currentHash === '#admin' || currentHash.startsWith('#/admin'))) {
+    return <AccessDeniedScreen onBack={() => { window.location.hash = ''; }} />;
+  }
+
+  const renderDashboardView = () => {
+    if (isAdmin) {
+      if (currentHash === '#user-portal') {
+        return (
+          <React.Fragment>
+            <AdminPreviewBanner onExit={() => { window.location.hash = ''; }} />
+            <window.UserDashboardPage />
+          </React.Fragment>
+        );
+      }
+      return <window.DashboardPage />;
+    }
+    return <window.UserDashboardPage />;
+  };
+
   return (
     <React.Fragment>
-      <window.DashboardPage />
+      {renderDashboardView()}
       {window.DialogModal && (
-        <window.DialogModal
-          dialog={dialog}
-          onClose={closeDialog}
-        />
+        <window.DialogModal dialog={dialog} onClose={closeDialog} />
       )}
     </React.Fragment>
   );
 }
 
+// 5. Root Provider Wrapper
 function Root() {
   return (
     <window.AppProvider>

@@ -21,9 +21,10 @@ Built with **Clean Architecture**, **MySQL / Drizzle ORM**, and **Zero-Dependenc
 
 * 🤖 **Multi-Bot Engine**: Run dozens of Avatar 2D bot accounts simultaneously across multiple profile tabs with auto-reconnect and crash recovery.
 * 🎮 **Full Game Mod Suite**: Built-in support for Auto Fishing, Auto Farm (Starfruit, Orders), Auto Diamond Mining, and Gemstone Selling.
+* 💳 **Automated payOS & VietQR Billing**: Instant 24/7 wallet top-ups with dynamic bonus tiers, double-crediting prevention, timing-attack immunity, and real-time SSE balance synchronization.
 * 🛡️ **Clean Architecture & DDD**: Strict separation of concerns (Domain, Application, Infrastructure, Interfaces) with fail-fast DTO validation.
 * 🗄️ **100% MySQL Persistence**: Zero `config.json` file locks. Full ACID transactions, connection pooling, and code-first schema migrations.
-* 🌐 **Liquid Glass Dashboard**: Porsche & Apple minimalist UI with live Server-Sent Events (SSE) terminal logs and dual-canvas graphic rendering.
+* 🌐 **Liquid Glass Dashboard & Mobile Dock**: Porsche & Apple minimalist UI with live Server-Sent Events (SSE) terminal logs, dual-canvas graphic rendering, and iPhone-style floating bottom dock.
 * 🔌 **Resilient Proxy Networking**: Integrated SOCKS5 / HTTP proxy manager with 3-attempt socket health verification and latency tracking.
 * ☁️ **1-Click cPanel Ready**: Deploy seamlessly to cPanel Node.js Selector with automatic portable OpenJDK 17 installation (no root required).
 

@@ -43,6 +43,10 @@
 
     triggerAuto(id, autoType = 'farm', action = 'start') {
       return http().post(`/api/accounts/${encodeURIComponent(id)}/auto`, { autoType, action });
+    },
+
+    getAccountLogs(id) {
+      return http().get(`/api/accounts/${encodeURIComponent(id)}/logs`);
     }
   };
 

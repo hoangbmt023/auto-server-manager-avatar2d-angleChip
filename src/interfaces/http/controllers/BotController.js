@@ -102,6 +102,17 @@ class BotController {
         throw new BadRequestException('Thiếu ID tài khoản cần treo!');
       }
 
+      const isUser = req.user && String(req.user.role || '').toUpperCase() !== 'ADMIN';
+      if (isUser) {
+        const acc = await this.accountRepo.findById(accountId);
+        if (!acc || acc.userId !== req.user.sub) {
+          throw new BadRequestException('Bạn không có quyền thao tác trên tài khoản này!');
+        }
+        if (acc.isRentalExpired()) {
+          throw new BadRequestException('Tài khoản bot này đã hết hạn thuê! Vui lòng gia hạn để tiếp tục chạy.');
+        }
+      }
+
       await this.settingRepo.set('activeAccountId', accountId);
 
       const result = await this.multiBotManager.startAccount(accountId);
@@ -124,6 +135,14 @@ class BotController {
       }
       if (!accountId) {
         throw new BadRequestException('Thiếu ID tài khoản cần dừng!');
+      }
+
+      const isUser = req.user && String(req.user.role || '').toUpperCase() !== 'ADMIN';
+      if (isUser) {
+        const acc = await this.accountRepo.findById(accountId);
+        if (!acc || acc.userId !== req.user.sub) {
+          throw new BadRequestException('Bạn không có quyền thao tác trên tài khoản này!');
+        }
       }
 
       const result = await this.multiBotManager.stopAccount(accountId);
@@ -154,6 +173,17 @@ class BotController {
 
       if (!accountId) {
         throw new BadRequestException('Thiếu ID tài khoản!');
+      }
+
+      const isUser = req.user && String(req.user.role || '').toUpperCase() !== 'ADMIN';
+      if (isUser) {
+        const acc = await this.accountRepo.findById(accountId);
+        if (!acc || acc.userId !== req.user.sub) {
+          throw new BadRequestException('Bạn không có quyền thao tác trên tài khoản này!');
+        }
+        if (action === 'start' && acc.isRentalExpired()) {
+          throw new BadRequestException('Tài khoản bot này đã hết hạn thuê! Vui lòng gia hạn để tiếp tục chạy.');
+        }
       }
 
       const result = this.multiBotManager.triggerAuto(accountId, autoType, action);

@@ -18,9 +18,9 @@ window.DialogModal = function DialogModal({
     switch (type) {
       case 'error':
       case 'danger':
-        return { name: 'alert-triangle', color: 'var(--apple-red)', bg: 'rgba(255, 69, 58, 0.15)', border: 'rgba(255, 69, 58, 0.35)' };
+        return { name: 'alert', color: 'var(--apple-red)', bg: 'rgba(255, 69, 58, 0.15)', border: 'rgba(255, 69, 58, 0.35)' };
       case 'warning':
-        return { name: 'alert-triangle', color: 'var(--apple-orange)', bg: 'rgba(255, 159, 10, 0.15)', border: 'rgba(255, 159, 10, 0.35)' };
+        return { name: 'alert', color: 'var(--apple-gold)', bg: 'rgba(255, 214, 10, 0.15)', border: 'rgba(255, 214, 10, 0.35)' };
       case 'success':
         return { name: 'check-circle', color: 'var(--apple-green)', bg: 'rgba(48, 209, 88, 0.15)', border: 'rgba(48, 209, 88, 0.35)' };
       case 'info':

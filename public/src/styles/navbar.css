@@ -368,3 +368,98 @@
     height: 30px;
   }
 }
+
+/* ==========================================================================
+   👤 USER PORTAL NAVBAR & NAVIGATION STYLES
+   ========================================================================== */
+.user-portal-navbar {
+  padding: 10px 20px;
+}
+
+.user-nav-tabs {
+  margin-left: 12px;
+}
+
+.user-nav-tab-btn {
+  background: transparent;
+  border: 1px solid transparent;
+  color: var(--text-secondary);
+  padding: 6px 14px;
+  border-radius: var(--radius-md);
+  font-size: 0.86rem;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  cursor: pointer;
+  transition: all 0.18s ease;
+}
+
+.user-nav-tab-btn:hover {
+  background: var(--glass-matrix-bg);
+  color: var(--text-primary);
+}
+
+.user-nav-tab-btn.active {
+  background: rgba(10, 132, 255, 0.12);
+  color: var(--apple-blue);
+  border-color: rgba(10, 132, 255, 0.25);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.08);
+}
+
+.user-balance-btn {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 5px 12px 5px 8px;
+  background: var(--glass-matrix-bg);
+  border: 1px solid var(--glass-border-subtle);
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  transition: all 0.18s cubic-bezier(0.16, 1, 0.3, 1);
+  color: var(--text-primary);
+}
+
+.user-balance-btn:hover {
+  background: rgba(255, 214, 10, 0.1);
+  border-color: rgba(255, 214, 10, 0.3);
+  transform: translateY(-1px);
+}
+
+.balance-icon-wrap {
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  background: rgba(255, 214, 10, 0.15);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.balance-info-wrap {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  line-height: 1.1;
+}
+
+.balance-lbl {
+  font-size: 0.62rem;
+  color: var(--text-tertiary);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  font-weight: 600;
+}
+
+.balance-amount {
+  font-size: 0.88rem;
+  color: var(--apple-gold);
+  font-weight: 700;
+}
+
+.rental-expired-card {
+  opacity: 0.82;
+  filter: grayscale(0.25);
+  border-color: rgba(255, 69, 58, 0.3) !important;
+}
+

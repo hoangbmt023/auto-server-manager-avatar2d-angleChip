@@ -17,6 +17,9 @@ const MySqlBotFileRepository = require('../../infrastructure/persistence/mysql/M
 const MySqlProxyRepository = require('../../infrastructure/persistence/mysql/MySqlProxyRepository');
 const MySqlSystemSettingRepository = require('../../infrastructure/persistence/mysql/MySqlSystemSettingRepository');
 const MySqlRefreshTokenRepository = require('../../infrastructure/persistence/mysql/MySqlRefreshTokenRepository');
+const MySqlTransactionRepository = require('../../infrastructure/persistence/mysql/MySqlTransactionRepository');
+const MySqlVoucherRepository = require('../../infrastructure/persistence/mysql/MySqlVoucherRepository');
+const PayOsService = require('../../infrastructure/payment/PayOsService');
 
 // Application Services
 const MultiBotManager = require('../../application/services/MultiBotManager');
@@ -24,6 +27,12 @@ const AuthService = require('../../application/services/AuthService');
 const AccountService = require('../../application/services/AccountService');
 const FileProfileService = require('../../application/services/FileProfileService');
 const ProxyService = require('../../application/services/ProxyService');
+const ResourceAllocationEngine = require('../../application/services/ResourceAllocationEngine');
+
+// Use Cases
+const RentSlotUseCase = require('../../application/use-cases/rental/RentSlotUseCase');
+const BillingUseCase = require('../../application/use-cases/billing/BillingUseCase');
+const ManageRentalAllocationsUseCase = require('../../application/use-cases/admin/ManageRentalAllocationsUseCase');
 
 // Interface Controllers
 const AuthController = require('./controllers/AuthController');
@@ -32,6 +41,9 @@ const BotController = require('./controllers/BotController');
 const FileController = require('./controllers/FileController');
 const ProxyController = require('./controllers/ProxyController');
 const SystemController = require('./controllers/SystemController');
+const RentalController = require('./controllers/RentalController');
+const BillingController = require('./controllers/BillingController');
+const AdminAllocationController = require('./controllers/AdminAllocationController');
 
 // Routes & Middlewares
 const Router = require('./Router');
@@ -41,6 +53,9 @@ const createAccountRoutes = require('./routes/accountRoutes');
 const createFileRoutes = require('./routes/fileRoutes');
 const createProxyRoutes = require('./routes/proxyRoutes');
 const createSystemRoutes = require('./routes/systemRoutes');
+const createRentalRoutes = require('./routes/rentalRoutes');
+const createBillingRoutes = require('./routes/billingRoutes');
+const createAdminAllocationRoutes = require('./routes/adminAllocationRoutes');
 const { corsMiddleware, createAuthMiddleware, parseJsonBody } = require('./middlewares');
 
 const MIME_TYPES = {
@@ -80,6 +95,8 @@ class HttpServer {
     this.proxyRepo = new MySqlProxyRepository(this.dbPool, this.drizzleDb);
     this.settingRepo = new MySqlSystemSettingRepository(this.dbPool, this.drizzleDb);
     this.refreshTokenRepo = new MySqlRefreshTokenRepository(this.dbPool, this.drizzleDb);
+    this.transactionRepo = new MySqlTransactionRepository(this.dbPool, this.drizzleDb);
+    this.voucherRepo = new MySqlVoucherRepository(this.dbPool, this.drizzleDb);
 
     // Application Services (100% Database-Driven)
     this.multiBotManager = new MultiBotManager(
@@ -111,6 +128,37 @@ class HttpServer {
       this.sseEventBus,
       this.transactionManager
     );
+    this.allocationEngine = new ResourceAllocationEngine(
+      this.fileRepo,
+      this.proxyRepo,
+      this.accountRepo,
+      this.settingRepo
+    );
+
+    // Use Cases
+    this.rentSlotUseCase = new RentSlotUseCase(
+      this.userRepo,
+      this.accountRepo,
+      this.transactionRepo,
+      this.voucherRepo,
+      this.allocationEngine,
+      this.settingRepo
+    );
+    this.payOsService = new PayOsService(this.settingRepo);
+    this.billingUseCase = new BillingUseCase(
+      this.userRepo,
+      this.transactionRepo,
+      this.voucherRepo,
+      this.settingRepo,
+      this.payOsService,
+      this.sseEventBus
+    );
+    this.manageAllocationUseCase = new ManageRentalAllocationsUseCase(
+      this.settingRepo,
+      this.voucherRepo,
+      this.fileRepo,
+      this.proxyRepo
+    );
 
     // Interface Controllers
     this.authController = new AuthController(this.authService);
@@ -119,6 +167,9 @@ class HttpServer {
     this.fileController = new FileController(this.fileProfileService, this.fileRepo, this.sseEventBus);
     this.proxyController = new ProxyController(this.proxyService, this.sseEventBus);
     this.systemController = new SystemController(this.settingRepo, this.sseEventBus);
+    this.rentalController = new RentalController(this.rentSlotUseCase, this.allocationEngine);
+    this.billingController = new BillingController(this.billingUseCase, this.userRepo);
+    this.adminAllocationController = new AdminAllocationController(this.manageAllocationUseCase);
 
     this.publicDir = path.resolve(__dirname, '../../../public');
     this.server = null;
@@ -135,7 +186,10 @@ class HttpServer {
       createAccountRoutes(this.accountController),
       createFileRoutes(this.fileController),
       createProxyRoutes(this.proxyController),
-      createSystemRoutes(this.systemController)
+      createSystemRoutes(this.systemController),
+      createRentalRoutes(this.rentalController),
+      createBillingRoutes(this.billingController),
+      createAdminAllocationRoutes(this.adminAllocationController)
     ];
 
     for (const sub of subRouters) {
@@ -229,7 +283,7 @@ class HttpServer {
         }
       }
 
-      // 4. Public User Authentication & OTP endpoints
+      // 4. Public User Authentication & OTP endpoints & Webhooks
       const publicAuthEndpoints = [
         '/api/auth/register',
         '/api/auth/send-otp',
@@ -239,7 +293,8 @@ class HttpServer {
         '/api/auth/logout',
         '/api/auth/forgot-password',
         '/api/auth/verify-forgot-password',
-        '/api/auth/reset-password'
+        '/api/auth/reset-password',
+        '/api/billing/payos-webhook'
       ];
       if (publicAuthEndpoints.includes(pathname)) {
         const handled = await this.router.handle(req, res, parsedUrl, helpers);
@@ -287,6 +342,23 @@ class HttpServer {
       console.log('=======================================================');
 
       this.multiBotManager.resumePreviousRunningBots();
+
+      // 3. Rental Expiration Watchdog (Kiểm tra và ngắt an toàn bot hết hạn thuê)
+      setInterval(async () => {
+        try {
+          const allAccs = await this.accountRepo.findAll();
+          for (const acc of allAccs) {
+            if (acc.isRentalExpired()) {
+              const isRunning = this.multiBotManager.isAccountRunning(acc.id);
+              if (isRunning) {
+                console.log(`⏳ [Rental Watchdog] Tài khoản [${acc.username}] đã hết hạn thuê. Đang tự động ngắt kết nối an toàn...`);
+                await this.multiBotManager.stopAccount(acc.id);
+                this.accountController.broadcastChange();
+              }
+            }
+          }
+        } catch (e) {}
+      }, 60000);
     });
 
     return this.server;

@@ -160,12 +160,19 @@ window.AppProvider = function AppProvider({ children }) {
 
   // SSE Stream & Synchronization
   useEffect(() => {
+    if (!isAuthenticated) return;
+
+    const isAdmin = currentUser && String(currentUser.role || '').toLowerCase() === 'admin';
+
     fetchStatus();
-    fetchFiles();
-    fetchProxies();
     fetchAccounts();
-    fetchLogs();
-    fetchJars();
+
+    if (isAdmin) {
+      fetchFiles();
+      fetchProxies();
+      fetchLogs();
+      fetchJars();
+    }
 
     const connectSSE = () => {
       if (sseRef.current) sseRef.current.close();
@@ -182,13 +189,17 @@ window.AppProvider = function AppProvider({ children }) {
       es.addEventListener('bot-status-changed', () => {
         fetchAccounts();
         fetchStatus();
-        fetchFiles();
-        fetchProxies();
+        if (isAdmin) {
+          fetchFiles();
+          fetchProxies();
+        }
       });
 
       es.addEventListener('proxy-status-changed', () => {
         fetchAccounts();
-        fetchProxies();
+        if (isAdmin) {
+          fetchProxies();
+        }
       });
 
       es.addEventListener('bot-stats', (e) => {
@@ -272,9 +283,11 @@ window.AppProvider = function AppProvider({ children }) {
       if (document.visibilityState === 'visible') {
         fetchStatus();
         fetchAccounts();
-        fetchProxies();
-        fetchFiles();
-        fetchLogs();
+        if (isAdmin) {
+          fetchProxies();
+          fetchFiles();
+          fetchLogs();
+        }
       }
     };
     document.addEventListener('visibilitychange', onVisibilityChange);
@@ -284,7 +297,7 @@ window.AppProvider = function AppProvider({ children }) {
       clearInterval(syncInterval);
       document.removeEventListener('visibilitychange', onVisibilityChange);
     };
-  }, [fetchStatus, fetchFiles, fetchProxies, fetchAccounts, fetchLogs, fetchJars]);
+  }, [isAuthenticated, currentUser, fetchStatus, fetchFiles, fetchProxies, fetchAccounts, fetchLogs, fetchJars]);
 
   // Terminal Auto Scroll
   useEffect(() => {
