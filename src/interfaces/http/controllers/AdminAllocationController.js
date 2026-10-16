@@ -43,6 +43,17 @@ class AdminAllocationController {
     }
   }
 
+  async updateVoucher(req, res, sendJson, parseJsonBody) {
+    try {
+      const code = req.params?.code;
+      const body = await parseJsonBody(req);
+      const data = await this.manageAllocationUseCase.updateVoucher(code, body);
+      return sendJson(res, 200, ApiResponse.success(data ? (data.toPublicJson ? data.toPublicJson() : data) : null, 'Cập nhật mã voucher thành công!'));
+    } catch (err) {
+      return this._sendError(res, sendJson, err);
+    }
+  }
+
   async deleteVoucher(req, res, sendJson) {
     try {
       const code = req.params?.code;

@@ -35,10 +35,7 @@ window.RentalSetupModal = function RentalSetupModal({
     setTimeout(() => setFeedback(null), 3500);
   };
 
-  function formatNumber(num) {
-    if (num === null || num === undefined || isNaN(num)) return '0';
-    return Number(num).toLocaleString('vi-VN');
-  }
+  const { formatNumber } = window.formatters;
 
   const handleSaveCoins = async (e) => {
     if (e) e.preventDefault();

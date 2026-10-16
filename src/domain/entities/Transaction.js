@@ -15,11 +15,13 @@ class Transaction {
     balanceAfter = 0,
     description = '',
     voucherCode = null,
+    orderCode = null,
     status = 'SUCCESS',
     createdAt = null
   }) {
     this.id = id || uuidv7();
     this.userId = userId;
+    this.orderCode = orderCode ? Number(orderCode) : null;
     const tUpper = String(type || 'TOPUP').toUpperCase();
     this.type = ['TOPUP', 'RENTAL', 'RENEWAL', 'REFUND'].includes(tUpper) ? tUpper : 'TOPUP';
     this.amount = parseInt(amount || 0, 10);
@@ -28,7 +30,7 @@ class Transaction {
     this.description = String(description || '').trim();
     this.voucherCode = voucherCode ? String(voucherCode).trim().toUpperCase() : null;
     const sUpper = String(status || 'SUCCESS').toUpperCase();
-    this.status = ['SUCCESS', 'PENDING', 'FAILED'].includes(sUpper) ? sUpper : 'SUCCESS';
+    this.status = ['SUCCESS', 'PENDING', 'FAILED', 'CANCELLED'].includes(sUpper) ? sUpper : 'SUCCESS';
     this.createdAt = createdAt ? new Date(createdAt) : new Date();
   }
 
@@ -42,6 +44,7 @@ class Transaction {
     return {
       id: this.id,
       user_id: this.userId,
+      order_code: this.orderCode,
       type: this.type,
       amount: this.amount,
       balance_before: this.balanceBefore,
@@ -57,6 +60,7 @@ class Transaction {
     return {
       id: this.id,
       userId: this.userId,
+      orderCode: this.orderCode,
       type: this.type,
       amount: this.amount,
       balanceBefore: this.balanceBefore,

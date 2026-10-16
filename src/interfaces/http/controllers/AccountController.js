@@ -289,6 +289,70 @@ class AccountController {
       return this._sendError(res, sendJson, err);
     }
   }
+
+  async getAccountLogs(req, res, sendJson) {
+    try {
+      const accountId = req.params?.id;
+      if (!accountId) {
+        throw new BadRequestException('Thiếu ID tài khoản cần xem nhật ký!');
+      }
+
+      const account = await this.accountService.getAccount(accountId);
+      if (!account) {
+        throw new BadRequestException('Không tìm thấy tài khoản bot!');
+      }
+
+      const isUser = req.user && String(req.user.role || '').toUpperCase() !== 'ADMIN';
+      if (isUser && account.userId !== req.user.sub) {
+        return sendJson(res, 403, { success: false, message: 'Bạn không có quyền xem nhật ký của tài khoản này!' });
+      }
+
+      const allLogs = this.sseEventBus?.getLogs ? this.sseEventBus.getLogs() : [];
+      const emulatorPatterns = [
+        /at java\./i,
+        /at javax\./i,
+        /at com\./i,
+        /Exception in thread/i,
+        /java\.lang\./i,
+        /loadClass/i,
+        /RecordStoreImpl/i,
+        /Font:/i,
+        /Graphics/i,
+        /MIDlet/i,
+        /UnsatisfiedLinkError/i,
+        /\[B@/i,
+        /\[C@/i,
+        /DEBUG/i
+      ];
+
+      const accountLogs = allLogs.filter(log => {
+        // 1. Must match this account
+        const isMatch = log.accountId === accountId ||
+          (account.username && log.username === account.username) ||
+          (log.text && log.text.includes(account.username));
+        if (!isMatch) return false;
+
+        // 2. Filter out raw emulator technical stacktraces and JVM logs
+        const text = log.text || '';
+        for (const pattern of emulatorPatterns) {
+          if (pattern.test(text)) return false;
+        }
+
+        return true;
+      });
+
+      return sendJson(res, 200, {
+        success: true,
+        account: {
+          id: account.id,
+          username: account.username
+        },
+        logs: accountLogs.slice(-200)
+      });
+    } catch (err) {
+      return this._sendError(res, sendJson, err);
+    }
+  }
 }
 
 module.exports = AccountController;

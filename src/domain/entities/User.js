@@ -1,5 +1,6 @@
 const { BadRequestException } = require('../errors');
 const { uuidv7 } = require('../../shared/utils/uuid');
+const { formatMoney } = require('../../shared/utils/formatters');
 
 /**
  * User Entity (Domain Layer)
@@ -73,7 +74,7 @@ class User {
     const val = parseInt(amount, 10);
     if (val < 0) throw new BadRequestException('Số tiền trừ không hợp lệ!');
     if (this.balance < val) {
-      throw new BadRequestException(`Số dư tài khoản không đủ (${this.balance.toLocaleString()}đ < ${val.toLocaleString()}đ)!`);
+      throw new BadRequestException(`Số dư tài khoản không đủ (${formatMoney(this.balance)}đ < ${formatMoney(val)}đ)!`);
     }
     this.balance -= val;
     return this.balance;

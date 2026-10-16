@@ -1,6 +1,6 @@
 const Voucher = require('../../../domain/entities/Voucher');
 const { vouchers } = require('../../database/drizzleSchema');
-const { eq, desc } = require('drizzle-orm');
+const { eq, desc, sql } = require('drizzle-orm');
 
 /**
  * MySqlVoucherRepository (Infrastructure Layer - Adapter)
@@ -26,14 +26,16 @@ class MySqlVoucherRepository {
     return new Voucher({
       id: row.id,
       code: row.code,
-      discountPercent: row.discountPercent,
-      discountAmount: row.discountAmount,
-      minOrder: row.minOrder,
-      maxUses: row.maxUses,
-      usedCount: row.usedCount,
-      expiresAt: row.expiresAt,
-      isActive: Boolean(row.isActive),
-      createdAt: row.createdAt
+      discountPercent: row.discountPercent !== undefined ? row.discountPercent : row.discount_percent,
+      discountAmount: row.discountAmount !== undefined ? row.discountAmount : row.discount_amount,
+      maxDiscountAmount: row.maxDiscountAmount !== undefined ? row.maxDiscountAmount : (row.max_discount_amount || 0),
+      minOrder: row.minOrder !== undefined ? row.minOrder : row.min_order,
+      maxUses: row.maxUses !== undefined ? row.maxUses : row.max_uses,
+      maxUsesPerUser: row.maxUsesPerUser !== undefined ? row.maxUsesPerUser : (row.max_uses_per_user || 1),
+      usedCount: row.usedCount !== undefined ? row.usedCount : row.used_count,
+      expiresAt: row.expiresAt !== undefined ? row.expiresAt : row.expires_at,
+      isActive: Boolean(row.isActive !== undefined ? row.isActive : row.is_active),
+      createdAt: row.createdAt !== undefined ? row.createdAt : row.created_at
     });
   }
 
@@ -46,12 +48,14 @@ class MySqlVoucherRepository {
   }
 
   async incrementUsedCount(code, connection = null) {
-    const pool = connection || this.dbPool.getPool();
     const cleanCode = String(code).trim().toUpperCase();
-    await pool.query(
-      `UPDATE vouchers SET used_count = used_count + 1 WHERE code = ?`,
-      [cleanCode]
-    );
+    const db = this._getDb(connection);
+    await db
+      .update(vouchers)
+      .set({
+        usedCount: sql`${vouchers.usedCount} + 1`
+      })
+      .where(eq(vouchers.code, cleanCode));
     return true;
   }
 
@@ -71,8 +75,10 @@ class MySqlVoucherRepository {
       code: entity.code,
       discountPercent: entity.discountPercent,
       discountAmount: entity.discountAmount,
+      maxDiscountAmount: entity.maxDiscountAmount,
       minOrder: entity.minOrder,
       maxUses: entity.maxUses,
+      maxUsesPerUser: entity.maxUsesPerUser,
       usedCount: entity.usedCount,
       expiresAt: entity.expiresAt ? new Date(entity.expiresAt) : null,
       isActive: entity.isActive

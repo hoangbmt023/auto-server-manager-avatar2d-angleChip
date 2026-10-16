@@ -623,3 +623,122 @@ input[type="password"]::-ms-clear {
   overflow: hidden;
   text-overflow: ellipsis;
 }
+
+/* ==========================================================================
+   APP SHELL & ROUTER UTILITIES (Apple Liquid Glass)
+   ========================================================================== */
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* 1. Fullscreen Session Loading Screen */
+.app-loading-screen {
+  min-height: 100vh;
+  background: var(--liquid-bg);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-direction: column;
+  gap: 16px;
+  color: var(--text-tertiary);
+}
+
+.app-loading-spinner {
+  width: 44px;
+  height: 44px;
+  border: 3px solid rgba(10, 132, 255, 0.18);
+  border-top-color: var(--apple-blue);
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+  box-shadow: 0 0 16px var(--apple-blue-glow);
+}
+
+.app-loading-text {
+  font-size: 0.84rem;
+  letter-spacing: 0.04em;
+  font-weight: 500;
+  color: var(--text-secondary);
+}
+
+/* 2. Access Denied / 404 Screen */
+.app-access-denied {
+  min-height: 100vh;
+  background: var(--liquid-bg);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-direction: column;
+  gap: 16px;
+  color: var(--text-primary);
+  text-align: center;
+  padding: 24px;
+}
+
+.app-access-denied-code {
+  font-size: 5rem;
+  font-weight: 800;
+  background: linear-gradient(135deg, var(--apple-red), var(--apple-orange));
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  line-height: 1;
+  letter-spacing: -0.04em;
+}
+
+.app-access-denied-title {
+  font-size: 1.4rem;
+  font-weight: 700;
+  margin: 0;
+  color: var(--text-primary);
+}
+
+.app-access-denied-desc {
+  font-size: 0.88rem;
+  color: var(--text-tertiary);
+  max-width: 440px;
+  margin: 0;
+  line-height: 1.5;
+}
+
+/* 3. Admin Preview Banner */
+.admin-preview-banner {
+  background: rgba(255, 159, 10, 0.12);
+  border-bottom: 1px solid rgba(255, 159, 10, 0.28);
+  padding: 6px 18px;
+  font-size: 0.8rem;
+  color: var(--apple-gold);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-weight: 600;
+  backdrop-filter: var(--blur-base);
+  -webkit-backdrop-filter: var(--blur-base);
+}
+
+.admin-preview-left {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.admin-preview-exit-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.app-access-denied-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+/* Lucide Icon Base Class */
+.lucide-icon {
+  display: inline-block;
+  vertical-align: middle;
+  flex-shrink: 0;
+}
+

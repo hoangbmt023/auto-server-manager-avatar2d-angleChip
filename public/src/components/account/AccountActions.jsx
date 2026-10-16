@@ -15,7 +15,8 @@ window.AccountActions = function AccountActions({
   onDeleteAccount,
   onOpenSetup,
   onTriggerAuto,
-  onInspectRms
+  onInspectRms,
+  onOpenLogs
 }) {
   const [menuOpen, setMenuOpen] = React.useState(false);
   const [autoMenuOpen, setAutoMenuOpen] = React.useState(false);
@@ -219,6 +220,9 @@ window.AccountActions = function AccountActions({
           <div className="dropdown-menu-glass">
             <button className="dropdown-item-glass" onClick={() => { setMoreMenuOpen(false); onOpenEditAccount && onOpenEditAccount(account); }}>
               <window.Icon name="edit" size={14} /> Chỉnh Sửa Nick
+            </button>
+            <button className="dropdown-item-glass" onClick={() => { setMoreMenuOpen(false); onOpenLogs && onOpenLogs(account); }}>
+              <window.Icon name="terminal" size={14} color="var(--apple-blue)" /> Xem Nhật Ký Bot
             </button>
             <button className="dropdown-item-glass" style={{ color: 'var(--apple-red)' }} onClick={() => { setMoreMenuOpen(false); onDeleteAccount && onDeleteAccount(account.id, account.username); }}>
               <window.Icon name="trash" size={14} color="var(--apple-red)" /> Xóa Tài Khoản

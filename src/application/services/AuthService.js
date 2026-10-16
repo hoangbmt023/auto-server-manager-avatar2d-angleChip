@@ -3,6 +3,7 @@ const { defaultJwtService } = require('../../infrastructure/security/JwtService'
 const { defaultOtpCache } = require('../../infrastructure/cache/OtpCache');
 const { defaultEmailService } = require('../../infrastructure/email/EmailService');
 const MySqlRefreshTokenRepository = require('../../infrastructure/persistence/mysql/MySqlRefreshTokenRepository');
+const config = require('../../../config');
 const UserMapper = require('../mappers/UserMapper');
 const { validatePassword } = require('../../domain/validation/passwordPolicy');
 const {

@@ -1493,4 +1493,359 @@ select.rms-rounds-select {
   gap: 5px;
   line-height: 1.3;
   animation: appleFadeIn 0.2s cubic-bezier(0.16, 1, 0.3, 1);
-}
+}
+
+/* ==========================================================================
+   Admin Voucher Management Styling (Zero Inline CSS)
+   ========================================================================== */
+.voucher-admin-card {
+  margin-top: 14px;
+}
+
+.voucher-admin-title {
+  margin-bottom: 10px;
+}
+
+.voucher-form-grid {
+.voucher-form-grid {
+  display: grid;
+  grid-template-columns: 1.1fr 1fr 1fr 1.1fr 0.9fr 0.9fr auto;
+  gap: 8px;
+  margin-bottom: 14px;
+  align-items: flex-end;
+}
+
+@media (max-width: 900px) {
+  .voucher-form-grid {
+    grid-template-columns: repeat(3, 1fr);
+  }
+}
+
+@media (max-width: 600px) {
+  .voucher-form-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+.voucher-field-group {
+  display: flex;
+  flex-direction: column;
+}
+
+.voucher-field-label {
+  font-size: 0.72rem;
+  color: var(--text-tertiary);
+  margin-bottom: 4px;
+  font-weight: 500;
+}
+
+.voucher-create-btn {
+  height: 36px;
+  white-space: nowrap;
+}
+
+.voucher-btn-group {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+}
+
+.voucher-editing-badge {
+  color: var(--apple-gold);
+  font-size: 0.75rem;
+  font-weight: 500;
+  margin-left: 8px;
+}
+
+.voucher-table-wrapper {
+  max-height: 220px;
+  overflow-y: auto;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--glass-border-subtle);
+}
+
+.voucher-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.78rem;
+}
+
+.voucher-table-head-row {
+  border-bottom: 1px solid var(--glass-border-subtle);
+  color: var(--text-tertiary);
+  text-align: left;
+  background: var(--glass-matrix-bg);
+}
+
+.voucher-th {
+  padding: 8px 10px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.voucher-table-row {
+  border-bottom: 1px solid var(--glass-border-subtle);
+  transition: background var(--transition-fast);
+}
+
+.voucher-table-row:hover {
+  background: rgba(255, 255, 255, 0.02);
+}
+
+.voucher-table-row.is-editing {
+  background: rgba(59, 130, 246, 0.08);
+  border-left: 3px solid var(--apple-blue);
+}
+
+.voucher-td {
+  padding: 8px 10px;
+  vertical-align: middle;
+}
+
+.voucher-code-badge {
+  font-weight: 700;
+  color: var(--apple-blue);
+  font-family: var(--font-mono, monospace);
+  background: rgba(59, 130, 246, 0.1);
+  padding: 2px 6px;
+  border-radius: var(--radius-xs);
+  display: inline-block;
+}
+
+.voucher-discount-tag {
+  font-weight: 600;
+  color: var(--apple-green);
+}
+
+.voucher-max-discount-sub {
+  font-size: 0.72rem;
+  color: var(--apple-gold);
+  display: block;
+  font-weight: 500;
+}
+
+.voucher-per-user-tag {
+  color: var(--text-secondary);
+  font-size: 0.74rem;
+}
+
+.voucher-usage-tag {
+  color: var(--text-tertiary);
+  font-size: 0.74rem;
+}
+
+.voucher-actions-cell {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+}
+
+.voucher-edit-btn {
+  background: rgba(59, 130, 246, 0.12);
+  color: var(--apple-blue);
+  border: 1px solid rgba(59, 130, 246, 0.25);
+}
+
+.voucher-edit-btn:hover {
+  background: var(--apple-blue);
+  color: #fff;
+}
+
+/* ==========================================================================
+   Account Logs Modal Styling (Zero Inline CSS)
+   ========================================================================== */
+.modal-account-logs-dialog {
+  max-width: 680px;
+  width: 92%;
+  max-height: 85vh;
+  display: flex;
+  flex-direction: column;
+}
+
+.account-logs-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding-bottom: 12px;
+}
+
+.account-logs-header-left {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.account-logs-icon-badge {
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  background: rgba(10, 132, 255, 0.15);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--apple-blue);
+}
+
+.account-logs-title {
+  margin: 0;
+  font-size: 1.05rem;
+  font-weight: 700;
+}
+
+.account-logs-subtitle {
+  margin: 0;
+  font-size: 0.75rem;
+  color: var(--text-tertiary);
+}
+
+.account-logs-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 12px;
+  background: rgba(255, 255, 255, 0.03);
+  border-bottom: 1px solid var(--glass-border-subtle);
+  font-size: 0.78rem;
+}
+
+.account-logs-filter-group {
+  display: flex;
+  gap: 6px;
+}
+
+.account-logs-options-group {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.account-logs-auto-refresh-label {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  cursor: pointer;
+  color: var(--text-secondary);
+}
+
+.account-logs-body {
+  flex: 1;
+  overflow-y: auto;
+  padding: 12px 14px;
+  font-family: SFMono-Regular, Consolas, "Liberation Mono", Menlo, monospace;
+  font-size: 0.78rem;
+  line-height: 1.6;
+  background: #0d0d0e;
+  border-radius: 6px;
+  margin: 12px;
+  min-height: 260px;
+  max-height: 440px;
+  border: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.account-logs-loading {
+  text-align: center;
+  padding: 30px;
+  color: var(--text-tertiary);
+}
+
+.account-logs-loading-spinner {
+  width: 24px;
+  height: 24px;
+  border: 2px solid rgba(10, 132, 255, 0.2);
+  border-top-color: var(--apple-blue);
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+  margin: 0 auto 8px;
+}
+
+.account-logs-empty {
+  text-align: center;
+  padding: 40px 10px;
+  color: var(--text-tertiary);
+}
+
+.account-logs-empty-title {
+  margin-top: 8px;
+  font-weight: 600;
+}
+
+.account-logs-empty-subtitle {
+  font-size: 0.72rem;
+  margin-top: 4px;
+}
+
+.account-logs-row {
+  display: flex;
+  gap: 8px;
+  align-items: flex-start;
+  padding: 3px 0;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.03);
+}
+
+.account-logs-time {
+  color: #666;
+  font-size: 0.7rem;
+  flex-shrink: 0;
+  min-width: 55px;
+}
+
+.account-logs-tag {
+  padding: 1px 5px;
+  border-radius: 3px;
+  font-size: 0.65rem;
+  font-weight: 600;
+  flex-shrink: 0;
+}
+
+.account-logs-tag-bot {
+  background: rgba(255, 255, 255, 0.08);
+  color: #999;
+}
+
+.account-logs-tag-farm {
+  background: rgba(50, 215, 75, 0.15);
+  color: var(--apple-green);
+}
+
+.account-logs-tag-fish {
+  background: rgba(100, 210, 255, 0.15);
+  color: var(--apple-teal);
+}
+
+.account-logs-tag-ore {
+  background: rgba(255, 159, 10, 0.15);
+  color: var(--apple-orange);
+}
+
+.account-logs-tag-network {
+  background: rgba(10, 132, 255, 0.15);
+  color: var(--apple-blue);
+}
+
+.account-logs-tag-error {
+  background: rgba(255, 69, 58, 0.15);
+  color: var(--apple-red);
+}
+
+.account-logs-text {
+  word-break: break-word;
+  flex: 1;
+}
+
+.account-logs-text-farm { color: var(--apple-green); }
+.account-logs-text-fish { color: var(--apple-teal); }
+.account-logs-text-ore { color: var(--apple-orange); }
+.account-logs-text-network { color: var(--apple-blue); }
+.account-logs-text-error { color: var(--apple-red); }
+.account-logs-text-default { color: #e1e1e6; }
+
+.account-logs-footer {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 10px 14px;
+  border-top: 1px solid var(--glass-border-subtle);
+  font-size: 0.72rem;
+  color: var(--text-tertiary);
+}
+

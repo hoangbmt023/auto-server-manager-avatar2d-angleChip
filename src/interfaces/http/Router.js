@@ -72,6 +72,7 @@ class Router {
   async handle(req, res, parsedUrl, helpers) {
     const currentMethod = (req.method || 'GET').toUpperCase();
     const currentPath = parsedUrl.pathname;
+    req.query = parsedUrl?.query || {};
 
     for (const route of this.routes) {
       const isMethodMatch = route.method === currentMethod;

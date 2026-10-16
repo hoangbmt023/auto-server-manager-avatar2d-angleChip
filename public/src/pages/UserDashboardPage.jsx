@@ -23,20 +23,68 @@ window.UserDashboardPage = function UserDashboardPage() {
     closeSetupModal,
     handleSaveSetup
   } = window.useApp();
+  const { showDialog, showAlert } = window.useModals ? window.useModals() : {};
 
-  const [activeTab, setActiveTab] = React.useState('management'); // 'management' | 'topup'
+  const getInitialTab = () => {
+    try {
+      const isMobileScreen = typeof window !== 'undefined' && window.innerWidth <= 768;
+      const searchParams = new URLSearchParams(window.location.search);
+      const tabParam = searchParams.get('tab');
+      if (tabParam === 'topup' || tabParam === 'management') return tabParam;
+      if (tabParam === 'account' && isMobileScreen) return 'account';
+      if (window.location.hash.includes('topup')) return 'topup';
+      if (window.location.hash.includes('account') && isMobileScreen) return 'account';
+    } catch (e) {}
+    return 'management';
+  };
+
+  const [activeTab, setActiveTab] = React.useState(getInitialTab);
+  const [isMobile, setIsMobile] = React.useState(() => typeof window !== 'undefined' && window.innerWidth <= 768);
+
+  const handleSelectTab = React.useCallback((newTab) => {
+    const isMobileScreen = typeof window !== 'undefined' && window.innerWidth <= 768;
+    // Chặn máy tính (desktop) không cho chuyển vào tab account của điện thoại
+    if (newTab === 'account' && !isMobileScreen) {
+      newTab = 'management';
+    }
+    setActiveTab(newTab);
+    try {
+      const url = new URL(window.location.href);
+      url.searchParams.set('tab', newTab);
+      url.hash = '';
+      window.history.replaceState({}, '', url.toString());
+    } catch (e) {}
+  }, []);
+
+  // Tự động chuyển về tab Quản lý nếu người dùng resize từ màn hình điện thoại sang máy tính
+  React.useEffect(() => {
+    const handleResize = () => {
+      const mobile = window.innerWidth <= 768;
+      setIsMobile(mobile);
+      if (!mobile && activeTab === 'account') {
+        handleSelectTab('management');
+      }
+    };
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, [activeTab, handleSelectTab]);
   const [balance, setBalance] = React.useState(0);
   const [searchQuery, setSearchQuery] = React.useState('');
   const [rentModalOpen, setRentModalOpen] = React.useState(false);
   const [historyModalOpen, setHistoryModalOpen] = React.useState(false);
   const [editingAccount, setEditingAccount] = React.useState(null);
+  const [selectedLogAccount, setSelectedLogAccount] = React.useState(null);
 
-  // Top-up simulation state
+  // Top-up and payOS state
   const [topupAmount, setTopupAmount] = React.useState(100000);
-  const [topupLoading, setTopupLoading] = React.useState(false);
-  const [topupSuccess, setTopupSuccess] = React.useState('');
+  const [policy, setPolicy] = React.useState({ bonusTiers: [], payos: { enabled: false } });
+  const [payosOrder, setPayosOrder] = React.useState(null);
+  const [payosLoading, setPayosLoading] = React.useState(false);
+  const [recentTransactions, setRecentTransactions] = React.useState([]);
+  const [totalTxCount, setTotalTxCount] = React.useState(0);
+  const [loadingRecentTx, setLoadingRecentTx] = React.useState(false);
 
-  const formatMoney = (val) => Number(val || 0).toLocaleString('vi-VN');
+  const { formatMoney, formatDate, formatDateTime, formatExpiration } = window.formatters;
 
   // Fetch real-time balance
   const refreshBalance = React.useCallback(async () => {
@@ -50,10 +98,237 @@ window.UserDashboardPage = function UserDashboardPage() {
     } catch (e) {}
   }, []);
 
+  // Fetch recent transactions for sidebar (4 newest)
+  const fetchRecentTransactions = React.useCallback(async () => {
+    setLoadingRecentTx(true);
+    try {
+      if (window.billingService) {
+        const res = await window.billingService.getTransactions({ page: 1, limit: 4 });
+        if (res && res.data) {
+          const list = Array.isArray(res.data) ? res.data : (res.data.items || []);
+          const total = res.data.pagination?.total ?? (typeof res.data.total === 'number' ? res.data.total : list.length);
+          setTotalTxCount(total);
+          setRecentTransactions(list.slice(0, 4));
+        }
+      }
+    } catch (e) {
+    } finally {
+      setLoadingRecentTx(false);
+    }
+  }, []);
+
   React.useEffect(() => {
     refreshBalance();
     fetchAccounts();
+
+    async function loadPolicy() {
+      try {
+        if (window.billingService) {
+          const res = await window.billingService.getPolicy();
+          if (res && res.data) setPolicy(res.data);
+        }
+      } catch (e) {}
+    }
+    loadPolicy();
   }, [refreshBalance, fetchAccounts]);
+
+
+
+  // Listen for payOS return redirect via URL search or hash query
+  React.useEffect(() => {
+    const searchParams = new URLSearchParams(window.location.search);
+    const hashQuery = window.location.hash.includes('?') ? window.location.hash.split('?')[1] : '';
+    const hashParams = new URLSearchParams(hashQuery);
+
+    const rawStatus = (searchParams.get('status') || searchParams.get('payos_status') || hashParams.get('status') || hashParams.get('payos_status') || '').toUpperCase();
+    const cancel = searchParams.get('cancel') || hashParams.get('cancel');
+    const orderCode = searchParams.get('orderCode') || hashParams.get('orderCode');
+    const code = searchParams.get('code') || hashParams.get('code');
+
+    const isCancel = cancel === 'true' || rawStatus === 'CANCELLED';
+    const isSuccess = rawStatus === 'PAID' || code === '00';
+
+    if (isCancel || isSuccess) {
+      handleSelectTab('topup');
+
+      // Clear payOS callback params from browser URL, maintain ?tab=topup
+      try {
+        const url = new URL(window.location.href);
+        url.searchParams.set('tab', 'topup');
+        url.searchParams.delete('orderCode');
+        url.searchParams.delete('status');
+        url.searchParams.delete('code');
+        url.searchParams.delete('id');
+        url.searchParams.delete('cancel');
+        url.searchParams.delete('payos_status');
+        url.hash = '';
+        window.history.replaceState({}, document.title, url.toString());
+      } catch (e) {}
+
+      if (isCancel) {
+        (async () => {
+          if (window.billingService && orderCode) {
+            try {
+              await window.billingService.cancelPayOsOrder(orderCode);
+            } catch (err) {
+              console.error('Cancel payos order error:', err);
+            }
+          }
+          await fetchRecentTransactions();
+        })();
+
+        // 1. POPUP HỦY GIAO DỊCH: Màu vàng (type: warning)
+        if (showDialog) {
+          showDialog({
+            mode: 'alert',
+            type: 'warning',
+            title: 'Giao Dịch Đã Hủy',
+            confirmText: 'Đã Hiểu',
+            message: (
+              <div className="payos-receipt-box">
+                <p className="payos-receipt-desc">
+                  Giao dịch nạp tiền đã được hủy theo yêu cầu hoặc đã hết hạn thanh toán.
+                </p>
+                <div className="payos-receipt-details">
+                  <div className="payos-receipt-row">
+                    <span className="payos-receipt-label">Mã đơn hàng</span>
+                    <strong className="payos-receipt-order-code">#{orderCode || '---'}</strong>
+                  </div>
+                  <div className="payos-receipt-row">
+                    <span className="payos-receipt-label">Trạng thái</span>
+                    <span className="tx-status-badge tx-status-cancelled">Đã Hủy</span>
+                  </div>
+                </div>
+                <div className="payos-receipt-notice warn">
+                  <window.Icon name="alert" size={14} color="var(--apple-gold)" />
+                  <span>Tài khoản ngân hàng của bạn hoàn toàn không bị trừ tiền.</span>
+                </div>
+              </div>
+            )
+          });
+        }
+      } else if (isSuccess) {
+        // 2. POPUP THÀNH CÔNG: Màu xanh (type: success)
+        (async () => {
+          let orderInfo = null;
+
+          if (window.billingService && orderCode) {
+            try {
+              const verifyRes = await window.billingService.verifyPayOsOrder(orderCode);
+              if (verifyRes && verifyRes.data) {
+                orderInfo = verifyRes.data;
+              }
+            } catch (err) {
+              console.error('Verify payos error:', err);
+            }
+          }
+
+          // Làm mới số dư và lịch sử giao dịch chính xác 1 lần
+          await Promise.all([
+            refreshBalance(),
+            fetchRecentTransactions()
+          ]);
+
+          // CHỈ hiển thị popup Thành Công khi Backend xác nhận status === 'PAID'
+          if (orderInfo && orderInfo.status === 'PAID') {
+            const rawAmount = orderInfo?.amount || 0;
+            const bonusAmount = orderInfo?.bonusAmount || 0;
+            const bonusPercent = orderInfo?.bonusPercent || 0;
+
+            if (showDialog) {
+              showDialog({
+                mode: 'alert',
+                type: 'success',
+                title: 'Nạp Tiền Thành Công!',
+                confirmText: 'Đã Hiểu',
+                message: (
+                  <div className="payos-receipt-box">
+                    <p className="payos-receipt-desc">
+                      Giao dịch qua payOS đã hoàn tất! Tiền đã được tự động cộng vào ví của bạn.
+                    </p>
+                    <div className="payos-receipt-details">
+                      <div className="payos-receipt-row">
+                        <span className="payos-receipt-label">Mã đơn hàng</span>
+                        <strong className="payos-receipt-order-code">#{orderInfo?.orderCode || orderCode || '---'}</strong>
+                      </div>
+                      <div className="payos-receipt-row">
+                        <span className="payos-receipt-label">Trạng thái</span>
+                        <span className="tx-status-badge tx-status-success">Thành Công</span>
+                      </div>
+                      {rawAmount ? (
+                        <div className="payos-receipt-row">
+                          <span className="payos-receipt-label">Số tiền nạp</span>
+                          <strong className="payos-receipt-amount">+{formatMoney(rawAmount)} đ</strong>
+                        </div>
+                      ) : null}
+                      {bonusAmount > 0 && (
+                        <div className="payos-receipt-row">
+                          <span className="payos-receipt-label">Thưởng nạp (+{bonusPercent}%)</span>
+                          <strong className="payos-receipt-bonus">+{formatMoney(bonusAmount)} đ</strong>
+                        </div>
+                      )}
+                      <div className="payos-receipt-total-row">
+                        <span className="payos-receipt-total-label">Số dư ví hiện tại</span>
+                        <strong className="payos-receipt-balance">{formatMoney(orderInfo?.balance || balance || 0)} đ</strong>
+                      </div>
+                    </div>
+                  </div>
+                )
+              });
+            }
+          } else if (orderInfo && (orderInfo.status === 'CANCELLED' || orderInfo.status === 'FAILED')) {
+            if (showDialog) {
+              showDialog({
+                mode: 'alert',
+                type: 'warning',
+                title: 'Giao Dịch Đã Hủy Hoặc Thất Bại',
+                confirmText: 'Đã Hiểu',
+                message: 'Đơn hàng thanh toán đã bị hủy hoặc chưa hoàn tất chuyển khoản.'
+              });
+            }
+          } else if (orderInfo && orderInfo.status === 'PENDING') {
+            if (showDialog) {
+              showDialog({
+                mode: 'alert',
+                type: 'info',
+                title: 'Giao Dịch Đang Chờ Xử Lý',
+                confirmText: 'Đóng',
+                message: 'Hệ thống đang chờ ngân hàng xác nhận giao dịch. Số dư ví sẽ được tự động cộng ngay khi nhận được tiền.'
+              });
+            }
+          }
+        })();
+      }
+    }
+  }, [refreshBalance, showDialog, balance]);
+
+  const handleCreatePayOsOrder = async (amt) => {
+    setPayosLoading(true);
+    try {
+      if (window.billingService) {
+        const res = await window.billingService.createPayOsOrder(amt);
+        if (res && res.data && res.data.checkoutUrl) {
+          // Chuyển hướng người dùng thẳng qua trang thanh toán của payOS
+          window.location.href = res.data.checkoutUrl;
+          return;
+        }
+      }
+    } catch (err) {
+      if (showDialog) {
+        showDialog({
+          mode: 'alert',
+          type: 'error',
+          title: 'Lỗi Thanh Toán payOS',
+          message: err.message || 'Không thể tạo phiên thanh toán payOS!',
+          confirmText: 'Đóng'
+        });
+      } else {
+        alert(err.message || 'Lỗi khi tạo phiên thanh toán payOS!');
+      }
+    } finally {
+      setPayosLoading(false);
+    }
+  };
 
   // Filter accounts for current user
   const userAccounts = (accounts || []).map(a => ({
@@ -80,35 +355,12 @@ window.UserDashboardPage = function UserDashboardPage() {
     return (a.username || '').toLowerCase().includes(q);
   });
 
-  // Handle Quick Deposit
-  const handlePerformTopup = async (amountToTopup) => {
-    setTopupLoading(true);
-    setTopupSuccess('');
-    try {
-      if (window.billingService) {
-        const res = await window.billingService.topup({
-          amount: amountToTopup,
-          method: 'Chuyển Khoản Ngân Hàng',
-          description: `Nạp ${formatMoney(amountToTopup)}đ vào ví tài khoản`
-        });
-        if (res && res.success) {
-          setTopupSuccess(`Nạp thành công ${formatMoney(amountToTopup)}đ vào số dư!`);
-          refreshBalance();
-        }
-      }
-    } catch (err) {
-      alert(err.message || 'Lỗi khi nạp tiền!');
-    } finally {
-      setTopupLoading(false);
-    }
-  };
-
   return (
-    <div className="app-container" style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column' }}>
+    <div className="app-container user-dashboard-wrapper">
       {/* 1. Header (UserNavbar) */}
       <window.UserNavbar
         activeTab={activeTab}
-        onSelectTab={setActiveTab}
+        onSelectTab={handleSelectTab}
         balance={balance}
         theme={theme}
         toggleTheme={toggleTheme}
@@ -118,15 +370,15 @@ window.UserDashboardPage = function UserDashboardPage() {
       />
 
       {/* 2. Main Content Body */}
-      <main className="dashboard-content" style={{ flex: 1, padding: '24px' }}>
+      <main className="dashboard-content user-dashboard-content">
         {/* TAB 1: QUẢN LÝ TÀI KHOẢN (MANAGEMENT) */}
         {activeTab === 'management' && (
           <section className="accounts-split-layout">
             {/* Left Sidebar Pane */}
-            <aside className="accounts-sidebar-pane" style={{ maxWidth: '300px' }}>
+            <aside className="accounts-sidebar-pane user-sidebar-pane">
               <div className="sidebar-header">
                 <div className="sidebar-title-group">
-                  <div className="sidebar-icon-box" style={{ background: 'rgba(10, 132, 255, 0.15)', color: 'var(--apple-blue)' }}>
+                  <div className="sidebar-icon-box user-icon-box-primary">
                     <window.Icon name="users" size={18} />
                   </div>
                   <div>
@@ -140,8 +392,7 @@ window.UserDashboardPage = function UserDashboardPage() {
               <div className="sidebar-actions">
                 <button
                   type="button"
-                  className="btn btn-primary btn-block"
-                  style={{ padding: '12px 16px', fontWeight: 700, fontSize: '0.92rem', gap: '8px' }}
+                  className="btn btn-primary btn-block user-btn-rent-main"
                   onClick={() => setRentModalOpen(true)}
                 >
                   <window.Icon name="zap" size={16} /> Thuê Tài Khoản Mới
@@ -149,39 +400,28 @@ window.UserDashboardPage = function UserDashboardPage() {
               </div>
 
               {/* Assigned File Profiles for this user */}
-              <div className="sidebar-file-list-wrap" style={{ marginTop: '12px' }}>
+              <div className="sidebar-file-list-wrap user-file-list-wrap">
                 <span className="sidebar-section-lbl">FILE ĐƯỢC CẤP CHO NICK</span>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', marginTop: '6px' }}>
+                <div className="user-file-list-items">
                   {assignedFiles.length === 0 ? (
-                    <div style={{ padding: '12px', fontSize: '0.78rem', color: 'var(--text-tertiary)', background: 'var(--glass-matrix-bg)', borderRadius: 'var(--radius-sm)' }}>
+                    <div className="user-file-empty">
                       Chưa có file nào được cấp (Hãy thuê nick đầu tiên)
                     </div>
                   ) : (
                     assignedFiles.map(f => {
                       const count = userAccounts.filter(a => a.fileId === f.id).length;
                       return (
-                        <div
-                          key={f.id}
-                          style={{
-                            padding: '10px 12px',
-                            borderRadius: 'var(--radius-md)',
-                            background: 'var(--glass-matrix-bg)',
-                            border: '1px solid var(--glass-border-subtle)',
-                            display: 'flex',
-                            alignItems: 'center',
-                            justifyContent: 'space-between'
-                          }}
-                        >
-                          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        <div key={f.id} className="user-file-item">
+                          <div className="user-file-item-left">
                             <window.Icon name="folder" size={14} color="var(--apple-blue)" />
                             <div>
-                              <strong style={{ fontSize: '0.84rem', color: 'var(--text-primary)' }}>{f.name}</strong>
-                              <div style={{ fontSize: '0.68rem', color: 'var(--text-tertiary)' }}>
+                              <strong className="user-file-title">{f.name}</strong>
+                              <div className="user-file-subtitle">
                                 {f.modType === 'chipmix' ? 'Bản ChipMix Full' : f.modType === 'fish' ? 'Auto Câu Cá' : 'Auto Nông Trại'}
                               </div>
                             </div>
                           </div>
-                          <span style={{ fontSize: '0.74rem', padding: '2px 8px', borderRadius: '999px', background: 'rgba(10, 132, 255, 0.1)', color: 'var(--apple-blue)', fontWeight: 600 }}>
+                          <span className="user-file-badge">
                             {count} nick
                           </span>
                         </div>
@@ -192,55 +432,39 @@ window.UserDashboardPage = function UserDashboardPage() {
               </div>
 
               {/* City & Online Statistics based on user's rented accounts */}
-              <div style={{
-                marginTop: '16px',
-                padding: '14px',
-                background: 'var(--glass-matrix-bg)',
-                borderRadius: 'var(--radius-md)',
-                border: '1px solid var(--glass-border-subtle)',
-                display: 'flex',
-                flexDirection: 'column',
-                gap: '10px'
-              }}>
-                <span className="sidebar-section-lbl" style={{ margin: 0 }}>THỐNG KÊ HOẠT ĐỘNG</span>
+              <div className="user-stats-card">
+                <span className="sidebar-section-lbl user-sidebar-stat-lbl">THỐNG KÊ HOẠT ĐỘNG</span>
 
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                  <span style={{ fontSize: '0.82rem', color: 'var(--text-secondary)' }}>Tổng số nick thuê:</span>
-                  <strong style={{ fontSize: '0.92rem', color: 'var(--text-primary)' }}>{totalRented} nick</strong>
+                <div className="user-stats-row">
+                  <span className="user-stats-label">Tổng số nick thuê:</span>
+                  <strong className="user-stats-val">{totalRented} nick</strong>
                 </div>
 
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                  <span style={{ fontSize: '0.82rem', color: 'var(--text-secondary)' }}>Đang Online:</span>
-                  <span style={{
-                    fontSize: '0.78rem',
-                    fontWeight: 700,
-                    padding: '2px 8px',
-                    borderRadius: '999px',
-                    color: runningTotal > 0 ? 'var(--apple-green)' : 'var(--text-tertiary)',
-                    background: runningTotal > 0 ? 'rgba(48, 209, 88, 0.12)' : 'var(--glass-bg)'
-                  }}>
+                <div className="user-stats-row">
+                  <span className="user-stats-label">Đang Online:</span>
+                  <span className={`user-stats-badge ${runningTotal > 0 ? 'online' : 'offline'}`}>
                     {runningTotal} / {totalRented} Online
                   </span>
                 </div>
 
-                <div style={{ height: '1px', background: 'var(--glass-border-subtle)', margin: '2px 0' }} />
+                <div className="user-divider" />
 
                 {/* Server / City Breakdown */}
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.78rem' }}>
-                    <span style={{ color: 'var(--apple-blue)', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '4px' }}>
+                <div className="user-city-list">
+                  <div className="user-city-item">
+                    <span className="user-city-name-hm">
                       <window.Icon name="server" size={12} /> Thành phố Hoàn Mỹ:
                     </span>
-                    <span style={{ color: runningHm > 0 ? 'var(--apple-green)' : 'var(--text-secondary)', fontWeight: 600 }}>
+                    <span className={runningHm > 0 ? 'color-green fw-bold' : 'color-muted fw-bold'}>
                       {runningHm}/{totalHm} Online
                     </span>
                   </div>
 
-                  <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.78rem' }}>
-                    <span style={{ color: 'var(--apple-purple)', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '4px' }}>
+                  <div className="user-city-item">
+                    <span className="user-city-name-dk">
                       <window.Icon name="server" size={12} /> Thành phố Diệu Kỳ:
                     </span>
-                    <span style={{ color: runningDk > 0 ? 'var(--apple-green)' : 'var(--text-secondary)', fontWeight: 600 }}>
+                    <span className={runningDk > 0 ? 'color-green fw-bold' : 'color-muted fw-bold'}>
                       {runningDk}/{totalDk} Online
                     </span>
                   </div>
@@ -250,19 +474,19 @@ window.UserDashboardPage = function UserDashboardPage() {
 
             {/* Right Main Pane: Accounts List */}
             <div className="accounts-main-pane">
-              <div className="main-pane-header" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                  <div className="sidebar-icon-box" style={{ background: 'rgba(48, 209, 88, 0.12)', color: 'var(--apple-green)' }}>
+              <div className="main-pane-header user-pane-header-flex">
+                <div className="user-pane-header-left">
+                  <div className="sidebar-icon-box user-icon-box-success">
                     <window.Icon name="activity" size={18} />
                   </div>
                   <div>
-                    <h3 style={{ margin: 0 }}>Danh Sách Tài Khoản Đang Thuê ({userAccounts.length})</h3>
+                    <h3 className="user-content-heading">Danh Sách Tài Khoản Đang Thuê ({userAccounts.length})</h3>
                     <span className="sidebar-sub">Quản lý trạng thái, tự động và thời hạn từng nick</span>
                   </div>
                 </div>
 
                 {/* Search Bar - ONLY by username, NO IP filter */}
-                <div className="main-search-wrapper" style={{ maxWidth: '320px', width: '100%' }}>
+                <div className="main-search-wrapper user-search-wrapper">
                   <div className="main-search-box">
                     <window.Icon name="search" size={16} color="var(--text-tertiary)" />
                     <input
@@ -287,37 +511,26 @@ window.UserDashboardPage = function UserDashboardPage() {
 
               {/* Accounts Grid */}
               {displayedAccounts.length === 0 ? (
-                <div style={{
-                  padding: '60px 24px',
-                  textAlign: 'center',
-                  background: 'var(--glass-matrix-bg)',
-                  borderRadius: 'var(--radius-lg)',
-                  border: '1px dashed var(--glass-border-subtle)',
-                  display: 'flex',
-                  flexDirection: 'column',
-                  alignItems: 'center',
-                  gap: '12px'
-                }}>
-                  <div className="sidebar-icon-box" style={{ width: '54px', height: '54px', margin: '0 auto', background: 'rgba(10, 132, 255, 0.1)', color: 'var(--apple-blue)' }}>
+                <div className="user-accounts-empty">
+                  <div className="sidebar-icon-box user-accounts-empty-icon">
                     <window.Icon name="users" size={26} />
                   </div>
-                  <h4 style={{ margin: 0, fontSize: '1.05rem', color: 'var(--text-primary)' }}>
+                  <h4 className="user-accounts-empty-title">
                     {searchQuery ? `Không tìm thấy nick nào khớp "${searchQuery}"` : 'Bạn chưa có tài khoản bot nào'}
                   </h4>
-                  <p style={{ margin: 0, fontSize: '0.84rem', color: 'var(--text-secondary)', maxWidth: '420px' }}>
+                  <p className="user-accounts-empty-desc">
                     Hãy bấm nút <strong>Thuê Tài Khoản Mới</strong> để tạo bot tự động chạy không giới hạn ngay bây giờ!
                   </p>
                   <button
                     type="button"
-                    className="btn btn-primary"
-                    style={{ marginTop: '8px' }}
+                    className="btn btn-primary user-content-search-input"
                     onClick={() => setRentModalOpen(true)}
                   >
                     <window.Icon name="zap" size={15} /> Thuê Slot Bot Ngay
                   </button>
                 </div>
               ) : (
-                <div className="accounts-grid" style={{ marginTop: '16px' }}>
+                <div className="accounts-grid user-accounts-grid-wrap">
                   {displayedAccounts.map(acc => (
                     <window.AccountCard
                       key={acc.id}
@@ -330,6 +543,7 @@ window.UserDashboardPage = function UserDashboardPage() {
                       onDeleteAccount={handleDeleteAccount}
                       onOpenSetup={openSetupModal}
                       onTriggerAuto={handleTriggerAuto}
+                      onOpenLogs={(account) => setSelectedLogAccount(account)}
                     />
                   ))}
                 </div>
@@ -340,140 +554,262 @@ window.UserDashboardPage = function UserDashboardPage() {
 
         {/* TAB 2: NẠP TIỀN VÍ (TOPUP) */}
         {activeTab === 'topup' && (
-          <div style={{ maxWidth: '860px', margin: '0 auto', display: 'flex', flexDirection: 'column', gap: '20px' }}>
-            <div style={{
-              background: 'var(--glass-matrix-bg)',
-              borderRadius: 'var(--radius-lg)',
-              border: '1px solid var(--glass-border-subtle)',
-              padding: '24px'
-            }}>
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '20px' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                  <div className="sidebar-icon-box" style={{ background: 'rgba(255, 214, 10, 0.15)', color: 'var(--apple-gold)', width: '44px', height: '44px' }}>
-                    <window.Icon name="coins" size={22} />
+          <section className="topup-split-layout">
+            {/* Left Sidebar Pane: On-Demand Transaction History Entry */}
+            <aside className="topup-sidebar-pane">
+              <div className="topup-history-entry-box">
+                <div className="topup-history-header">
+                  <div className="topup-history-title-group">
+                    <div className="sidebar-icon-box user-icon-box-gold">
+                      <window.Icon name="clock" size={18} />
+                    </div>
+                    <div>
+                      <h3 className="topup-history-title">Lịch Sử & Biến Động</h3>
+                      <span className="topup-history-sub">Biến động nạp tiền & thuê bot</span>
+                    </div>
                   </div>
-                  <div>
-                    <h3 style={{ margin: 0, fontSize: '1.2rem' }}>Nạp Tiền Vào Số Dư Ví</h3>
-                    <span style={{ fontSize: '0.8rem', color: 'var(--text-tertiary)' }}>
-                      Tự động cộng tiền vào tài khoản để thuê và gia hạn bot bất cứ lúc nào
+                </div>
+
+                <div className="topup-history-entry-body">
+                  <p className="topup-history-entry-text">
+                    Tra cứu chi tiết toàn bộ lịch sử nạp tiền qua cổng payOS, chi tiêu thuê bot và các giao dịch hoàn tiền.
+                  </p>
+                  <button
+                    type="button"
+                    className="btn btn-secondary btn-block topup-btn-see-more"
+                    onClick={() => setHistoryModalOpen(true)}
+                  >
+                    <window.Icon name="clock" size={15} />
+                    <span>Xem Chi Tiết Lịch Sử Giao Dịch</span>
+                  </button>
+                </div>
+              </div>
+            </aside>
+
+            {/* Right Pane: Clean Top-up Card */}
+            <div className="topup-content-pane">
+              <div className="user-topup-card">
+                {/* Header */}
+                <div className="user-topup-header">
+                  <div className="user-topup-header-left">
+                    <div className="sidebar-icon-box user-icon-box-gold">
+                      <window.Icon name="coins" size={22} />
+                    </div>
+                    <div>
+                      <h3 className="user-topup-title">Nạp Tiền Vào Số Dư Ví</h3>
+                      <span className="user-topup-sub">
+                        Tự động cộng tiền vào tài khoản để thuê và gia hạn bot bất cứ lúc nào
+                      </span>
+                    </div>
+                  </div>
+
+                  <div className="user-topup-balance-display">
+                    <span className="user-topup-balance-lbl">Số dư hiện tại</span>
+                    <div className="user-topup-balance-val">
+                      {formatMoney(balance)} đ
+                    </div>
+                  </div>
+                </div>
+
+                {/* Quick Preset Selector */}
+                <label className="user-topup-presets-label">
+                  Chọn Mệnh Giá Nạp:
+                </label>
+                <div className="user-topup-presets-grid">
+                  {(policy.topupPresets || [20000, 50000, 100000, 200000, 500000, 1000000, 2000000]).map(amt => {
+                    const isSelected = topupAmount === amt;
+                    const tier = (policy.bonusTiers || [])
+                      .filter(t => amt >= t.minAmount)
+                      .sort((a, b) => b.minAmount - a.minAmount)[0];
+                    return (
+                      <button
+                        key={amt}
+                        type="button"
+                        onClick={() => setTopupAmount(amt)}
+                        className={`user-topup-preset-btn ${isSelected ? 'active' : ''}`}
+                      >
+                        <span>{formatMoney(amt)} đ</span>
+                        {tier && (
+                          <span className="user-topup-preset-bonus-tag">
+                            +{tier.bonusPercent}% Thưởng
+                          </span>
+                        )}
+                      </button>
+                    );
+                  })}
+                </div>
+
+                {/* Inline Bonus Calculation Box */}
+                {(() => {
+                  const matchedTier = (policy.bonusTiers || [])
+                    .filter(t => topupAmount >= t.minAmount)
+                    .sort((a, b) => b.minAmount - a.minAmount)[0];
+                  const bonusVal = matchedTier ? Math.round(topupAmount * (matchedTier.bonusPercent / 100)) : 0;
+                  const totalReceive = topupAmount + bonusVal;
+                  return (
+                    <div className="user-topup-calc-box">
+                      <div className="user-topup-calc-row">
+                        <span className="user-topup-summary-lbl">Thanh toán:</span>
+                        <strong className="user-topup-calc-pay-val">{formatMoney(topupAmount)} đ</strong>
+                      </div>
+                      <div className="user-topup-calc-divider" />
+                      <div className="user-topup-calc-row">
+                        <div className="user-topup-calc-receive-meta">
+                          <span className="user-topup-summary-lbl">Thực nhận:</span>
+                          {bonusVal > 0 && (
+                            <span className="user-topup-calc-bonus-badge">
+                              (+{formatMoney(bonusVal)} đ thưởng)
+                            </span>
+                          )}
+                        </div>
+                        <strong className="user-topup-calc-receive-val">{formatMoney(totalReceive)} đ</strong>
+                      </div>
+                    </div>
+                  );
+                })()}
+
+                {/* Unified Payment & Checkout Card */}
+                <div className="topup-payment-card">
+                  <div className="topup-payment-card-header">
+                    <span className="topup-payment-card-title">Phương Thức Thanh Toán</span>
+                    <span className="badge-cpanel topup-method-badge-fast">
+                      <window.Icon name="zap" size={12} color="var(--apple-green)" />
+                      <span>Tự Động Duyệt 2s</span>
                     </span>
                   </div>
-                </div>
 
-                <div style={{ textAlign: 'right' }}>
-                  <span style={{ fontSize: '0.78rem', color: 'var(--text-tertiary)' }}>Số dư hiện tại</span>
-                  <div style={{ fontSize: '1.4rem', fontWeight: 700, color: 'var(--apple-gold)' }}>
-                    {formatMoney(balance)} đ
+                  <div className="topup-payment-method-row">
+                    <div className="topup-method-radio">
+                      <div className="topup-radio-dot" />
+                    </div>
+                    <div className="topup-method-icon-wrap">
+                      <window.Icon name="zap" size={18} color="var(--apple-blue)" />
+                    </div>
+                    <div className="topup-payment-method-texts">
+                      <strong className="topup-method-name">Chuyển Khoản Ngân Hàng QR (payOS / VietQR)</strong>
+                      <span className="topup-method-sub">
+                        Quét mã VietQR qua mọi ứng dụng ngân hàng & ví điện tử (MB, VCB, TCB, MoMo, ZaloPay...). Tự động cộng tiền tức thì 24/7.
+                      </span>
+                    </div>
                   </div>
-                </div>
-              </div>
 
-              {topupSuccess && (
-                <div style={{
-                  padding: '12px 16px',
-                  borderRadius: 'var(--radius-md)',
-                  background: 'rgba(48, 209, 88, 0.15)',
-                  border: '1px solid rgba(48, 209, 88, 0.3)',
-                  color: 'var(--apple-green)',
-                  fontWeight: 600,
-                  fontSize: '0.88rem',
-                  marginBottom: '16px'
-                }}>
-                  {topupSuccess}
-                </div>
-              )}
-
-              {/* Quick Preset Selector */}
-              <label style={{ fontSize: '0.82rem', fontWeight: 600, color: 'var(--text-secondary)', marginBottom: '8px', display: 'block' }}>
-                Chọn Mệnh Giá Nạp Nhanh:
-              </label>
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '10px', marginBottom: '18px' }}>
-                {[50000, 100000, 200000, 500000].map(amt => {
-                  const isSelected = topupAmount === amt;
-                  return (
+                  <div className="topup-checkout-cta-wrap">
                     <button
-                      key={amt}
                       type="button"
-                      onClick={() => setTopupAmount(amt)}
-                      style={{
-                        padding: '14px 10px',
-                        borderRadius: 'var(--radius-md)',
-                        background: isSelected ? 'rgba(255, 214, 10, 0.15)' : 'var(--glass-bg)',
-                        border: `1.5px solid ${isSelected ? 'var(--apple-gold)' : 'var(--glass-border-subtle)'}`,
-                        color: isSelected ? 'var(--apple-gold)' : 'var(--text-primary)',
-                        fontWeight: 700,
-                        fontSize: '0.95rem',
-                        cursor: 'pointer',
-                        transition: 'all 0.18s ease'
-                      }}
+                      className="btn btn-primary topup-btn-checkout-clean"
+                      onClick={() => handleCreatePayOsOrder(topupAmount)}
+                      disabled={payosLoading}
                     >
-                      {formatMoney(amt)} đ
+                      {payosLoading ? (
+                        <>
+                          <div className="tx-spinner-circular sm" />
+                          <span>Đang Khởi Tạo Phiên Thanh Toán...</span>
+                        </>
+                      ) : (
+                        <>
+                          <window.Icon name="zap" size={16} />
+                          <span>Thanh Toán Ngay • {formatMoney(topupAmount)} đ</span>
+                        </>
+                      )}
                     </button>
-                  );
-                })}
-              </div>
 
-              {/* VietQR Simulated Instructions */}
-              <div style={{
-                padding: '18px',
-                borderRadius: 'var(--radius-md)',
-                background: 'rgba(10, 132, 255, 0.06)',
-                border: '1px solid rgba(10, 132, 255, 0.2)',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'space-between',
-                gap: '16px'
-              }}>
-                <div>
-                  <div style={{ fontSize: '0.92rem', fontWeight: 600, color: 'var(--text-primary)' }}>
-                    Chuyển Khoản Ngân Hàng / Quét Mã VietQR
-                  </div>
-                  <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', marginTop: '4px' }}>
-                    Cú pháp chuyển khoản: <strong style={{ color: 'var(--apple-blue)' }}>AVT {currentUser?.email?.split('@')[0] || 'USER'}</strong>
-                  </div>
-                  <div style={{ fontSize: '0.74rem', color: 'var(--text-tertiary)', marginTop: '2px' }}>
-                    Hệ thống tự động cộng tiền ngay sau 1-3 phút.
+                    {!policy.payos?.enabled && (
+                      <div className="user-topup-payos-warn">
+                        <window.Icon name="alert-triangle" size={14} color="var(--apple-orange)" />
+                        <em>Cổng payOS đang tắt hoặc chưa cấu hình chìa khóa trong file <code>.env</code>. Vui lòng cấu hình <code>PAYOS_CLIENT_ID</code>, <code>PAYOS_API_KEY</code>, <code>PAYOS_CHECKSUM_KEY</code> và đặt <code>PAYOS_ENABLED=true</code>.</em>
+                      </div>
+                    )}
                   </div>
                 </div>
-
-                <button
-                  type="button"
-                  className="btn btn-primary"
-                  onClick={() => handlePerformTopup(topupAmount)}
-                  disabled={topupLoading}
-                  style={{ minWidth: '150px' }}
-                >
-                  {topupLoading ? 'Đang Nạp...' : `Nạp ${formatMoney(topupAmount)}đ`}
-                </button>
               </div>
             </div>
+          </section>
+        )}
 
-            {/* Embedded Combined Transaction History */}
-            <div style={{
-              background: 'var(--glass-matrix-bg)',
-              borderRadius: 'var(--radius-lg)',
-              border: '1px solid var(--glass-border-subtle)',
-              padding: '20px'
-            }}>
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '14px' }}>
-                <h4 style={{ margin: 0, fontSize: '1.02rem', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                  <window.Icon name="coins" size={16} color="var(--apple-gold)" /> Lịch Sử Nạp & Biến Động Số Dư
-                </h4>
+        {/* TAB 3: TÀI KHOẢN (ACCOUNT - CHỈ DÀNH RIÊNG CHO MOBILE) */}
+        {activeTab === 'account' && isMobile && (
+          <section className="user-account-section">
+            <div className="user-account-card">
+              <div className="user-account-header">
+                <div className="user-account-avatar-lg">
+                  {(currentUser?.email || 'U')[0].toUpperCase()}
+                </div>
+                <div className="user-account-meta">
+                  <h3 className="user-account-email">{currentUser?.email || 'Tài khoản khách'}</h3>
+                  <span className="badge-cpanel user-account-role">Portal Khách Hàng</span>
+                </div>
+              </div>
+
+              <div className="user-account-details-grid">
+                <div className="user-account-detail-box">
+                  <span className="user-account-detail-lbl">Số Dư Khả Dụng</span>
+                  <strong className="user-account-detail-val gold">{formatMoney(balance)} đ</strong>
+                </div>
+                <div className="user-account-detail-box">
+                  <span className="user-account-detail-lbl">Số Bot Đang Thuê</span>
+                  <strong className="user-account-detail-val">{accounts.length} nick</strong>
+                </div>
+              </div>
+
+              <div className="user-account-actions-list">
                 <button
                   type="button"
-                  className="btn btn-secondary btn-xs"
+                  className="user-account-action-row"
                   onClick={() => setHistoryModalOpen(true)}
                 >
-                  Xem Toàn Bộ
+                  <div className="user-account-action-left">
+                    <div className="user-account-action-icon blue">
+                      <window.Icon name="clock" size={18} />
+                    </div>
+                    <div className="user-account-action-text">
+                      <strong>Lịch Sử Nạp Tiền & Giao Dịch</strong>
+                      <span>Tra cứu chi tiết toàn bộ biến động số dư</span>
+                    </div>
+                  </div>
+                  <window.Icon name="arrow-right" size={16} color="var(--text-tertiary)" />
                 </button>
-              </div>
 
-              {/* Render quick snippet */}
-              <div style={{ fontSize: '0.82rem', color: 'var(--text-tertiary)', textAlign: 'center', padding: '16px 0' }}>
-                Bấm nút <strong>Xem Toàn Bộ</strong> hoặc bấm vào <strong>Số Dư Ví</strong> trên thanh điều hướng để xem chi tiết từng giao dịch.
+                <div className="user-account-action-row theme-toggle-row">
+                  <div className="user-account-action-left">
+                    <div className="user-account-action-icon purple">
+                      <window.Icon name={theme === 'dark' ? 'moon' : 'sun'} size={18} />
+                    </div>
+                    <div className="user-account-action-text">
+                      <strong>Giao Diện Hệ Thống</strong>
+                      <span>Chế độ {theme === 'dark' ? 'Tối (Dark Mode)' : 'Sáng (Light Mode)'}</span>
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    className="btn btn-secondary btn-sm user-account-theme-btn"
+                    onClick={toggleTheme}
+                  >
+                    <window.Icon name={theme === 'dark' ? 'sun' : 'moon'} size={14} />
+                    <span>{theme === 'dark' ? 'Bật Sáng' : 'Bật Tối'}</span>
+                  </button>
+                </div>
+
+                {logoutUser && (
+                  <button
+                    type="button"
+                    className="user-account-action-row logout-row"
+                    onClick={logoutUser}
+                  >
+                    <div className="user-account-action-left">
+                      <div className="user-account-action-icon red">
+                        <window.Icon name="log-out" size={18} />
+                      </div>
+                      <div className="user-account-action-text">
+                        <strong className="text-danger">Đăng Xuất Khỏi Tài Khoản</strong>
+                        <span>Thoát phiên làm việc an toàn</span>
+                      </div>
+                    </div>
+                    <window.Icon name="arrow-right" size={16} color="var(--apple-red)" />
+                  </button>
+                )}
               </div>
             </div>
-          </div>
+          </section>
         )}
       </main>
 
@@ -484,17 +820,21 @@ window.UserDashboardPage = function UserDashboardPage() {
           onClose={() => setRentModalOpen(false)}
           onRented={() => {
             refreshBalance();
+            fetchRecentTransactions();
             fetchAccounts();
           }}
-          onOpenTopup={() => setActiveTab('topup')}
+          onOpenTopup={() => handleSelectTab('topup')}
         />
       )}
 
       {historyModalOpen && (
         <window.TransactionHistoryModal
           currentBalance={balance}
-          onClose={() => setHistoryModalOpen(false)}
-          onOpenTopup={() => setActiveTab('topup')}
+          onClose={() => {
+            setHistoryModalOpen(false);
+            fetchRecentTransactions();
+          }}
+          onOpenTopup={() => handleSelectTab('topup')}
         />
       )}
 
@@ -519,6 +859,22 @@ window.UserDashboardPage = function UserDashboardPage() {
           setupModal={setupModal}
           onClose={closeSetupModal}
           onSave={handleSaveSetup}
+        />
+      )}
+
+      {/* Bot Logs Modal (System & Auto Events Only) */}
+      {selectedLogAccount && window.AccountLogsModal && (
+        <window.AccountLogsModal
+          account={selectedLogAccount}
+          onClose={() => setSelectedLogAccount(null)}
+        />
+      )}
+
+      {/* 4. iPhone-style Liquid Glass Mobile Bottom Navigation */}
+      {window.MobileBottomNav && (
+        <window.MobileBottomNav
+          activeTab={activeTab}
+          onSelectTab={handleSelectTab}
         />
       )}
     </div>

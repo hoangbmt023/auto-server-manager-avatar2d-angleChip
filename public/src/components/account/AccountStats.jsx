@@ -2,10 +2,7 @@
  * AccountStats Component (Presentation Layer)
  * Renders the 6-metric grid and live sub-status indicators (Farm, Fish, Diamond, SellOre).
  */
-function formatNumber(num) {
-  if (num === null || num === undefined || isNaN(num)) return '0';
-  return Number(num).toLocaleString('vi-VN');
-}
+const { formatNumber } = window.formatters;
 
 window.AccountStats = function AccountStats({ account, stats, autoState, isRunning }) {
   const coins = stats.coins !== undefined && stats.coins !== null ? stats.coins : 0;

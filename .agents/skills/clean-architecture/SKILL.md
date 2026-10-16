@@ -130,6 +130,25 @@ Verify before completion:
 - [ ] Do classes and functions adhere to SRP and stay within reasonable size limits (< 200-250 lines)?
 - [ ] Are dependencies injected via Interfaces (Inversion of Control)?
 - [ ] Is the architecture easily testable with mock repositories for Unit Tests?
+- [ ] Does the presentation layer have ZERO inline CSS styles (`style={{ ... }}`)? Are all visual styles declared in modular stylesheets?
 
 ### Step 3: Clean Implementation
 Deliver clean, explicit, self-documenting code strictly aligned with the approved architecture design.
+
+---
+
+## 🎨 6. Presentation Layer & UI Architecture Rules
+
+To maintain Clean Architecture principles in frontend code (React, JSX):
+1. **Strict Separation of Concerns (SoC) - Zero Inline Styles**:
+   - React components must only coordinate UI state, lifecycle, and component composition.
+   - **STRICTLY FORBIDDEN**: Declaring inline styles via `style={{ ... }}` (e.g. `display: flex`, `gap: 8px`, `color: 'red'`) inside JSX files.
+   - All visual rules, layouts, typography, and color tokens must be authored exclusively in dedicated modular stylesheets (`public/style.css`, `user-dashboard.css`, `modals.css`, etc.).
+2. **Centralized Iconography**:
+   - Never inject raw `<svg>` tags or emojis (`👁️`, `⚠️`, `✅`) directly into pages/components.
+   - Consume vector icons exclusively via `<window.Icon name="..." />` from `Icons.jsx`.
+   - Never include `xmlns="http://www.w3.org/2000/svg"` inside component SVGs to prevent mobile tap/long-press preview popups.
+3. **Decoupled API & Services**:
+   - Components MUST NOT invoke raw `fetch()` or `axios.get/post` directly.
+   - All network requests must flow through the Service Layer (`public/src/services/`) and HttpClient abstraction.
+

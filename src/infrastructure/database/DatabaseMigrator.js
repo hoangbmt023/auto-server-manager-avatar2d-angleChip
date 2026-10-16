@@ -288,15 +288,15 @@ class DatabaseMigrator {
       const [voucherRows] = await pool.query('SELECT COUNT(*) as count FROM vouchers');
       if (voucherRows[0].count === 0) {
         const sampleVouchers = [
-          { id: 'vch_welcome', code: 'CHAOBANMOI', discountPercent: 20, discountAmount: 0, minOrder: 30000, maxUses: 500 },
-          { id: 'vch_10k', code: 'GIAM10K', discountPercent: 0, discountAmount: 10000, minOrder: 50000, maxUses: 200 },
-          { id: 'vch_vip', code: 'VIP2026', discountPercent: 15, discountAmount: 0, minOrder: 100000, maxUses: 1000 }
+          { id: 'vch_welcome', code: 'CHAOBANMOI', discountPercent: 20, discountAmount: 0, minOrder: 30000, maxUses: 500, maxUsesPerUser: 1 },
+          { id: 'vch_10k', code: 'GIAM10K', discountPercent: 0, discountAmount: 10000, minOrder: 50000, maxUses: 200, maxUsesPerUser: 2 },
+          { id: 'vch_vip', code: 'VIP2026', discountPercent: 15, discountAmount: 0, minOrder: 100000, maxUses: 1000, maxUsesPerUser: 1 }
         ];
         for (const v of sampleVouchers) {
           await pool.query(
-            `INSERT INTO vouchers (id, code, discount_percent, discount_amount, min_order, max_uses, used_count, is_active)
-             VALUES (?, ?, ?, ?, ?, ?, 0, 1)`,
-            [v.id, v.code, v.discountPercent, v.discountAmount, v.minOrder, v.maxUses]
+            `INSERT INTO vouchers (id, code, discount_percent, discount_amount, min_order, max_uses, max_uses_per_user, used_count, is_active)
+             VALUES (?, ?, ?, ?, ?, ?, ?, 0, 1)`,
+            [v.id, v.code, v.discountPercent, v.discountAmount, v.minOrder, v.maxUses, v.maxUsesPerUser]
           );
         }
         console.log(`  🌱 [Seed] Đã nạp ${sampleVouchers.length} mã Voucher mẫu vào MySQL.`);
@@ -325,6 +325,26 @@ class DatabaseMigrator {
           ['rental_allocation_rules', JSON.stringify(defaultAllocationRules), 'Cấu hình bảng giá và quy tắc phân bổ bot tự động']
         );
         console.log('  🌱 [Seed] Đã nạp cấu hình phân bổ thuê bot (rental_allocation_rules) vào MySQL.');
+      }
+
+      // 8. Seed Topup Settings (Mệnh giá nạp & khuyến mãi) nếu chưa có
+      const [topupSetting] = await pool.query("SELECT * FROM system_settings WHERE setting_key = 'topup_settings'");
+      if (topupSetting.length === 0) {
+        const defaultTopupSettings = {
+          presets: [10000, 20000, 50000, 100000, 200000, 500000, 1000000, 2000000],
+          bonusTiers: [
+            { minAmount: 50000, bonusPercent: 5, desc: 'Nạp từ 50.000đ tặng 5%' },
+            { minAmount: 200000, bonusPercent: 10, desc: 'Nạp từ 200.000đ tặng 10%' },
+            { minAmount: 500000, bonusPercent: 15, desc: 'Nạp từ 500.000đ tặng 15%' },
+            { minAmount: 1000000, bonusPercent: 20, desc: 'Nạp từ 1.000.000đ tặng 20%' }
+          ],
+          minAmount: 10000
+        };
+        await pool.query(
+          `INSERT INTO system_settings (setting_key, setting_value, description) VALUES (?, ?, ?)`,
+          ['topup_settings', JSON.stringify(defaultTopupSettings), 'Cấu hình mệnh giá nạp tiền và tỷ lệ thưởng nạp']
+        );
+        console.log('  🌱 [Seed] Đã nạp cấu hình mệnh giá nạp (topup_settings) vào MySQL.');
       }
     } catch (seedErr) {
       console.warn('⚠️ [Code-First Migrator] Cảnh báo khi seed dữ liệu ban đầu:', seedErr.message);

@@ -17,24 +17,24 @@ window.UserNavbar = function UserNavbar({
   onOpenHistory,
   onLogout
 }) {
-  const formatMoney = (val) => Number(val || 0).toLocaleString('vi-VN');
+  const { formatMoney } = window.formatters;
 
   return (
     <header className="navbar user-portal-navbar">
       {/* Brand & Left Navigation */}
-      <div className="brand" style={{ gap: '20px' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+      <div className="brand user-brand">
+        <div className="user-brand-logo">
           <div className="brand-icon">
             <img src="assets/logo.png" className="app-logo-img" alt="AVATAR2D Logo" />
           </div>
           <div className="brand-text">
-            <h1 style={{ fontSize: '1.05rem', margin: 0 }}>AVATAR2D</h1>
-            <span className="badge-cpanel" style={{ fontSize: '0.66rem' }}>Portal Khách Hàng</span>
+            <h1 className="user-brand-title">AVATAR2D</h1>
+            <span className="badge-cpanel user-brand-badge">Portal Khách Hàng</span>
           </div>
         </div>
 
         {/* Navigation Tabs */}
-        <nav className="user-nav-tabs" style={{ display: 'flex', gap: '6px' }}>
+        <nav className="user-nav-tabs">
           <button
             type="button"
             className={`user-nav-tab-btn ${activeTab === 'management' ? 'active' : ''}`}
@@ -56,7 +56,7 @@ window.UserNavbar = function UserNavbar({
       </div>
 
       {/* Right Cluster: Balance, Theme, Profile */}
-      <div className="nav-status" style={{ gap: '12px' }}>
+      <div className="nav-status user-nav-right">
         {/* Balance Capsule Button (Opens Transaction History) */}
         <button
           type="button"
@@ -76,7 +76,7 @@ window.UserNavbar = function UserNavbar({
 
         {/* Theme Quick Switcher Button */}
         <button
-          className="btn btn-icon"
+          className="btn btn-icon user-theme-toggle-btn"
           onClick={toggleTheme}
           title={theme === 'dark' ? 'Chuyển sang Chế độ Sáng' : 'Chuyển sang Chế độ Tối'}
         >
@@ -98,11 +98,7 @@ window.UserNavbar = function UserNavbar({
                 title="Đăng xuất"
                 aria-label="Đăng xuất"
               >
-                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                  <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path>
-                  <polyline points="16 17 21 12 16 7"></polyline>
-                  <line x1="21" y1="12" x2="9" y2="12"></line>
-                </svg>
+                <window.Icon name="log-out" size={15} />
               </button>
             )}
           </div>

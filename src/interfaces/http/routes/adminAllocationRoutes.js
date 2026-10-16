@@ -23,6 +23,11 @@ module.exports = function createAdminAllocationRoutes(adminAllocationController)
     return adminAllocationController.createVoucher(req, res, helpers.sendJson, helpers.parseJsonBody);
   });
 
+  router.put('/api/admin/vouchers/:code', async (req, res, helpers) => {
+    if (!adminOnly(req, res, helpers)) return;
+    return adminAllocationController.updateVoucher(req, res, helpers.sendJson, helpers.parseJsonBody);
+  });
+
   router.delete('/api/admin/vouchers/:code', async (req, res, helpers) => {
     if (!adminOnly(req, res, helpers)) return;
     return adminAllocationController.deleteVoucher(req, res, helpers.sendJson);

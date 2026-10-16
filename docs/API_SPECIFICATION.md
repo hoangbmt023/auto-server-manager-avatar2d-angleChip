@@ -130,3 +130,17 @@ Incoming Request
 * `POST /api/auth/refresh` - Issue a fresh access token using a valid refresh token.
 * `GET /api/auth/me` - Retrieve user profile for the authenticated bearer token (`UserResponseDto`).
 
+### 8. Billing & Automated payOS Top-Up Gateway (`/api/billing`)
+* `GET /api/billing/balance` - Retrieve real-time wallet balance for the authenticated user.
+* `GET /api/billing/policy` - Retrieve dynamic top-up presets, tiered bonus percentages, and banking metadata.
+* `GET /api/billing/transactions` - Paginated transaction history with cursor/offset pagination (`page`, `limit`, `type`: `ALL` | `TOPUP` | `RENTAL`).
+* `POST /api/billing/payos-order` - Create a payOS VietQR checkout session (Rate limited: 6 req/min, min 10.000đ, max 50.000.000đ).
+* `GET /api/billing/payos-order/:orderCode/verify` - Verify payment status with payOS upon return and atomically credit wallet (`claimPendingTransaction`). Protected by IDOR checks and rate limiting (20 req/min).
+* `POST /api/billing/payos-order/:orderCode/cancel` - Explicitly cancel a pending payment order and mark transaction `CANCELLED`.
+* `POST /api/billing/payos-webhook` - **Public Webhook** for payOS IPN notifications. Verified with HMAC-SHA256 (`crypto.timingSafeEqual`) and atomic concurrency locks against double crediting.
+* `POST /api/billing/check-voucher` - Validate voucher codes, calculate discount values, and enforce usage limits per account.
+* `POST /api/billing/topup` - *(Admin Only - RBAC)* Internal direct balance topup for administrative testing.
+* `POST /api/billing/admin/adjust-balance` - *(Admin Only - RBAC)* Credit/debit user balance with reason and audit trail.
+* `PUT /api/billing/admin/topup-settings` - *(Admin Only - RBAC)* Update system-wide deposit presets, bonus tiers, and thresholds.
+
+

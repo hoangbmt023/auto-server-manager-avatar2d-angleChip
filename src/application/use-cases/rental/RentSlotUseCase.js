@@ -1,6 +1,7 @@
 const Account = require('../../../domain/entities/Account');
 const Transaction = require('../../../domain/entities/Transaction');
 const { BadRequestException } = require('../../../domain/errors');
+const { formatMoney } = require('../../../shared/utils/formatters');
 
 /**
  * RentSlotUseCase (Application Layer)
@@ -64,6 +65,10 @@ class RentSlotUseCase {
     if (voucherCode) {
       const v = await this.voucherRepo.findByCode(voucherCode);
       if (v && v.isValid()) {
+        const userUsage = await this.transactionRepo.countVoucherUsesByUser(userId, v.code);
+        if (userUsage >= v.maxUsesPerUser) {
+          throw new BadRequestException(`Bạn đã sử dụng mã giảm giá [${v.code}] đạt giới hạn cho phép (${v.maxUsesPerUser} lần/tài khoản)!`);
+        }
         voucherSavings = v.calculateDiscount(amountAfterDurationDiscount);
         appliedVoucher = v;
       } else {
@@ -76,7 +81,7 @@ class RentSlotUseCase {
     // 4. Validate Balance
     if (user.balance < finalPrice) {
       throw new BadRequestException(
-        `Số dư của bạn không đủ (${user.balance.toLocaleString()}đ < ${finalPrice.toLocaleString()}đ). Vui lòng nạp thêm tiền!`
+        `Số dư của bạn không đủ (${formatMoney(user.balance)}đ < ${formatMoney(finalPrice)}đ). Vui lòng nạp thêm tiền!`
       );
     }
 
@@ -163,14 +168,20 @@ class RentSlotUseCase {
     if (voucherCode) {
       const v = await this.voucherRepo.findByCode(voucherCode);
       if (v && v.isValid()) {
+        const userUsage = await this.transactionRepo.countVoucherUsesByUser(userId, v.code);
+        if (userUsage >= v.maxUsesPerUser) {
+          throw new BadRequestException(`Bạn đã sử dụng mã giảm giá [${v.code}] đạt giới hạn cho phép (${v.maxUsesPerUser} lần/tài khoản)!`);
+        }
         voucherSavings = v.calculateDiscount(amountAfterDurationDiscount);
         appliedVoucher = v;
+      } else {
+        throw new BadRequestException(`Mã giảm giá [${voucherCode}] không tồn tại hoặc đã hết hạn!`);
       }
     }
 
     const finalPrice = Math.max(0, amountAfterDurationDiscount - voucherSavings);
     if (user.balance < finalPrice) {
-      throw new BadRequestException(`Số dư không đủ (${user.balance.toLocaleString()}đ < ${finalPrice.toLocaleString()}đ)!`);
+      throw new BadRequestException(`Số dư không đủ (${formatMoney(user.balance)}đ < ${formatMoney(finalPrice)}đ)!`);
     }
 
     const balanceBefore = user.balance;

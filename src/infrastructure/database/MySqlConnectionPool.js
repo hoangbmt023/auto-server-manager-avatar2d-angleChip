@@ -17,7 +17,7 @@ class MySqlConnectionPool {
       waitForConnections: true,
       queueLimit: 0,
       charset: 'utf8mb4',
-      timezone: 'Z'
+      timezone: customConfig.timezone || config.db.timezone || 'Z'
     };
     this.pool = null;
   }

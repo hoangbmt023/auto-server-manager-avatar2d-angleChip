@@ -730,7 +730,6 @@ window.FarmItemGraphic = function FarmItemGraphic({ item, size = 30 }) {
       height={size}
       viewBox="0 0 32 32"
       fill="none"
-      xmlns="http://www.w3.org/2000/svg"
       style={{ display: 'inline-block', verticalAlign: 'middle', flexShrink: 0 }}
     >
       {svgContent}

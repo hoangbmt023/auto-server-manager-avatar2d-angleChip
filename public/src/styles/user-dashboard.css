@@ -1,0 +1,2303 @@
+/* ==========================================================================
+   🍎 OPENDESIGN / USER PORTAL & DASHBOARD STYLES
+   Extracts all layout and presentation styles for UserDashboardPage.
+   ========================================================================== */
+
+/* User Dashboard Layout */
+.user-dashboard-wrapper {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+.user-dashboard-content {
+  flex: 1;
+  padding: 24px;
+}
+
+.user-sidebar-pane {
+  max-width: 300px;
+}
+
+.user-icon-box-primary {
+  background: rgba(10, 132, 255, 0.15);
+  color: var(--apple-blue);
+}
+
+.user-icon-box-success {
+  background: rgba(48, 209, 88, 0.12);
+  color: var(--apple-green);
+}
+
+.user-icon-box-gold {
+  background: rgba(255, 214, 10, 0.15);
+  color: var(--apple-gold);
+  width: 44px;
+  height: 44px;
+}
+
+.user-btn-rent-main {
+  padding: 12px 16px;
+  font-weight: 700;
+  font-size: 0.92rem;
+  gap: 8px;
+}
+
+.user-file-list-wrap {
+  margin-top: 12px;
+}
+
+.user-file-list-items {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-top: 6px;
+}
+
+.user-file-empty {
+  padding: 12px;
+  font-size: 0.78rem;
+  color: var(--text-tertiary);
+  background: var(--glass-matrix-bg);
+  border-radius: var(--radius-sm);
+}
+
+.user-file-item {
+  padding: 10px 12px;
+  border-radius: var(--radius-md);
+  background: var(--glass-matrix-bg);
+  border: 1px solid var(--glass-border-subtle);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.user-file-item-left {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.user-file-title {
+  font-size: 0.84rem;
+  color: var(--text-primary);
+  display: block;
+}
+
+.user-file-subtitle {
+  font-size: 0.68rem;
+  color: var(--text-tertiary);
+}
+
+.user-file-badge {
+  font-size: 0.74rem;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: rgba(10, 132, 255, 0.1);
+  color: var(--apple-blue);
+  font-weight: 600;
+}
+
+.user-stats-card {
+  margin-top: 16px;
+  padding: 14px;
+  background: var(--glass-matrix-bg);
+  border-radius: var(--radius-md);
+  border: 1px solid var(--glass-border-subtle);
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.user-stats-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.user-stats-label {
+  font-size: 0.82rem;
+  color: var(--text-secondary);
+}
+
+.user-stats-val {
+  font-size: 0.92rem;
+  color: var(--text-primary);
+}
+
+.user-stats-badge {
+  font-size: 0.78rem;
+  font-weight: 700;
+  padding: 2px 8px;
+  border-radius: 999px;
+}
+
+.user-stats-badge.online {
+  color: var(--apple-green);
+  background: rgba(48, 209, 88, 0.12);
+}
+
+.user-stats-badge.offline {
+  color: var(--text-tertiary);
+  background: var(--glass-bg);
+}
+
+.user-divider {
+  height: 1px;
+  background: var(--glass-border-subtle);
+  margin: 2px 0;
+}
+
+.user-city-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.user-city-item {
+  display: flex;
+  justify-content: space-between;
+  font-size: 0.78rem;
+}
+
+.user-city-name-hm {
+  color: var(--apple-blue);
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.user-city-name-dk {
+  color: var(--apple-purple);
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.user-pane-header-flex {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.user-pane-header-left {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.user-search-wrapper {
+  max-width: 320px;
+  width: 100%;
+}
+
+.user-accounts-empty {
+  padding: 60px 24px;
+  text-align: center;
+  background: var(--glass-matrix-bg);
+  border-radius: var(--radius-lg);
+  border: 1px dashed var(--glass-border-subtle);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+}
+
+.user-accounts-empty-icon {
+  width: 54px;
+  height: 54px;
+  margin: 0 auto;
+  background: rgba(10, 132, 255, 0.1);
+  color: var(--apple-blue);
+}
+
+.user-accounts-empty-title {
+  margin: 0;
+  font-size: 1.05rem;
+  color: var(--text-primary);
+}
+
+.user-accounts-empty-desc {
+  margin: 0;
+  font-size: 0.84rem;
+  color: var(--text-secondary);
+  max-width: 420px;
+}
+
+.user-accounts-grid-wrap {
+  margin-top: 16px;
+}
+
+/* Tab 2: Topup Styles */
+.user-topup-container {
+  max-width: 860px;
+  margin: 0 auto;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+/* ==========================================================================
+   💳 TOP-UP SPLIT 2-COLUMN LAYOUT & SIDEBAR HISTORY
+   ========================================================================== */
+.topup-split-layout {
+  display: grid;
+  grid-template-columns: 350px 1fr;
+  gap: 20px;
+  align-items: start;
+}
+
+@media (max-width: 960px) {
+  .topup-split-layout {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* Left Pane: Transaction History & Balance Fluctuations Container */
+.topup-sidebar-pane {
+  display: flex;
+  flex-direction: column;
+}
+
+.topup-history-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding-bottom: 12px;
+  border-bottom: 1px solid var(--glass-border-subtle);
+}
+
+.topup-history-title-group {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.topup-history-title {
+  margin: 0;
+  font-size: 1.05rem;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.topup-history-sub {
+  font-size: 0.74rem;
+  color: var(--text-tertiary);
+  display: block;
+}
+
+.topup-view-all-btn {
+  font-size: 0.74rem;
+  padding: 4px 10px;
+}
+
+/* Quick Balance Pill */
+.topup-balance-quickcard {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 14px;
+  background: var(--glass-matrix-bg);
+  border: 1px solid rgba(255, 214, 10, 0.2);
+  border-radius: var(--radius-md);
+}
+
+.topup-balance-quickcard-lbl {
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--text-tertiary);
+}
+
+.topup-balance-quickcard-val {
+  font-size: 1.25rem;
+  font-weight: 800;
+  color: var(--apple-gold);
+  letter-spacing: -0.02em;
+}
+
+.topup-balance-quickcard-icon {
+  width: 36px;
+  height: 36px;
+  border-radius: var(--radius-md);
+  background: rgba(255, 214, 10, 0.12);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* Recent Transaction Mini Items */
+.topup-recent-list-container {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.topup-recent-list-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: var(--text-tertiary);
+  letter-spacing: 0.05em;
+  padding: 0 2px;
+}
+
+.topup-recent-count {
+  font-size: 0.7rem;
+  color: var(--text-secondary);
+}
+
+.topup-recent-items {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.topup-recent-item {
+  background: var(--glass-matrix-bg);
+  border: 1px solid var(--glass-border-subtle);
+  border-radius: var(--radius-md);
+  padding: 10px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  transition: all 0.18s ease;
+}
+
+.topup-recent-item:hover {
+  border-color: rgba(10, 132, 255, 0.3);
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.topup-recent-row-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.topup-recent-amount {
+  font-size: 0.88rem;
+  font-weight: 700;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+
+.topup-recent-desc {
+  font-size: 0.78rem;
+  color: var(--text-primary);
+  line-height: 1.35;
+  word-break: break-word;
+}
+
+.topup-recent-row-bottom {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 0.72rem;
+  color: var(--text-tertiary);
+  gap: 6px;
+  padding-top: 4px;
+  border-top: 1px dashed var(--glass-border-subtle);
+}
+
+.topup-recent-time {
+  white-space: nowrap;
+}
+
+.topup-recent-after {
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+
+.topup-recent-after strong {
+  color: var(--text-secondary);
+  font-weight: 600;
+}
+
+.topup-recent-empty {
+  padding: 24px 12px;
+  text-align: center;
+  color: var(--text-tertiary);
+  font-size: 0.82rem;
+  background: var(--glass-matrix-bg);
+  border-radius: var(--radius-md);
+  border: 1px dashed var(--glass-border-subtle);
+}
+
+.topup-recent-loading {
+  padding: 24px 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  color: var(--text-tertiary);
+  font-size: 0.82rem;
+}
+
+.topup-btn-see-more {
+  margin-top: 4px;
+  padding: 8px;
+  font-size: 0.8rem;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+}
+
+/* ==========================================================================
+   RIGHT PANE: CLEAN TOPUP CARD & UNIFIED PAYMENT LAYOUT
+   ========================================================================== */
+.topup-content-pane {
+  display: flex;
+  flex-direction: column;
+}
+
+.user-topup-card {
+  background: var(--glass-matrix-bg);
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--glass-border-subtle);
+  padding: 22px 24px;
+}
+
+.user-topup-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 18px;
+  padding-bottom: 14px;
+  border-bottom: 1px solid var(--glass-border-subtle);
+}
+
+.user-topup-header-left {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.user-topup-title {
+  margin: 0;
+  font-size: 1.18rem;
+  font-weight: 700;
+}
+
+.user-topup-sub {
+  font-size: 0.78rem;
+  color: var(--text-tertiary);
+  margin-top: 2px;
+  display: block;
+}
+
+.user-topup-balance-display {
+  text-align: right;
+}
+
+.user-topup-balance-lbl {
+  font-size: 0.72rem;
+  color: var(--text-tertiary);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.user-topup-balance-val {
+  font-size: 1.35rem;
+  font-weight: 800;
+  color: var(--apple-gold);
+  letter-spacing: -0.02em;
+}
+
+.user-topup-presets-label {
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--text-secondary);
+  margin-bottom: 8px;
+  display: block;
+}
+
+.user-topup-presets-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+  gap: 8px;
+  margin-bottom: 14px;
+}
+
+.user-topup-preset-btn {
+  padding: 10px 8px;
+  border-radius: var(--radius-md);
+  background: var(--glass-bg);
+  border: 1.5px solid var(--glass-border-subtle);
+  color: var(--text-primary);
+  font-weight: 700;
+  font-size: 0.88rem;
+  cursor: pointer;
+  transition: all 0.16s ease;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 3px;
+}
+
+.user-topup-preset-btn:hover {
+  border-color: var(--apple-blue);
+  background: rgba(10, 132, 255, 0.08);
+  transform: translateY(-1px);
+}
+
+.user-topup-preset-btn.active {
+  background: rgba(255, 214, 10, 0.14);
+  border-color: var(--apple-gold);
+  color: var(--apple-gold);
+}
+
+.user-topup-preset-bonus-tag {
+  font-size: 0.65rem;
+  padding: 1px 5px;
+  border-radius: 4px;
+  background: rgba(50, 215, 75, 0.2);
+  color: var(--apple-green);
+  font-weight: 600;
+}
+
+/* Inline Calculation Strip (Apple Style Clean 2-Row Layout) */
+.user-topup-calc-box {
+  padding: 12px 16px;
+  border-radius: var(--radius-md);
+  background: var(--glass-matrix-bg);
+  border: 1px solid var(--glass-border-subtle);
+  margin-bottom: 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  font-size: 0.85rem;
+}
+
+.user-topup-calc-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  gap: 8px;
+}
+
+.user-topup-calc-divider {
+  height: 1px;
+  background: var(--glass-border-subtle);
+  width: 100%;
+}
+
+.user-topup-calc-receive-meta {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.user-topup-summary-lbl {
+  color: var(--text-tertiary);
+  font-weight: 500;
+  white-space: nowrap;
+}
+
+.user-topup-calc-pay-val {
+  color: var(--text-primary);
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.user-topup-calc-receive-val {
+  font-size: 1.15rem;
+  color: var(--apple-gold);
+  font-weight: 800;
+  white-space: nowrap;
+  letter-spacing: -0.01em;
+}
+
+.user-topup-calc-bonus-badge {
+  color: var(--apple-green);
+  background: rgba(48, 209, 88, 0.12);
+  border: 1px solid rgba(48, 209, 88, 0.28);
+  font-weight: 600;
+  font-size: 0.74rem;
+  padding: 2px 7px;
+  border-radius: 999px;
+  white-space: nowrap;
+}
+
+/* ==========================================================================
+   💳 UNIFIED & PROFESSIONAL PAYMENT & CHECKOUT CARD
+   ========================================================================== */
+.topup-payment-card {
+  background: rgba(10, 132, 255, 0.03);
+  border: 1px solid rgba(10, 132, 255, 0.16);
+  border-radius: var(--radius-md);
+  padding: 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.topup-payment-card-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.topup-payment-card-title {
+  font-size: 0.8rem;
+  font-weight: 700;
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.topup-payment-method-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 14px;
+  border-radius: var(--radius-md);
+  background: var(--glass-bg);
+  border: 1.5px solid rgba(10, 132, 255, 0.35);
+}
+
+.topup-method-radio {
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  border: 2px solid var(--apple-blue);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.topup-radio-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--apple-blue);
+}
+
+.topup-method-icon-wrap {
+  width: 36px;
+  height: 36px;
+  border-radius: var(--radius-md);
+  background: rgba(10, 132, 255, 0.12);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.topup-payment-method-texts {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  flex: 1;
+  min-width: 0;
+}
+
+.topup-method-name {
+  font-size: 0.92rem;
+  color: var(--text-primary);
+  font-weight: 700;
+}
+
+.topup-method-sub {
+  font-size: 0.76rem;
+  color: var(--text-secondary);
+  line-height: 1.35;
+}
+
+.topup-method-badge-fast {
+  font-size: 0.72rem;
+  background: rgba(50, 215, 75, 0.12);
+  color: var(--apple-green);
+  border: 1px solid rgba(50, 215, 75, 0.28);
+  font-weight: 600;
+  padding: 2px 8px;
+  border-radius: 999px;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.topup-checkout-cta-wrap {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-top: 2px;
+}
+
+.topup-btn-checkout-clean {
+  width: 100%;
+  padding: 13px 24px;
+  font-size: 0.96rem;
+  font-weight: 700;
+  border-radius: var(--radius-md);
+  background: linear-gradient(135deg, #0A84FF 0%, #0066CC 100%);
+  color: #fff;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  cursor: pointer;
+  box-shadow: 0 4px 16px rgba(10, 132, 255, 0.3);
+  transition: all 0.2s ease;
+}
+
+.topup-btn-checkout-clean:hover:not(:disabled) {
+  transform: translateY(-1px);
+  box-shadow: 0 6px 20px rgba(10, 132, 255, 0.45);
+  background: linear-gradient(135deg, #1A8CFF 0%, #0070E0 100%);
+}
+
+.topup-btn-checkout-clean:disabled {
+  opacity: 0.65;
+  cursor: not-allowed;
+}
+
+.user-topup-payos-spinner {
+  width: 16px;
+  height: 16px;
+  border: 2px solid rgba(255, 255, 255, 0.3);
+  border-top-color: #fff;
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+
+.user-topup-payos-warn {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.78rem;
+  color: var(--apple-gold);
+  background: rgba(255, 214, 10, 0.08);
+  padding: 10px 14px;
+  border-radius: var(--radius-sm);
+  border: 1px solid rgba(255, 214, 10, 0.2);
+}
+
+/* ==========================================================================
+   💳 TRANSACTION HISTORY MODAL & TABLE (MODALBASE SYSTEM)
+   ========================================================================== */
+.tx-history-modal-dialog {
+  max-width: 980px;
+}
+
+.tx-modal-subtitle-text {
+  font-size: 0.82rem;
+  color: var(--text-secondary);
+}
+
+.tx-balance-val {
+  color: var(--apple-gold);
+  font-weight: 700;
+}
+
+.tx-modal-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 16px;
+  flex-wrap: wrap;
+}
+
+.tx-filter-bar {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.tx-filter-bar button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  padding: 6px 14px;
+  font-weight: 600;
+  font-size: 0.78rem;
+  border-radius: var(--radius-sm);
+  transition: all 0.2s ease;
+}
+
+.tx-modal-body-content {
+  min-height: 420px;
+  max-height: 480px;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+}
+
+.tx-loading-box {
+  min-height: 380px;
+  padding: 48px 20px;
+  text-align: center;
+  color: var(--text-tertiary);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  flex: 1;
+}
+
+.tx-loading-box-sm {
+  min-height: auto;
+  padding: 14px 20px;
+  flex-direction: row;
+  justify-content: center;
+  gap: 10px;
+  flex: 0 0 auto;
+}
+
+.tx-loading-text {
+  font-size: 0.82rem;
+  color: var(--text-tertiary);
+}
+
+.tx-spinner-circular {
+  display: inline-block;
+  width: 24px;
+  height: 24px;
+  border: 2.5px solid rgba(10, 132, 255, 0.2);
+  border-top-color: var(--apple-blue);
+  border-radius: 50%;
+  animation: txSpin 0.75s linear infinite;
+  flex-shrink: 0;
+  vertical-align: middle;
+}
+
+.tx-spinner-circular.sm {
+  width: 16px;
+  height: 16px;
+  border-width: 2px;
+}
+
+.tx-spinner-circular.lg {
+  width: 32px;
+  height: 32px;
+  border-width: 3px;
+}
+
+/* Reusable white spinner inside buttons */
+.btn .tx-spinner-circular,
+button .tx-spinner-circular {
+  border-color: rgba(255, 255, 255, 0.35);
+  border-top-color: #ffffff;
+}
+
+[data-theme="light"] .btn-secondary .tx-spinner-circular {
+  border-color: rgba(0, 0, 0, 0.15);
+  border-top-color: var(--text-primary);
+}
+
+@keyframes txSpin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+.tx-end-of-list {
+  padding: 14px 20px;
+  text-align: center;
+  font-size: 0.78rem;
+  color: var(--text-tertiary);
+  border-top: 1px dashed var(--glass-border-subtle);
+  margin-top: 8px;
+}
+
+.tx-empty-box {
+  min-height: 380px;
+  padding: 48px 20px;
+  text-align: center;
+  color: var(--text-tertiary);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  flex: 1;
+}
+
+.tx-empty-text {
+  margin: 0;
+  font-size: 0.92rem;
+}
+
+.tx-table-container {
+  width: 100%;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+.tx-table {
+  width: 100%;
+  min-width: 780px; /* CRITICAL: Prevents columns from compressing & wrapping */
+  border-collapse: collapse;
+  font-size: 0.84rem;
+}
+
+.tx-th-row {
+  border-bottom: 1.5px solid var(--glass-border-subtle);
+  color: var(--text-tertiary);
+  text-align: left;
+}
+
+.tx-th-cell {
+  padding: 10px 14px;
+  font-weight: 700;
+  white-space: nowrap; /* CRITICAL: Prevents header text wrapping */
+  font-size: 0.76rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.tx-th-cell-right {
+  padding: 10px 14px;
+  text-align: right;
+  font-weight: 700;
+  white-space: nowrap; /* CRITICAL: Prevents "Số Dư Sau GD" from wrapping */
+  font-size: 0.76rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.tx-tr-row {
+  border-bottom: 1px solid var(--glass-border-subtle);
+  transition: background 0.15s ease;
+}
+
+.tx-tr-row:hover {
+  background: rgba(255, 255, 255, 0.02);
+}
+
+.tx-td-time {
+  padding: 12px 14px;
+  color: var(--text-tertiary);
+  white-space: nowrap; /* CRITICAL: Prevents date/time break */
+  font-size: 0.82rem;
+}
+
+.tx-td-type {
+  padding: 12px 14px;
+  white-space: nowrap; /* CRITICAL: Prevents badge break */
+  width: 1%;
+}
+
+.tx-td-status {
+  padding: 12px 14px;
+  white-space: nowrap; /* CRITICAL: Prevents status badge break */
+  width: 1%;
+}
+
+.tx-td-desc {
+  padding: 12px 14px;
+  color: var(--text-primary);
+  min-width: 180px;
+  max-width: 300px;
+  line-height: 1.4;
+  word-break: break-word;
+}
+
+.tx-desc-text {
+  font-size: 0.84rem;
+}
+
+.tx-voucher-badge {
+  font-size: 0.7rem;
+  color: var(--apple-green);
+  display: inline-block;
+  margin-top: 3px;
+  padding: 1px 6px;
+  background: rgba(50, 215, 75, 0.1);
+  border-radius: 4px;
+}
+
+.tx-td-amount {
+  padding: 12px 14px;
+  text-align: right;
+  font-weight: 700;
+  white-space: nowrap; /* CRITICAL: Prevents "+220.000 đ" from wrapping đ */
+  font-variant-numeric: tabular-nums;
+  font-size: 0.9rem;
+}
+
+.tx-amount-pos {
+  color: var(--apple-green);
+}
+
+.tx-amount-neg {
+  color: var(--text-primary);
+}
+
+.tx-td-after {
+  padding: 12px 14px;
+  text-align: right;
+  color: var(--text-secondary);
+  white-space: nowrap; /* CRITICAL: Prevents balance from wrapping */
+  font-family: var(--font-mono, monospace);
+  font-variant-numeric: tabular-nums;
+  font-size: 0.85rem;
+}
+
+/* Status & Type Badges: STRICT NO-WRAP */
+.tx-status-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 3px 10px;
+  border-radius: 999px;
+  font-size: 0.74rem;
+  font-weight: 600;
+  white-space: nowrap; /* CRITICAL: Prevents "Nạp\nTiền" or "Thành\ncông" */
+  line-height: 1.25;
+  flex-shrink: 0;
+}
+
+.tx-status-success {
+  color: var(--apple-green);
+  background: rgba(48, 209, 88, 0.12);
+  border: 1px solid rgba(48, 209, 88, 0.25);
+}
+
+.tx-status-pending {
+  color: var(--apple-gold);
+  background: rgba(255, 214, 10, 0.15);
+  border: 1px solid rgba(255, 214, 10, 0.3);
+}
+
+.tx-status-failed {
+  color: var(--apple-red);
+  background: rgba(255, 69, 58, 0.15);
+  border: 1px solid rgba(255, 69, 58, 0.25);
+}
+
+.tx-status-cancelled {
+  color: var(--text-tertiary);
+  background: var(--glass-bg);
+  border: 1px solid var(--glass-border-subtle);
+}
+
+.tx-type-topup {
+  color: var(--apple-green);
+  background: rgba(48, 209, 88, 0.12);
+  border: 1px solid rgba(48, 209, 88, 0.25);
+}
+
+.tx-type-rental {
+  color: var(--apple-blue);
+  background: rgba(10, 132, 255, 0.12);
+  border: 1px solid rgba(10, 132, 255, 0.25);
+}
+
+.tx-type-renewal {
+  color: var(--apple-purple);
+  background: rgba(191, 90, 242, 0.12);
+  border: 1px solid rgba(191, 90, 242, 0.25);
+}
+
+.tx-type-refund {
+  color: var(--apple-gold);
+  background: rgba(255, 214, 10, 0.12);
+  border: 1px solid rgba(255, 214, 10, 0.25);
+}
+
+/* ==========================================================================
+   🤖 RENT SLOT MODAL
+   ========================================================================== */
+.rent-slot-modal {
+  max-width: 640px;
+  width: 92%;
+}
+
+.rent-header-left {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.rent-icon-blue {
+  background: rgba(10, 132, 255, 0.15);
+  color: var(--apple-blue);
+}
+
+.rent-title {
+  margin: 0;
+  font-size: 1.15rem;
+}
+
+.rent-sub {
+  font-size: 0.78rem;
+  color: var(--text-tertiary);
+}
+
+.rent-alert-danger {
+  margin: 14px 20px 0;
+  padding: 10px 14px;
+  border-radius: var(--radius-sm);
+  font-size: 0.82rem;
+}
+
+.rent-form {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  padding: 20px;
+}
+
+.rent-grid-2col {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+
+.rent-field-label {
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--text-secondary);
+  margin-bottom: 6px;
+  display: block;
+}
+
+.rent-plan-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+  gap: 10px;
+}
+
+.rent-plan-btn {
+  padding: 12px 14px;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--glass-border-subtle);
+  background: var(--glass-matrix-bg);
+  text-align: left;
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  transition: all 0.2s ease;
+}
+
+.rent-plan-btn.active {
+  border-color: var(--apple-blue);
+  background: rgba(10, 132, 255, 0.08);
+}
+
+.rent-plan-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.rent-plan-name {
+  font-size: 0.88rem;
+  font-weight: 700;
+}
+
+.rent-plan-desc {
+  font-size: 0.72rem;
+  color: var(--text-tertiary);
+  min-height: 32px;
+}
+
+.rent-plan-price {
+  font-size: 0.82rem;
+  font-weight: 700;
+  color: var(--apple-gold);
+  margin-top: 4px;
+}
+
+.rent-duration-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 8px;
+}
+
+.rent-duration-btn {
+  padding: 8px 10px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--glass-border-subtle);
+  background: var(--glass-matrix-bg);
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  transition: all 0.15s ease;
+}
+
+.rent-duration-btn.active {
+  border-color: var(--apple-blue);
+  background: rgba(10, 132, 255, 0.08);
+}
+
+.rent-duration-txt {
+  font-size: 0.84rem;
+  font-weight: 600;
+}
+
+.rent-discount-tag {
+  font-size: 0.64rem;
+  font-weight: 700;
+  color: var(--apple-green);
+}
+
+.rent-voucher-row {
+  display: flex;
+  gap: 8px;
+}
+
+.rent-summary-box {
+  background: var(--glass-matrix-bg);
+  border-radius: var(--radius-md);
+  border: 1px solid var(--glass-border-subtle);
+  padding: 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.rent-summary-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 0.82rem;
+}
+
+.rent-summary-lbl {
+  color: var(--text-secondary);
+}
+
+.rent-summary-val {
+  color: var(--text-primary);
+  font-weight: 600;
+}
+
+.rent-summary-val-green {
+  color: var(--apple-green);
+  font-weight: 600;
+}
+
+.rent-summary-val-gold {
+  color: var(--apple-gold);
+  font-size: 1.05rem;
+  font-weight: 700;
+}
+
+.rent-summary-divider {
+  border-top: 1px dashed var(--glass-border-subtle);
+  padding-top: 6px;
+}
+
+.rent-voucher-input {
+  text-transform: uppercase;
+}
+
+.rent-voucher-btn {
+  min-width: 90px;
+}
+
+.rent-voucher-applied {
+  font-size: 0.74rem;
+  color: var(--apple-green);
+  margin-top: 4px;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.rent-voucher-error {
+  font-size: 0.74rem;
+  color: var(--apple-red);
+  margin-top: 4px;
+  display: block;
+}
+
+.rent-summary-subtotal {
+  display: flex;
+  justify-content: space-between;
+  font-size: 0.82rem;
+  color: var(--text-secondary);
+}
+
+.rent-summary-savings {
+  display: flex;
+  justify-content: space-between;
+  font-size: 0.82rem;
+  color: var(--apple-green);
+}
+
+.rent-summary-hr {
+  height: 1px;
+  background: var(--glass-border-subtle);
+  margin: 4px 0;
+}
+
+.rent-summary-total-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.rent-summary-total-lbl {
+  font-size: 0.94rem;
+  color: var(--text-primary);
+  font-weight: 700;
+}
+
+.rent-summary-total-val {
+  font-size: 1.25rem;
+  color: var(--apple-gold);
+  font-weight: 700;
+}
+
+.rent-summary-balance-row {
+  display: flex;
+  justify-content: space-between;
+  font-size: 0.78rem;
+  margin-top: 4px;
+  color: var(--text-tertiary);
+}
+
+.rent-insufficient-box {
+  margin-top: 6px;
+  padding: 8px 12px;
+  border-radius: var(--radius-sm);
+  background: rgba(255, 69, 58, 0.1);
+  border: 1px solid rgba(255, 69, 58, 0.25);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.rent-insufficient-txt {
+  font-size: 0.78rem;
+  color: var(--apple-red);
+  font-weight: 600;
+}
+
+.rent-action-row {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  margin-top: 6px;
+}
+
+.rent-submit-btn {
+  min-width: 150px;
+}
+
+.rent-plan-item {
+  padding: 12px;
+  border-radius: var(--radius-md);
+  background: var(--glass-matrix-bg);
+  border: 1.5px solid var(--glass-border-subtle);
+  cursor: pointer;
+  transition: all 0.18s ease;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.rent-plan-item.selected {
+  background: rgba(10, 132, 255, 0.12);
+  border-color: var(--apple-blue);
+}
+
+.rent-plan-title-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.rent-plan-title-txt {
+  font-size: 0.88rem;
+  color: var(--text-primary);
+}
+
+.rent-plan-title-txt.selected {
+  color: var(--apple-blue);
+}
+
+.rent-plan-desc-txt {
+  font-size: 0.72rem;
+  color: var(--text-tertiary);
+  min-height: 32px;
+}
+
+.rent-plan-price-txt {
+  font-size: 0.82rem;
+  font-weight: 700;
+  color: var(--apple-gold);
+  margin-top: 4px;
+}
+
+.rent-plan-price-sub {
+  font-size: 0.7rem;
+  font-weight: 400;
+  color: var(--text-tertiary);
+}
+
+.rent-duration-item {
+  padding: 10px 4px;
+  border-radius: var(--radius-md);
+  background: var(--glass-matrix-bg);
+  color: var(--text-primary);
+  border: 1px solid var(--glass-border-subtle);
+  font-weight: 600;
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  transition: all 0.15s ease;
+}
+
+.rent-duration-item.selected {
+  background: var(--apple-blue);
+  color: #fff;
+  border-color: var(--apple-blue);
+}
+
+.rent-duration-label {
+  font-size: 0.86rem;
+}
+
+.rent-duration-badge {
+  font-size: 0.64rem;
+  padding: 1px 5px;
+  border-radius: 999px;
+  background: rgba(48, 209, 88, 0.15);
+  color: var(--apple-green);
+  font-weight: 700;
+}
+
+.rent-duration-badge.selected {
+  background: rgba(255, 255, 255, 0.25);
+  color: #fff;
+}
+
+/* ==========================================================================
+   🧭 USER NAVBAR
+   ========================================================================== */
+.user-brand {
+  gap: 20px;
+}
+
+.user-brand-logo {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.user-brand-title {
+  font-size: 1.05rem;
+  margin: 0;
+}
+
+.user-brand-badge {
+  font-size: 0.66rem;
+}
+
+.user-nav-tabs {
+  display: flex;
+  gap: 6px;
+}
+
+.user-nav-right {
+  gap: 12px;
+}
+
+/* ==========================================================================
+   🧾 PAYOS RECEIPT CARD IN DASHBOARD
+   Clean, theme-aware glassmorphic receipt card for all devices
+   ========================================================================== */
+.payos-receipt-box {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  width: 100%;
+}
+
+.payos-receipt-desc {
+  margin: 0;
+  font-size: 0.85rem;
+  color: var(--text-secondary);
+  line-height: 1.5;
+  text-align: center;
+}
+
+.payos-receipt-details {
+  background: rgba(255, 255, 255, 0.04);
+  border-radius: var(--radius-sm);
+  padding: 14px 16px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  box-shadow: inset 0 1px 0 0 rgba(255, 255, 255, 0.08), 0 4px 16px rgba(0, 0, 0, 0.2);
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  font-size: 0.84rem;
+}
+
+[data-theme="light"] .payos-receipt-details {
+  background: rgba(0, 0, 0, 0.035);
+  border: 1px solid rgba(0, 0, 0, 0.1);
+  box-shadow: inset 0 1px 0 0 rgba(255, 255, 255, 0.7);
+}
+
+.payos-receipt-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+}
+
+.payos-receipt-label {
+  color: var(--text-tertiary);
+  font-size: 0.82rem;
+  font-weight: 500;
+  flex-shrink: 0;
+}
+
+.payos-receipt-order-code {
+  color: var(--text-primary);
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.86rem;
+  font-weight: 600;
+  letter-spacing: 0.5px;
+  word-break: break-all;
+  text-align: right;
+}
+
+.payos-receipt-amount {
+  color: var(--apple-blue);
+  font-weight: 700;
+  font-size: 0.92rem;
+  text-align: right;
+}
+
+.payos-receipt-bonus {
+  color: var(--apple-green);
+  font-weight: 700;
+  font-size: 0.88rem;
+  text-align: right;
+}
+
+.payos-receipt-total-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding-top: 10px;
+  margin-top: 4px;
+  border-top: 1px dashed var(--glass-border-subtle);
+  gap: 12px;
+}
+
+.payos-receipt-total-label {
+  color: var(--text-secondary);
+  font-weight: 600;
+  font-size: 0.84rem;
+  flex-shrink: 0;
+}
+
+.payos-receipt-balance {
+  color: var(--apple-gold);
+  font-weight: 800;
+  font-size: 1.05rem;
+  text-align: right;
+}
+
+.payos-receipt-notice {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 12px;
+  border-radius: var(--radius-sm);
+  font-size: 0.78rem;
+  line-height: 1.4;
+  text-align: left;
+}
+
+.payos-receipt-notice.safe {
+  background: rgba(48, 209, 88, 0.12);
+  color: var(--apple-green);
+  border: 1px solid rgba(48, 209, 88, 0.25);
+}
+
+.payos-receipt-notice.warn {
+  background: rgba(255, 214, 10, 0.12);
+  color: var(--apple-gold);
+  border: 1px solid rgba(255, 214, 10, 0.25);
+}
+
+@media (max-width: 480px) {
+  .payos-receipt-details {
+    padding: 12px 14px;
+    gap: 8px;
+  }
+  .payos-receipt-row {
+    gap: 8px;
+  }
+  .payos-receipt-label,
+  .payos-receipt-total-label {
+    font-size: 0.76rem;
+  }
+  .payos-receipt-order-code {
+    font-size: 0.82rem;
+  }
+  .payos-receipt-amount {
+    font-size: 0.88rem;
+  }
+  .payos-receipt-balance {
+    font-size: 0.98rem;
+  }
+  .payos-receipt-notice {
+    font-size: 0.74rem;
+    padding: 8px 10px;
+  }
+}
+
+.user-sidebar-stat-lbl {
+  margin: 0;
+}
+
+.user-content-heading {
+  margin: 0;
+}
+
+.user-content-search-input {
+  margin-top: 8px;
+}
+
+.user-topup-summary-lbl {
+  color: var(--text-tertiary);
+}
+
+/* ==========================================================================
+   ⚙️ ADMIN TOP-UP PRESET SETTINGS
+   ========================================================================== */
+.admin-preset-card {
+  margin-top: 10px;
+}
+
+.admin-preset-header {
+  margin-bottom: 8px;
+}
+
+.admin-preset-desc {
+  font-size: 0.75rem;
+  color: var(--text-tertiary);
+  margin: 0 0 10px 0;
+}
+
+.admin-preset-form-row {
+  display: grid;
+  grid-template-columns: 1.4fr auto;
+  gap: 8px;
+  margin-bottom: 10px;
+  align-items: flex-end;
+}
+
+.admin-preset-lbl {
+  font-size: 0.72rem;
+  color: var(--text-tertiary);
+  display: block;
+  margin-bottom: 4px;
+}
+
+.admin-preset-badge-wrap {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-bottom: 12px;
+}
+
+.admin-preset-badge {
+  padding: 6px 12px;
+  background: rgba(10, 132, 255, 0.1);
+  border-radius: var(--radius-sm);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.8rem;
+  border: 1px solid rgba(10, 132, 255, 0.25);
+  color: var(--apple-blue);
+  font-weight: 600;
+}
+
+.admin-preset-delete-btn {
+  background: none;
+  border: none;
+  color: var(--apple-red);
+  cursor: pointer;
+  padding: 0;
+  display: inline-flex;
+  align-items: center;
+}
+
+.admin-min-topup-row {
+  border-top: 1px dashed var(--glass-border-subtle);
+  padding-top: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.admin-min-topup-input {
+  max-width: 180px;
+}
+
+/* ==========================================================================
+   📱 IPHONE LIQUID GLASS BOTTOM NAVIGATION BAR (DOCK)
+   ========================================================================== */
+.mobile-bottom-nav {
+  display: none;
+}
+
+/* Entry Card for On-Demand Transaction History */
+.topup-history-entry-box {
+  background: var(--glass-card);
+  backdrop-filter: var(--blur-base);
+  -webkit-backdrop-filter: var(--blur-base);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-lg);
+  padding: 20px;
+  box-shadow: var(--shadow-glass);
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.topup-history-entry-body {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.topup-history-entry-text {
+  margin: 0;
+  font-size: 0.82rem;
+  color: var(--text-tertiary);
+  line-height: 1.5;
+}
+
+/* ==========================================================================
+   👤 USER ACCOUNT PROFILE SECTION (LIQUID GLASS - MOBILE ONLY)
+   ========================================================================== */
+.user-account-section {
+  display: none;
+  flex-direction: column;
+  gap: 16px;
+  width: 100%;
+  max-width: 540px;
+  margin: 0 auto;
+}
+
+.user-account-card {
+  background: var(--glass-card);
+  backdrop-filter: var(--blur-base);
+  -webkit-backdrop-filter: var(--blur-base);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-lg);
+  padding: 22px 20px;
+  box-shadow: var(--shadow-glass);
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.user-account-header {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding-bottom: 16px;
+  border-bottom: 1px solid var(--glass-border-subtle);
+}
+
+.user-account-avatar-lg {
+  width: 52px;
+  height: 52px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, var(--apple-blue), var(--apple-teal));
+  color: #fff;
+  font-size: 1.35rem;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 6px 18px rgba(10, 132, 255, 0.35);
+  flex-shrink: 0;
+}
+
+.user-account-meta {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+}
+
+.user-account-email {
+  margin: 0;
+  font-size: 1.05rem;
+  font-weight: 700;
+  color: var(--text-primary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.user-account-role {
+  width: fit-content;
+}
+
+.user-account-details-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 12px;
+}
+
+.user-account-detail-box {
+  background: var(--glass-matrix-bg);
+  border: 1px solid var(--glass-border-subtle);
+  border-radius: var(--radius-md);
+  padding: 12px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.user-account-detail-lbl {
+  font-size: 0.72rem;
+  color: var(--text-tertiary);
+  font-weight: 600;
+  text-transform: uppercase;
+}
+
+.user-account-detail-val {
+  font-size: 1.05rem;
+  color: var(--text-primary);
+  font-weight: 700;
+}
+
+.user-account-detail-val.gold {
+  color: var(--apple-gold);
+}
+
+.user-account-actions-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.user-account-action-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 14px;
+  border-radius: var(--radius-md);
+  background: var(--glass-matrix-bg);
+  border: 1px solid var(--glass-border-subtle);
+  color: var(--text-primary);
+  cursor: pointer;
+  text-align: left;
+  transition: all 0.2s ease;
+  width: 100%;
+}
+
+.user-account-action-row:hover {
+  background: var(--glass-bg-hover);
+  border-color: rgba(255, 255, 255, 0.15);
+}
+
+.user-account-action-left {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.user-account-action-icon {
+  width: 36px;
+  height: 36px;
+  border-radius: var(--radius-sm);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.user-account-action-icon.blue {
+  background: rgba(10, 132, 255, 0.12);
+  color: var(--apple-blue);
+}
+
+.user-account-action-icon.purple {
+  background: rgba(191, 90, 242, 0.12);
+  color: var(--apple-purple);
+}
+
+.user-account-action-icon.red {
+  background: rgba(255, 69, 58, 0.12);
+  color: var(--apple-red);
+}
+
+.user-account-action-text {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.user-account-action-text strong {
+  font-size: 0.88rem;
+  font-weight: 600;
+}
+
+.user-account-action-text span {
+  font-size: 0.74rem;
+  color: var(--text-tertiary);
+}
+
+.user-account-theme-btn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+/* ==========================================================================
+   📱 RESPONSIVE MOBILE STYLES (≤ 768px)
+   Apple Liquid Glass Mobile Experience with Unified Gutter Alignment
+   ========================================================================== */
+@media (max-width: 768px) {
+  /* 1. Unified Horizontal Gutter: Left and right margins align perfectly with screen edge */
+  body {
+    padding: 12px 14px !important;
+  }
+
+  .app-container.user-dashboard-wrapper,
+  .user-dashboard-wrapper {
+    width: 100% !important;
+    max-width: 100% !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    gap: 12px !important;
+    box-sizing: border-box !important;
+  }
+
+  .user-dashboard-content {
+    width: 100% !important;
+    max-width: 100% !important;
+    padding: 0 !important;
+    padding-bottom: calc(85px + env(safe-area-inset-bottom, 16px)) !important;
+    margin: 0 !important;
+    box-sizing: border-box !important;
+  }
+
+  /* 2. Minimalist Mobile Header: hide tabs, theme switcher, profile email */
+  .user-portal-navbar {
+    width: 100% !important;
+    margin: 0 !important;
+    box-sizing: border-box !important;
+    padding: 10px 14px !important;
+    border-radius: var(--radius-md) !important;
+    display: flex !important;
+    flex-direction: row !important;
+    justify-content: space-between !important;
+    align-items: center !important;
+    gap: 10px !important;
+  }
+
+  .user-portal-navbar .user-nav-tabs,
+  .user-portal-navbar .user-theme-toggle-btn,
+  .user-portal-navbar .navbar-user-profile {
+    display: none !important;
+  }
+
+  .user-portal-navbar .brand.user-brand {
+    width: auto !important;
+    gap: 8px !important;
+    flex-shrink: 0 !important;
+  }
+
+  .user-portal-navbar .user-brand-logo {
+    display: flex !important;
+    align-items: center !important;
+    gap: 8px !important;
+  }
+
+  .user-portal-navbar .nav-status.user-nav-right {
+    width: auto !important;
+    justify-content: flex-end !important;
+    flex-shrink: 0 !important;
+  }
+
+  .user-portal-navbar .brand-text h1 {
+    font-size: 0.96rem !important;
+  }
+
+  .user-portal-navbar .badge-cpanel {
+    display: none !important;
+  }
+
+  .user-portal-navbar .user-balance-btn {
+    padding: 4px 10px 4px 6px !important;
+    gap: 6px !important;
+  }
+
+  .user-portal-navbar .user-balance-btn .icon-chevronDown,
+  .user-portal-navbar .user-balance-btn .lucide-icon.icon-chevronDown {
+    display: none !important;
+  }
+
+  .user-portal-navbar .balance-lbl {
+    display: none !important;
+  }
+
+  .user-portal-navbar .balance-amount {
+    font-size: 0.82rem !important;
+  }
+
+  /* Enable mobile account section */
+  .user-account-section {
+    display: flex !important;
+  }
+
+  /* 3. iPhone-style Floating Liquid Glass Bottom Navigation Dock */
+  .mobile-bottom-nav {
+    display: flex !important;
+    position: fixed !important;
+    bottom: max(14px, env(safe-area-inset-bottom, 14px)) !important;
+    left: 50% !important;
+    transform: translateX(-50%) !important;
+    z-index: 9999 !important;
+    width: auto !important;
+    max-width: calc(100vw - 28px) !important;
+    pointer-events: auto !important;
+    animation: mobileDockFadeIn 0.3s cubic-bezier(0.16, 1, 0.3, 1) !important;
+  }
+
+  .mobile-nav-pill-container {
+    display: flex !important;
+    align-items: center !important;
+    gap: 14px !important;
+    padding: 6px 14px !important;
+    background: rgba(14, 18, 28, 0.82) !important;
+    backdrop-filter: blur(28px) saturate(190%) !important;
+    -webkit-backdrop-filter: blur(28px) saturate(190%) !important;
+    border: 1px solid rgba(255, 255, 255, 0.16) !important;
+    border-radius: 999px !important;
+    box-shadow: 0 12px 36px rgba(0, 0, 0, 0.5), inset 0 1px 0 0 rgba(255, 255, 255, 0.22) !important;
+  }
+
+  [data-theme="light"] .mobile-nav-pill-container {
+    background: rgba(255, 255, 255, 0.88) !important;
+    border: 1px solid rgba(0, 0, 0, 0.08) !important;
+    box-shadow: 0 10px 32px rgba(0, 0, 0, 0.12), inset 0 1px 0 0 rgba(255, 255, 255, 0.9) !important;
+  }
+
+  .mobile-nav-item {
+    position: relative !important;
+    display: flex !important;
+    flex-direction: column !important;
+    align-items: center !important;
+    justify-content: center !important;
+    width: 48px !important;
+    height: 44px !important;
+    border-radius: 999px !important;
+    background: transparent !important;
+    border: none !important;
+    color: var(--text-tertiary) !important;
+    cursor: pointer !important;
+    transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1) !important;
+    -webkit-tap-highlight-color: transparent !important;
+  }
+
+  .mobile-nav-item:active {
+    transform: scale(0.92) !important;
+  }
+
+  .mobile-nav-item.active {
+    color: var(--apple-blue) !important;
+    background: rgba(10, 132, 255, 0.16) !important;
+    box-shadow: 0 0 16px rgba(10, 132, 255, 0.25) !important;
+  }
+
+  [data-theme="light"] .mobile-nav-item.active {
+    background: rgba(10, 132, 255, 0.14) !important;
+    color: var(--apple-blue) !important;
+  }
+
+  .mobile-nav-icon-wrap {
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+  }
+
+  .mobile-nav-active-dot {
+    position: absolute !important;
+    bottom: 4px !important;
+    width: 4px !important;
+    height: 4px !important;
+    border-radius: 50% !important;
+    background: var(--apple-blue) !important;
+    box-shadow: 0 0 6px var(--apple-blue) !important;
+  }
+
+  @keyframes mobileDockFadeIn {
+    from {
+      opacity: 0;
+      transform: translate(-50%, 16px);
+    }
+    to {
+      opacity: 1;
+      transform: translate(-50%, 0);
+    }
+  }
+
+  /* 4. Streamlined Topup Layout on Mobile: Exact match with Navbar margins */
+  .topup-split-layout {
+    display: flex !important;
+    flex-direction: column-reverse !important;
+    gap: 12px !important;
+    width: 100% !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    box-sizing: border-box !important;
+  }
+
+  .topup-content-pane,
+  .topup-sidebar-pane {
+    width: 100% !important;
+    max-width: 100% !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    box-sizing: border-box !important;
+  }
+
+  .user-topup-card,
+  .topup-history-entry-box {
+    width: 100% !important;
+    margin: 0 !important;
+    box-sizing: border-box !important;
+    padding: 16px 14px !important;
+    border-radius: var(--radius-md) !important;
+  }
+
+  .user-topup-header {
+    flex-direction: column !important;
+    align-items: flex-start !important;
+    gap: 12px !important;
+    margin-bottom: 14px !important;
+    padding-bottom: 12px !important;
+  }
+
+  /* Balance Display on Mobile: "Số dư hiện tại" top-left, amount bottom-right */
+  .user-topup-balance-display {
+    width: 100% !important;
+    display: flex !important;
+    flex-direction: column !important;
+    padding: 10px 14px !important;
+    background: var(--glass-matrix-bg) !important;
+    border: 1px solid var(--glass-border-subtle) !important;
+    border-radius: var(--radius-sm) !important;
+    gap: 4px !important;
+    box-sizing: border-box !important;
+  }
+
+  .user-topup-balance-lbl {
+    display: block !important;
+    align-self: flex-start !important;
+    text-align: left !important;
+    font-size: 0.74rem !important;
+    font-weight: 600 !important;
+    color: var(--text-tertiary) !important;
+    letter-spacing: 0.03em !important;
+    text-transform: uppercase !important;
+  }
+
+  .user-topup-balance-val {
+    align-self: flex-end !important;
+    text-align: right !important;
+    font-size: 1.38rem !important;
+    font-weight: 800 !important;
+    color: var(--apple-gold) !important;
+    letter-spacing: -0.02em !important;
+    line-height: 1.1 !important;
+    white-space: nowrap !important;
+  }
+
+  /* 5. Touch-friendly 2-Column Grid for Deposit Preset Cards */
+  .user-topup-presets-grid {
+    grid-template-columns: repeat(2, 1fr) !important;
+    gap: 8px !important;
+  }
+
+  .user-topup-preset-btn {
+    min-height: 60px !important;
+    padding: 8px 10px !important;
+    display: flex !important;
+    flex-direction: column !important;
+    align-items: center !important;
+    justify-content: center !important;
+    gap: 3px !important;
+  }
+
+  .user-topup-preset-amount {
+    font-size: 0.95rem !important;
+    font-weight: 700 !important;
+  }
+
+  .topup-preset-bonus-badge {
+    font-size: 0.64rem !important;
+    padding: 1px 6px !important;
+  }
+
+  /* 6. Uncluttered Payment & Checkout UI on Mobile */
+  .topup-payment-card {
+    padding: 14px !important;
+    gap: 12px !important;
+  }
+
+  .topup-payment-card-header {
+    display: flex !important;
+    align-items: center !important;
+    justify-content: space-between !important;
+    gap: 8px !important;
+  }
+
+  .topup-payment-card-title {
+    font-size: 0.76rem !important;
+    letter-spacing: 0.03em !important;
+    white-space: nowrap !important;
+  }
+
+  .topup-payment-method-row {
+    padding: 10px 12px !important;
+    gap: 10px !important;
+  }
+
+  .topup-method-name {
+    font-size: 0.86rem !important;
+    line-height: 1.3 !important;
+  }
+
+  .topup-method-sub {
+    font-size: 0.74rem !important;
+    line-height: 1.38 !important;
+  }
+
+  .topup-btn-checkout-clean {
+    width: 100% !important;
+    padding: 12px 14px !important;
+    font-size: 0.92rem !important;
+    white-space: nowrap !important;
+  }
+}
+

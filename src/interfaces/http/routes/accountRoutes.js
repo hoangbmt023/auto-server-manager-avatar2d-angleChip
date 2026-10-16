@@ -43,6 +43,10 @@ module.exports = function createAccountRoutes(accountController) {
     return accountController.resetData(req, res, sendJson, parseJsonBody);
   });
 
+  router.get('/api/accounts/:id/logs', (req, res, { sendJson }) => {
+    return accountController.getAccountLogs(req, res, sendJson);
+  });
+
   // 2. Backward-compatible aliases
   router.post('/api/accounts/delete', (req, res, { sendJson, parseJsonBody }) => {
     return accountController.deleteAccount(req, res, sendJson, parseJsonBody);

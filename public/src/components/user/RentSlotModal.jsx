@@ -6,6 +6,7 @@
  * - Enter Voucher code & instant calculation
  * - Real-time breakdown: Giá gốc, Khuyến mãi, Voucher, Tổng tiền, Số dư sau thuê
  * - Auto-allocation confirmation
+ * - Zero inline styles, strictly CSS classes.
  */
 window.RentSlotModal = function RentSlotModal({
   onClose,
@@ -32,7 +33,7 @@ window.RentSlotModal = function RentSlotModal({
   const [checkingVoucher, setCheckingVoucher] = React.useState(false);
   const [error, setError] = React.useState('');
 
-  const formatMoney = (val) => Number(val || 0).toLocaleString('vi-VN');
+  const { formatMoney } = window.formatters;
 
   // Load plans & discounts from API
   React.useEffect(() => {
@@ -63,6 +64,9 @@ window.RentSlotModal = function RentSlotModal({
   if (appliedVoucher) {
     if (appliedVoucher.discountPercent > 0) {
       voucherSavings = Math.floor((amountAfterDuration * appliedVoucher.discountPercent) / 100);
+      if (appliedVoucher.maxDiscountAmount > 0) {
+        voucherSavings = Math.min(voucherSavings, appliedVoucher.maxDiscountAmount);
+      }
     } else if (appliedVoucher.discountAmount > 0) {
       voucherSavings = Math.min(amountAfterDuration, appliedVoucher.discountAmount);
     }
@@ -138,16 +142,16 @@ window.RentSlotModal = function RentSlotModal({
 
   return (
     <div className="modal-overlay" onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}>
-      <div className="modal-card rent-slot-modal" style={{ maxWidth: '640px', width: '92%' }}>
+      <div className="modal-card rent-slot-modal">
         {/* Modal Header */}
         <div className="modal-header">
-          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-            <div className="sidebar-icon-box" style={{ background: 'rgba(10, 132, 255, 0.15)', color: 'var(--apple-blue)' }}>
+          <div className="rent-header-left">
+            <div className="sidebar-icon-box rent-icon-blue">
               <window.Icon name="zap" size={20} />
             </div>
             <div>
-              <h3 style={{ margin: 0, fontSize: '1.15rem' }}>Thuê Slot Bot Tự Động</h3>
-              <span style={{ fontSize: '0.78rem', color: 'var(--text-tertiary)' }}>
+              <h3 className="rent-title">Thuê Slot Bot Tự Động</h3>
+              <span className="rent-sub">
                 Hệ thống tự động phân bổ tài nguyên tối ưu cho tài khoản
               </span>
             </div>
@@ -158,16 +162,16 @@ window.RentSlotModal = function RentSlotModal({
         </div>
 
         {error && (
-          <div className="alert-badge-danger" style={{ margin: '14px 20px 0', padding: '10px 14px', borderRadius: 'var(--radius-sm)', fontSize: '0.82rem' }}>
+          <div className="alert-badge-danger rent-alert-danger">
             {error}
           </div>
         )}
 
-        <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '18px', padding: '20px' }}>
+        <form onSubmit={handleSubmit} className="rent-form">
           {/* 1. Game Account Credentials */}
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+          <div className="rent-grid-2col">
             <div className="form-group">
-              <label style={{ fontSize: '0.8rem', fontWeight: 600, color: 'var(--text-secondary)' }}>Tên Tài Khoản Avatar *</label>
+              <label className="rent-field-label">Tên Tài Khoản Avatar *</label>
               <input
                 type="text"
                 className="form-control"
@@ -179,7 +183,7 @@ window.RentSlotModal = function RentSlotModal({
               />
             </div>
             <div className="form-group">
-              <label style={{ fontSize: '0.8rem', fontWeight: 600, color: 'var(--text-secondary)' }}>Mật Khẩu Game</label>
+              <label className="rent-field-label">Mật Khẩu Game</label>
               <input
                 type="password"
                 className="form-control"
@@ -192,39 +196,29 @@ window.RentSlotModal = function RentSlotModal({
 
           {/* 2. Choose Bot Version (Plan) */}
           <div className="form-group">
-            <label style={{ fontSize: '0.8rem', fontWeight: 600, color: 'var(--text-secondary)', marginBottom: '8px', display: 'block' }}>
+            <label className="rent-field-label">
               Chọn Phiên Bản Bot
             </label>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(170px, 1fr))', gap: '10px' }}>
+            <div className="rent-plan-grid">
               {Object.entries(plans).map(([key, p]) => {
                 const isSelected = selectedPlan === key;
                 return (
                   <div
                     key={key}
                     onClick={() => setSelectedPlan(key)}
-                    style={{
-                      padding: '12px',
-                      borderRadius: 'var(--radius-md)',
-                      background: isSelected ? 'rgba(10, 132, 255, 0.12)' : 'var(--glass-matrix-bg)',
-                      border: `1.5px solid ${isSelected ? 'var(--apple-blue)' : 'var(--glass-border-subtle)'}`,
-                      cursor: 'pointer',
-                      transition: 'all 0.18s ease',
-                      display: 'flex',
-                      flexDirection: 'column',
-                      gap: '4px'
-                    }}
+                    className={`rent-plan-item ${isSelected ? 'selected' : ''}`}
                   >
-                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                      <strong style={{ fontSize: '0.88rem', color: isSelected ? 'var(--apple-blue)' : 'var(--text-primary)' }}>
+                    <div className="rent-plan-title-row">
+                      <strong className={`rent-plan-title-txt ${isSelected ? 'selected' : ''}`}>
                         {p.name}
                       </strong>
                       {isSelected && <window.Icon name="check" size={14} color="var(--apple-blue)" />}
                     </div>
-                    <span style={{ fontSize: '0.72rem', color: 'var(--text-tertiary)', minHeight: '32px' }}>
+                    <span className="rent-plan-desc-txt">
                       {p.desc}
                     </span>
-                    <span style={{ fontSize: '0.82rem', fontWeight: 700, color: 'var(--apple-gold)', marginTop: '4px' }}>
-                      {formatMoney(p.priceMonth)} đ<span style={{ fontSize: '0.7rem', fontWeight: 400, color: 'var(--text-tertiary)' }}>/tháng</span>
+                    <span className="rent-plan-price-txt">
+                      {formatMoney(p.priceMonth)} đ<span className="rent-plan-price-sub">/tháng</span>
                     </span>
                   </div>
                 );
@@ -234,11 +228,11 @@ window.RentSlotModal = function RentSlotModal({
 
           {/* 3. Choose Duration (Months) */}
           <div className="form-group">
-            <label style={{ fontSize: '0.8rem', fontWeight: 600, color: 'var(--text-secondary)', marginBottom: '8px', display: 'block' }}>
+            <label className="rent-field-label">
               Thời Hạn Thuê
             </label>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '8px' }}>
-              {[1, 3, 6, 12].map(m => {
+            <div className="rent-duration-grid">
+              {(Object.keys(durationDiscounts).length > 0 ? Object.keys(durationDiscounts).map(Number).sort((a, b) => a - b) : [1, 3, 6, 12]).map(m => {
                 const isSelected = selectedMonths === m;
                 const discount = durationDiscounts[m] || 0;
                 return (
@@ -246,30 +240,11 @@ window.RentSlotModal = function RentSlotModal({
                     key={m}
                     type="button"
                     onClick={() => setSelectedMonths(m)}
-                    style={{
-                      padding: '10px 4px',
-                      borderRadius: 'var(--radius-md)',
-                      background: isSelected ? 'var(--apple-blue)' : 'var(--glass-matrix-bg)',
-                      color: isSelected ? '#fff' : 'var(--text-primary)',
-                      border: `1px solid ${isSelected ? 'var(--apple-blue)' : 'var(--glass-border-subtle)'}`,
-                      fontWeight: 600,
-                      cursor: 'pointer',
-                      display: 'flex',
-                      flexDirection: 'column',
-                      alignItems: 'center',
-                      gap: '2px'
-                    }}
+                    className={`rent-duration-item ${isSelected ? 'selected' : ''}`}
                   >
-                    <span style={{ fontSize: '0.86rem' }}>{m} Tháng</span>
+                    <span className="rent-duration-label">{m} Tháng</span>
                     {discount > 0 && (
-                      <span style={{
-                        fontSize: '0.64rem',
-                        padding: '1px 5px',
-                        borderRadius: '999px',
-                        background: isSelected ? 'rgba(255,255,255,0.25)' : 'rgba(48, 209, 88, 0.15)',
-                        color: isSelected ? '#fff' : 'var(--apple-green)',
-                        fontWeight: 700
-                      }}>
+                      <span className={`rent-duration-badge ${isSelected ? 'selected' : ''}`}>
                         -{discount}%
                       </span>
                     )}
@@ -281,97 +256,78 @@ window.RentSlotModal = function RentSlotModal({
 
           {/* 4. Voucher Code Input */}
           <div className="form-group">
-            <label style={{ fontSize: '0.8rem', fontWeight: 600, color: 'var(--text-secondary)' }}>Mã Giảm Giá / Voucher</label>
-            <div style={{ display: 'flex', gap: '8px', marginTop: '4px' }}>
+            <label className="rent-field-label">Mã Giảm Giá / Voucher</label>
+            <div className="rent-voucher-row">
               <input
                 type="text"
-                className="form-control"
+                className="form-control rent-voucher-input"
                 placeholder="Nhập mã voucher (ví dụ: CHAOBANMOI)"
                 value={voucherCode}
                 onChange={(e) => setVoucherCode(e.target.value.toUpperCase())}
-                style={{ textTransform: 'uppercase' }}
               />
               <button
                 type="button"
-                className="btn btn-secondary btn-sm"
+                className="btn btn-secondary btn-sm rent-voucher-btn"
                 onClick={handleApplyVoucher}
                 disabled={checkingVoucher || !voucherCode.trim()}
-                style={{ minWidth: '90px' }}
               >
                 {checkingVoucher ? 'Đang kiểm tra...' : 'Áp Dụng'}
               </button>
             </div>
             {appliedVoucher && (
-              <span style={{ fontSize: '0.74rem', color: 'var(--apple-green)', marginTop: '4px', display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+              <span className="rent-voucher-applied">
                 <window.Icon name="check" size={12} /> Đã áp dụng mã [{appliedVoucher.code}]: Giảm {formatMoney(voucherSavings)} đ
               </span>
             )}
             {voucherError && (
-              <span style={{ fontSize: '0.74rem', color: 'var(--apple-red)', marginTop: '4px', display: 'block' }}>
+              <span className="rent-voucher-error">
                 {voucherError}
               </span>
             )}
           </div>
 
           {/* 5. Modern eCommerce Pricing Breakdown Card */}
-          <div style={{
-            background: 'var(--glass-matrix-bg)',
-            borderRadius: 'var(--radius-md)',
-            border: '1px solid var(--glass-border-subtle)',
-            padding: '14px 16px',
-            display: 'flex',
-            flexDirection: 'column',
-            gap: '8px'
-          }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.82rem', color: 'var(--text-secondary)' }}>
+          <div className="rent-summary-box">
+            <div className="rent-summary-subtotal">
               <span>Giá gốc ({selectedMonths} tháng x {formatMoney(baseMonthly)}đ):</span>
               <span>{formatMoney(subtotal)} đ</span>
             </div>
 
             {durationSavings > 0 && (
-              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.82rem', color: 'var(--apple-green)' }}>
+              <div className="rent-summary-savings">
                 <span>Khuyến mãi thời hạn (-{durationDiscountPercent}%):</span>
                 <span>-{formatMoney(durationSavings)} đ</span>
               </div>
             )}
 
             {voucherSavings > 0 && (
-              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.82rem', color: 'var(--apple-green)' }}>
+              <div className="rent-summary-savings">
                 <span>Giảm giá Voucher:</span>
                 <span>-{formatMoney(voucherSavings)} đ</span>
               </div>
             )}
 
-            <div style={{ height: '1px', background: 'var(--glass-border-subtle)', margin: '4px 0' }} />
+            <div className="rent-summary-hr" />
 
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <strong style={{ fontSize: '0.94rem', color: 'var(--text-primary)' }}>Tổng Thanh Toán:</strong>
-              <strong style={{ fontSize: '1.25rem', color: 'var(--apple-gold)' }}>
+            <div className="rent-summary-total-row">
+              <strong className="rent-summary-total-lbl">Tổng Thanh Toán:</strong>
+              <strong className="rent-summary-total-val">
                 {formatMoney(finalPrice)} đ
               </strong>
             </div>
 
-            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.78rem', marginTop: '4px', color: 'var(--text-tertiary)' }}>
-              <span>Số dư hiện tại: <strong style={{ color: 'var(--text-primary)' }}>{formatMoney(currentBalance)} đ</strong></span>
+            <div className="rent-summary-balance-row">
+              <span>Số dư hiện tại: <strong>{formatMoney(currentBalance)} đ</strong></span>
               <span>
-                Số dư sau thuê: <strong style={{ color: isBalanceSufficient ? 'var(--apple-green)' : 'var(--apple-red)' }}>
+                Số dư sau thuê: <strong className={isBalanceSufficient ? 'rent-summary-val-green' : 'tx-status-failed'}>
                   {formatMoney(remainingBalanceAfter)} đ
                 </strong>
               </span>
             </div>
 
             {!isBalanceSufficient && (
-              <div style={{
-                marginTop: '6px',
-                padding: '8px 12px',
-                borderRadius: 'var(--radius-sm)',
-                background: 'rgba(255, 69, 58, 0.1)',
-                border: '1px solid rgba(255, 69, 58, 0.25)',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'space-between'
-              }}>
-                <span style={{ fontSize: '0.78rem', color: 'var(--apple-red)', fontWeight: 600 }}>
+              <div className="rent-insufficient-box">
+                <span className="rent-insufficient-txt">
                   Số dư ví không đủ ({formatMoney(currentBalance)}đ / {formatMoney(finalPrice)}đ)
                 </span>
                 {onOpenTopup && (
@@ -388,15 +344,14 @@ window.RentSlotModal = function RentSlotModal({
           </div>
 
           {/* Action Buttons */}
-          <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px', marginTop: '6px' }}>
+          <div className="rent-action-row">
             <button type="button" className="btn btn-secondary" onClick={onClose} disabled={loading}>
               Hủy
             </button>
             <button
               type="submit"
-              className="btn btn-primary"
+              className="btn btn-primary rent-submit-btn"
               disabled={loading || !isBalanceSufficient || !username.trim()}
-              style={{ minWidth: '150px' }}
             >
               {loading ? 'Đang Xử Lý...' : 'Xác Nhận Thuê Nick'}
             </button>

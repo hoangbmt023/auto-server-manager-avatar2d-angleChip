@@ -19,6 +19,7 @@ const MySqlSystemSettingRepository = require('../../infrastructure/persistence/m
 const MySqlRefreshTokenRepository = require('../../infrastructure/persistence/mysql/MySqlRefreshTokenRepository');
 const MySqlTransactionRepository = require('../../infrastructure/persistence/mysql/MySqlTransactionRepository');
 const MySqlVoucherRepository = require('../../infrastructure/persistence/mysql/MySqlVoucherRepository');
+const PayOsService = require('../../infrastructure/payment/PayOsService');
 
 // Application Services
 const MultiBotManager = require('../../application/services/MultiBotManager');
@@ -143,10 +144,14 @@ class HttpServer {
       this.allocationEngine,
       this.settingRepo
     );
+    this.payOsService = new PayOsService(this.settingRepo);
     this.billingUseCase = new BillingUseCase(
       this.userRepo,
       this.transactionRepo,
-      this.voucherRepo
+      this.voucherRepo,
+      this.settingRepo,
+      this.payOsService,
+      this.sseEventBus
     );
     this.manageAllocationUseCase = new ManageRentalAllocationsUseCase(
       this.settingRepo,
@@ -278,7 +283,7 @@ class HttpServer {
         }
       }
 
-      // 4. Public User Authentication & OTP endpoints
+      // 4. Public User Authentication & OTP endpoints & Webhooks
       const publicAuthEndpoints = [
         '/api/auth/register',
         '/api/auth/send-otp',
@@ -288,7 +293,8 @@ class HttpServer {
         '/api/auth/logout',
         '/api/auth/forgot-password',
         '/api/auth/verify-forgot-password',
-        '/api/auth/reset-password'
+        '/api/auth/reset-password',
+        '/api/billing/payos-webhook'
       ];
       if (publicAuthEndpoints.includes(pathname)) {
         const handled = await this.router.handle(req, res, parsedUrl, helpers);

@@ -1,7 +1,7 @@
 const IUserRepository = require('../../../domain/repositories/IUserRepository');
 const User = require('../../../domain/entities/User');
 const { users } = require('../../database/drizzleSchema');
-const { eq, desc } = require('drizzle-orm');
+const { eq, desc, sql } = require('drizzle-orm');
 const { DateTimeUtil } = require('../../../shared/utils/dateTime');
 
 /**
@@ -91,12 +91,14 @@ class MySqlUserRepository extends IUserRepository {
   }
 
   async updateBalance(id, amountChange, connection = null) {
-    const pool = connection || this.dbPool.getPool();
-    await pool.query(
-      `UPDATE users SET balance = GREATEST(0, balance + ?) WHERE id = ?`,
-      [amountChange, id]
-    );
-    return this.findById(id);
+    const db = this._getDb(connection);
+    await db
+      .update(users)
+      .set({
+        balance: sql`GREATEST(0, ${users.balance} + ${amountChange})`
+      })
+      .where(eq(users.id, id));
+    return this.findById(id, connection);
   }
 
   async delete(id, connection = null) {

@@ -56,3 +56,19 @@
 - Profile selector with individual bot count and capacity indicators.
 - Instant Server Capacity Monitor (Hoan My x/3, Dieu Ky y/3, Total z/6).
 - Quick Action Buttons (Add Account, Manage Profiles, Manage Proxies).
+
+### 3.3. User Rental & Billing Portal
+- **Mobile Bottom Navigation Dock**: Floating iPhone-style liquid glass pill dock (`MobileBottomNav.jsx`) with safe-area bottom insets and high-DPI vector icons (`bot`, `zap`, `user`).
+- **Billing & Topup Card**: Instant VietQR / payOS checkout integration with dynamic bonus calculations and visual state feedback.
+- **On-Demand Transaction History**: Infinite scroll modal with reusable `CircularSpinner`, automatic race condition guard, and transaction type filters (`ALL`, `TOPUP`, `RENTAL`).
+
+---
+
+## 4. Vector Iconography Standard (`Icons.jsx`)
+
+All icons across both Admin and User interfaces strictly use `<window.Icon name="..." size={...} color={...} />`.
+- **Zero Raw Emojis**: Replaces emojis (`👁️`, `⚠️`, etc.) with crystal-clear vector glyphs (`eye`, `alert-triangle`).
+- **Zero Hardcoded SVGs**: All icons are centralized in `public/src/components/Icons.jsx`.
+- **Mobile Browser Protection**: All SVG elements omit `xmlns="http://www.w3.org/2000/svg"` to eliminate mobile browser URL preview popups during tap or long-press.
+- **Standard Registry**: Over 50+ optimized Lucide glyphs: `bot`, `zap`, `user`, `users`, `coins`, `clock`, `eye`, `shield`, `alert-triangle`, `log-out`, `arrow-left`, `search`, etc.
+

@@ -11,8 +11,10 @@ class Voucher {
     code,
     discountPercent = 0,
     discountAmount = 0,
+    maxDiscountAmount = 0,
     minOrder = 0,
     maxUses = 100,
+    maxUsesPerUser = 1,
     usedCount = 0,
     expiresAt = null,
     isActive = true,
@@ -22,8 +24,10 @@ class Voucher {
     this.code = String(code || '').trim().toUpperCase();
     this.discountPercent = Math.min(100, Math.max(0, parseInt(discountPercent || 0, 10)));
     this.discountAmount = Math.max(0, parseInt(discountAmount || 0, 10));
+    this.maxDiscountAmount = Math.max(0, parseInt(maxDiscountAmount || 0, 10));
     this.minOrder = Math.max(0, parseInt(minOrder || 0, 10));
     this.maxUses = Math.max(1, parseInt(maxUses || 100, 10));
+    this.maxUsesPerUser = Math.max(1, parseInt(maxUsesPerUser || 1, 10));
     this.usedCount = Math.max(0, parseInt(usedCount || 0, 10));
     this.expiresAt = expiresAt ? new Date(expiresAt) : null;
     this.isActive = Boolean(isActive);
@@ -33,6 +37,12 @@ class Voucher {
   validate() {
     if (!this.code) {
       throw new BadRequestException('Mã voucher không được để trống!');
+    }
+    if (this.discountPercent <= 0 && this.discountAmount <= 0) {
+      throw new BadRequestException('Voucher phải có mức giảm giá theo % (> 0%) hoặc số tiền thực tế (> 0đ)!');
+    }
+    if (this.maxUsesPerUser < 1) {
+      throw new BadRequestException('Số lượt dùng mỗi tài khoản phải từ 1 trở lên!');
     }
   }
 
@@ -51,6 +61,9 @@ class Voucher {
     let discount = 0;
     if (this.discountPercent > 0) {
       discount = Math.floor((amount * this.discountPercent) / 100);
+      if (this.maxDiscountAmount > 0) {
+        discount = Math.min(discount, this.maxDiscountAmount);
+      }
     } else if (this.discountAmount > 0) {
       discount = Math.min(amount, this.discountAmount);
     }
@@ -63,8 +76,10 @@ class Voucher {
       code: this.code,
       discount_percent: this.discountPercent,
       discount_amount: this.discountAmount,
+      max_discount_amount: this.maxDiscountAmount,
       min_order: this.minOrder,
       max_uses: this.maxUses,
+      max_uses_per_user: this.maxUsesPerUser,
       used_count: this.usedCount,
       expires_at: this.expiresAt,
       is_active: this.isActive ? 1 : 0
@@ -77,8 +92,10 @@ class Voucher {
       code: this.code,
       discountPercent: this.discountPercent,
       discountAmount: this.discountAmount,
+      maxDiscountAmount: this.maxDiscountAmount,
       minOrder: this.minOrder,
       maxUses: this.maxUses,
+      maxUsesPerUser: this.maxUsesPerUser,
       usedCount: this.usedCount,
       expiresAt: this.expiresAt ? this.expiresAt.toISOString() : null,
       isActive: this.isActive

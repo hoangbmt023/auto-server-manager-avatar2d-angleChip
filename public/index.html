@@ -13,13 +13,14 @@
     rel="stylesheet">
 
   <!-- Modular Stylesheets -->
-  <link rel="stylesheet" href="style.css?v=70">
+  <link rel="stylesheet" href="style.css?v=72">
   <link rel="stylesheet" href="src/styles/navbar.css?v=69">
   <link rel="stylesheet" href="src/styles/terminal.css?v=69">
   <link rel="stylesheet" href="src/styles/accounts.css?v=69">
-  <link rel="stylesheet" href="src/styles/modals.css?v=78">
-  <link rel="stylesheet" href="src/styles/dialog.css?v=69">
+  <link rel="stylesheet" href="src/styles/modals.css?v=79">
+  <link rel="stylesheet" href="src/styles/dialog.css?v=71">
   <link rel="stylesheet" href="src/styles/auth.css?v=4">
+  <link rel="stylesheet" href="src/styles/user-dashboard.css?v=19">
   <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
   <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
   <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
@@ -29,8 +30,9 @@
 <body>
   <div id="root"></div>
 
-  <!-- Constants & Data Layer -->
+  <!-- Constants, Utilities & Data Layer -->
   <script src="src/constants/farmItemsData.js?v=68"></script>
+  <script src="src/utils/formatters.js?v=2"></script>
 
   <!-- Services & API Layer -->
   <script src="src/services/httpClient.js?v=2"></script>
@@ -42,7 +44,7 @@
   <script src="src/services/systemService.js?v=2"></script>
   <script src="src/services/rmsService.js?v=2"></script>
   <script src="src/services/rentalService.js?v=1"></script>
-  <script src="src/services/billingService.js?v=1"></script>
+  <script src="src/services/billingService.js?v=2"></script>
   <script src="src/api/api.js?v=2"></script>
 
   <!-- Hooks Layer -->
@@ -53,9 +55,10 @@
   <script type="text/babel" src="src/context/ModalContext.jsx?v=68"></script>
 
   <!-- Components Layer -->
-  <script type="text/babel" src="src/components/Icons.jsx?v=75"></script>
-  <script type="text/babel" src="src/components/Navbar.jsx?v=68"></script>
-  <script type="text/babel" src="src/components/user/UserNavbar.jsx?v=1"></script>
+  <script type="text/babel" src="src/components/Icons.jsx?v=77"></script>
+  <script type="text/babel" src="src/components/Navbar.jsx?v=69"></script>
+  <script type="text/babel" src="src/components/user/UserNavbar.jsx?v=3"></script>
+  <script type="text/babel" src="src/components/user/MobileBottomNav.jsx?v=1"></script>
   <script type="text/babel" src="src/components/StatsRow.jsx?v=68"></script>
   <script type="text/babel" src="src/components/TerminalConsole.jsx?v=68"></script>
   <script type="text/babel" src="src/components/FileTabsBar.jsx?v=68"></script>
@@ -70,13 +73,13 @@
   
   <!-- Modals Layer -->
   <script type="text/babel" src="src/components/modals/ModalBase.jsx?v=70"></script>
-  <script type="text/babel" src="src/components/modals/DialogModal.jsx?v=70"></script>
+  <script type="text/babel" src="src/components/modals/DialogModal.jsx?v=71"></script>
   <script type="text/babel" src="src/components/modals/AccountModal.jsx?v=70"></script>
   <script type="text/babel" src="src/components/modals/FileModal.jsx?v=70"></script>
   <script type="text/babel" src="src/components/modals/ProxyModal.jsx?v=70"></script>
   <script type="text/babel" src="src/components/modals/SettingsModal.jsx?v=70"></script>
   <script type="text/babel" src="src/components/modals/setup/RentalSetupModal.jsx?v=70"></script>
-  <script type="text/babel" src="src/components/modals/setup/FarmIdCatalogModal.jsx?v=70"></script>
+  <script type="text/babel" src="src/components/modals/setup/FarmIdCatalogModal.jsx?v=71"></script>
   <script type="text/babel" src="src/components/modals/setup/FarmSetupModal.jsx?v=70"></script>
   <script type="text/babel" src="src/components/modals/setup/DiamondSetupModal.jsx?v=70"></script>
   <script type="text/babel" src="src/components/modals/setup/FishSetupModal.jsx?v=70"></script>
@@ -84,7 +87,8 @@
   <script type="text/babel" src="src/components/modals/AccountSetupModal.jsx?v=70"></script>
   <script type="text/babel" src="src/components/modals/RmsInspectorModal.jsx?v=78"></script>
   <script type="text/babel" src="src/components/user/RentSlotModal.jsx?v=1"></script>
-  <script type="text/babel" src="src/components/user/TransactionHistoryModal.jsx?v=1"></script>
+  <script type="text/babel" src="src/components/user/TransactionHistoryModal.jsx?v=4"></script>
+  <script type="text/babel" src="src/components/modals/AccountLogsModal.jsx?v=2"></script>
 
   <!-- Auth Components Layer -->
   <script type="text/babel" src="src/components/auth/AuthInput.jsx?v=4"></script>
@@ -98,10 +102,10 @@
   <!-- Pages Layer (AuthPage, DashboardPage & UserDashboardPage) -->
   <script type="text/babel" src="src/pages/AuthPage.jsx?v=4"></script>
   <script type="text/babel" src="src/pages/DashboardPage.jsx?v=70"></script>
-  <script type="text/babel" src="src/pages/UserDashboardPage.jsx?v=1"></script>
+  <script type="text/babel" src="src/pages/UserDashboardPage.jsx?v=21"></script>
 
   <!-- Application Root Layer -->
-  <script type="text/babel" src="src/App.jsx?v=70"></script>
+  <script type="text/babel" src="src/App.jsx?v=73"></script>
 </body>
 
 </html>

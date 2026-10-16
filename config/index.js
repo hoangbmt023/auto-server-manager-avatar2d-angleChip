@@ -47,7 +47,7 @@ const config = {
     waitForConnections: true,
     queueLimit: 0,
     charset: 'utf8mb4',
-    timezone: 'Z'
+    timezone: env.get('DB_TIMEZONE', 'Z')
   },
 
   security: {
@@ -79,6 +79,23 @@ const config = {
     pass: env.get('SMTP_PASS', ''),
     from: env.get('SMTP_FROM', 'Avatar Bot Manager <noreply@avatarbot.com>'),
     logoUrl: env.get('EMAIL_LOGO_URL', '')
+  },
+
+  payos: {
+    enabled: env.getBoolean('PAYOS_ENABLED', false),
+    clientId: env.get('PAYOS_CLIENT_ID', ''),
+    apiKey: env.get('PAYOS_API_KEY', ''),
+    checksumKey: env.get('PAYOS_CHECKSUM_KEY', ''),
+    bankAccount: env.get('BANK_ACCOUNT_NUMBER', env.get('PAYOS_BANK_ACCOUNT', '')),
+    bankName: env.get('BANK_NAME', env.get('PAYOS_BANK_NAME', 'MBBank')),
+    accountName: env.get('BANK_ACCOUNT_NAME', env.get('PAYOS_ACCOUNT_NAME', ''))
+  },
+
+  payment: {
+    publicAppUrl: env.get('PUBLIC_APP_URL', 'http://localhost:3001'),
+    bankName: env.get('BANK_NAME', 'MBBank'),
+    bankAccount: env.get('BANK_ACCOUNT_NUMBER', ''),
+    accountName: env.get('BANK_ACCOUNT_NAME', '')
   },
 
   // Export intermediate Env helper for dynamic queries

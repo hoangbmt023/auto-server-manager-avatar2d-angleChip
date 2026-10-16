@@ -21,7 +21,9 @@ const TABLES = {
     indexes: [
       { name: 'idx_users_email', columns: ['email'] },
       { name: 'idx_users_phone', columns: ['phone'] },
-      { name: 'idx_users_role', columns: ['role'] }
+      { name: 'idx_users_role', columns: ['role'] },
+      { name: 'idx_users_status', columns: ['status'] },
+      { name: 'idx_users_role_status', columns: ['role', 'status'] }
     ]
   },
 
@@ -102,7 +104,9 @@ const TABLES = {
       { name: 'idx_accounts_server_id', columns: ['server_id'] },
       { name: 'idx_accounts_username', columns: ['username'] },
       { name: 'idx_accounts_file_server', columns: ['file_id', 'server_id'] },
-      { name: 'idx_accounts_rental_expires', columns: ['rental_expires_at'] }
+      { name: 'idx_accounts_rental_expires', columns: ['rental_expires_at'] },
+      { name: 'idx_accounts_user_created', columns: ['user_id', 'created_at'] },
+      { name: 'idx_accounts_user_server', columns: ['user_id', 'server_id'] }
     ],
     foreignKeys: [
       { name: 'fk_accounts_user', column: 'user_id', refTable: 'users', refColumn: 'id', onDelete: 'SET NULL' },
@@ -116,19 +120,25 @@ const TABLES = {
     columns: {
       id: { type: 'VARCHAR(50)', primaryKey: true, notNull: true },
       user_id: { type: 'VARCHAR(50)', notNull: true },
+      order_code: { type: 'BIGINT', null: true },
       type: { type: "ENUM('TOPUP', 'RENTAL', 'RENEWAL', 'REFUND')", notNull: true, default: "'TOPUP'" },
       amount: { type: 'BIGINT', notNull: true, default: 0 },
       balance_before: { type: 'BIGINT', notNull: true, default: 0 },
       balance_after: { type: 'BIGINT', notNull: true, default: 0 },
       description: { type: 'TEXT', null: true },
       voucher_code: { type: 'VARCHAR(50)', null: true },
-      status: { type: "ENUM('SUCCESS', 'PENDING', 'FAILED')", notNull: true, default: "'SUCCESS'" },
+      status: { type: "ENUM('SUCCESS', 'PENDING', 'FAILED', 'CANCELLED')", notNull: true, default: "'SUCCESS'" },
       created_at: { type: 'TIMESTAMP', default: 'CURRENT_TIMESTAMP' }
     },
     indexes: [
       { name: 'idx_transactions_user_id', columns: ['user_id'] },
+      { name: 'idx_transactions_order_code', columns: ['order_code'] },
+      { name: 'idx_transactions_status', columns: ['status'] },
       { name: 'idx_transactions_type', columns: ['type'] },
-      { name: 'idx_transactions_created_at', columns: ['created_at'] }
+      { name: 'idx_transactions_created_at', columns: ['created_at'] },
+      { name: 'idx_transactions_user_created', columns: ['user_id', 'created_at'] },
+      { name: 'idx_transactions_user_type', columns: ['user_id', 'type'] },
+      { name: 'idx_transactions_user_voucher', columns: ['user_id', 'voucher_code'] }
     ],
     foreignKeys: [
       { name: 'fk_transactions_user', column: 'user_id', refTable: 'users', refColumn: 'id', onDelete: 'CASCADE' }
@@ -142,8 +152,10 @@ const TABLES = {
       code: { type: 'VARCHAR(50)', unique: true, notNull: true },
       discount_percent: { type: 'INT', notNull: true, default: 0 },
       discount_amount: { type: 'BIGINT', notNull: true, default: 0 },
+      max_discount_amount: { type: 'BIGINT', notNull: true, default: 0 },
       min_order: { type: 'BIGINT', notNull: true, default: 0 },
       max_uses: { type: 'INT', notNull: true, default: 100 },
+      max_uses_per_user: { type: 'INT', notNull: true, default: 1 },
       used_count: { type: 'INT', notNull: true, default: 0 },
       expires_at: { type: 'DATETIME', null: true },
       is_active: { type: 'BOOLEAN', notNull: true, default: 1 },
@@ -151,7 +163,8 @@ const TABLES = {
     },
     indexes: [
       { name: 'idx_vouchers_code', columns: ['code'] },
-      { name: 'idx_vouchers_active', columns: ['is_active'] }
+      { name: 'idx_vouchers_active', columns: ['is_active'] },
+      { name: 'idx_vouchers_expires', columns: ['expires_at'] }
     ]
   },
 

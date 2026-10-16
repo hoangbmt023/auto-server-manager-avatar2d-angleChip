@@ -31,6 +31,10 @@
       return http().post('/api/admin/vouchers', voucher);
     },
 
+    updateVoucher(code, voucher) {
+      return http().put(`/api/admin/vouchers/${encodeURIComponent(code)}`, voucher);
+    },
+
     deleteVoucher(code) {
       return http().delete(`/api/admin/vouchers/${encodeURIComponent(code)}`);
     }
