@@ -79,6 +79,13 @@ class ManageRentalAllocationsUseCase {
         accountName: config.payos?.accountName || config.payment?.accountName || '',
         webhookUrl: `${config.payment?.publicAppUrl || 'http://localhost:3001'}/api/billing/payos-webhook`
       },
+      proxyVnEnv: {
+        configuredInEnv: Boolean(config.proxyVn?.apiKey),
+        enabled: Boolean(config.proxyVn?.enabled),
+        baseUrl: config.proxyVn?.baseUrl || 'https://proxy.vn/apiv2',
+        defaultCategory: config.proxyVn?.defaultCategory || 'DatacenterA',
+        defaultType: config.proxyVn?.defaultType || 'SOCKS5'
+      },
       availableFiles: files.map(f => ({ id: f.id, name: f.name, modType: f.modType })),
       availableProxies: proxies.map(p => ({ id: p.id, name: p.name, host: p.host })),
       vouchers: vouchers.map(v => v.toPublicJson())

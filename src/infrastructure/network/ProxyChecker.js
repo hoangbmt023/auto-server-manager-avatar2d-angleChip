@@ -254,14 +254,14 @@ class ProxyChecker {
           }
         });
       } else {
-        // HTTP / HTTPS Proxy Handshake (CONNECT tunnel)
+        // HTTP / HTTPS Proxy Handshake (CONNECT tunnel to neutral endpoint)
         socket.connect(port, host, () => {
-          let req = `CONNECT avatar-hm.teamobi.com:19128 HTTP/1.1\r\nHost: avatar-hm.teamobi.com:19128\r\n`;
+          let req = `CONNECT 1.1.1.1:80 HTTP/1.1\r\nHost: 1.1.1.1:80\r\n`;
           if (username) {
             const auth = Buffer.from(`${username}:${password}`).toString('base64');
             req += `Proxy-Authorization: Basic ${auth}\r\n`;
           }
-          req += `User-Agent: AvatarFishBot/1.0\r\nConnection: close\r\n\r\n`;
+          req += `User-Agent: ProxyChecker/2.0\r\nConnection: close\r\n\r\n`;
           socket.write(req);
         });
 
@@ -312,6 +312,75 @@ class ProxyChecker {
     const type = (proxy.type || 'socks5').toUpperCase();
     const auth = proxy.username ? `${proxy.username}:***@` : '';
     return `${type}://${auth}${proxy.host}:${proxy.port}`;
+  }
+
+  /**
+   * Singleflight in-memory lock map for proxy rotation to prevent simultaneous rotation calls.
+   */
+  static _rotationLocks = new Map();
+
+  /**
+   * Safe rotation with 10-minute cooldown and Singleflight lock.
+   * If rotated within cooldown, reloads existing proxy data instead of calling API.
+   * @param {Object} options
+   * @param {Proxy} options.proxy
+   * @param {ProxyVnApiClient} options.proxyVnApiClient
+   * @param {IProxyRepository} options.proxyRepo
+   * @returns {Promise<{ rotated: boolean, proxy: Proxy, message: string }>}
+   */
+  static async rotateProxyWithCooldown({ proxy, proxyVnApiClient, proxyRepo }) {
+    if (!proxy || !proxy.id) {
+      throw new Error('Dữ liệu proxy không hợp lệ để thực hiện đổi IP!');
+    }
+    if (!proxy.externalId) {
+      return { rotated: false, proxy, message: 'Proxy không có externalId trên proxy.vn, không thể đổi tự động.' };
+    }
+
+    // Check Singleflight lock (đang có tiến trình khác gọi đổi IP cho con proxy này)
+    if (this._rotationLocks.has(proxy.id)) {
+      await this._rotationLocks.get(proxy.id);
+      const reloaded = await proxyRepo.findById(proxy.id);
+      return { rotated: true, proxy: reloaded, message: 'Đã đợi tiến trình đổi IP trước đó hoàn tất.' };
+    }
+
+    // Check Cooldown 10 phút
+    if (proxy.isRotationCoolingDown && proxy.isRotationCoolingDown(10)) {
+      return {
+        rotated: false,
+        proxy,
+        message: 'Proxy vừa được đổi IP trong vòng 10 phút qua. Đang trong thời gian giãn cách (Cooldown)!'
+      };
+    }
+
+    let releaseLock;
+    const lockPromise = new Promise((resolve) => { releaseLock = resolve; });
+    this._rotationLocks.set(proxy.id, lockPromise);
+
+    try {
+      const rotatedResult = await proxyVnApiClient.rotateProxyIp({
+        externalId: proxy.externalId,
+        category: proxy.proxyCategory || 'DatacenterA',
+        type: proxy.type || 'SOCKS5'
+      });
+
+      proxy.host = rotatedResult.ip;
+      proxy.port = rotatedResult.port;
+      proxy.username = rotatedResult.username;
+      proxy.password = rotatedResult.password;
+      proxy.setRotated();
+      proxy.markActive();
+
+      await proxyRepo.save(proxy);
+
+      return {
+        rotated: true,
+        proxy,
+        message: `Đổi IP Proxy [${proxy.name}] thành công -> IP mới: ${rotatedResult.ip}:${rotatedResult.port}`
+      };
+    } finally {
+      this._rotationLocks.delete(proxy.id);
+      if (releaseLock) releaseLock();
+    }
   }
 }
 

@@ -35,13 +35,17 @@ class ProxyService {
         const r = runningStatuses.instances[a.id];
         return Boolean(r && r.running);
       }).length;
+      const countHM = assignedAccounts.filter(a => parseInt(a.serverId, 10) === 0).length;
+      const countDK = assignedAccounts.filter(a => parseInt(a.serverId, 10) === 1).length;
 
       const dto = ProxyMapper.toResponseDto(p);
       return {
         ...dto,
         totalAssigned: assignedAccounts.length,
         onlineCount,
-        maxOnline: 6
+        countHM,
+        countDK,
+        maxOnline: p.maxSlots || 6
       };
     });
   }

@@ -551,6 +551,52 @@ window.ProxyModal = function ProxyModal({
                           {p.errorReason}
                         </div>
                       )}
+
+                      <div style={{ display: 'flex', gap: '6px', alignItems: 'center', marginTop: '6px', flexWrap: 'wrap' }}>
+                        {p.status === 'DRAINING' && (
+                          <span style={{
+                            padding: '1px 6px',
+                            borderRadius: '4px',
+                            fontSize: '0.68rem',
+                            fontWeight: 700,
+                            background: 'rgba(255, 159, 10, 0.18)',
+                            color: 'var(--apple-orange)',
+                            border: '1px solid rgba(255, 159, 10, 0.35)'
+                          }}>
+                            DRAINING (Chờ dọn)
+                          </span>
+                        )}
+                        {p.tier && (
+                          <span style={{
+                            padding: '1px 6px',
+                            borderRadius: '4px',
+                            fontSize: '0.68rem',
+                            fontWeight: 600,
+                            background: p.tier === 'CORE' ? 'rgba(10, 132, 255, 0.15)' : 'rgba(142, 142, 147, 0.15)',
+                            color: p.tier === 'CORE' ? 'var(--apple-blue)' : 'var(--text-secondary)',
+                            border: '1px solid var(--glass-border-subtle)'
+                          }}>
+                            {p.tier}
+                          </span>
+                        )}
+                        {p.remainingDays !== null && p.remainingDays !== undefined && (
+                          <span style={{
+                            fontSize: '0.72rem',
+                            color: p.remainingDays <= 3 ? 'var(--apple-orange)' : 'var(--text-secondary)'
+                          }}>
+                            Hạn: {p.remainingDays} ngày
+                          </span>
+                        )}
+                        {p.externalId && (
+                          <span style={{
+                            fontSize: '0.70rem',
+                            color: 'var(--apple-green)',
+                            fontWeight: 600
+                          }}>
+                            [Proxy.vn #{p.externalId}]
+                          </span>
+                        )}
+                      </div>
                     </div>
 
                     <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexShrink: 0 }}>
@@ -566,10 +612,10 @@ window.ProxyModal = function ProxyModal({
                           border: '1px solid',
                           borderColor: isFull ? 'rgba(255, 69, 58, 0.3)' : (p.onlineCount > 0 ? 'rgba(48, 209, 88, 0.3)' : 'var(--glass-border-subtle)')
                         }}>
-                          Online: {p.onlineCount || 0}/6
+                          Online: {p.onlineCount || 0}/{p.maxSlots || 6}
                         </span>
                         <div style={{ fontSize: '0.72rem', color: 'var(--text-secondary)', marginTop: '2px' }}>
-                          Gán: {p.totalAssigned || 0} nick
+                          {p.countHM || 0} HM · {p.countDK || 0} DK ({p.totalAssigned || 0} nick)
                         </div>
                       </div>
 

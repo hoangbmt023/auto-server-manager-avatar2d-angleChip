@@ -86,7 +86,7 @@ class RentSlotUseCase {
     }
 
     // 5. Automatic Resource Allocation
-    const allocation = await this.allocationEngine.allocateResources(planKey);
+    const allocation = await this.allocationEngine.allocateResources(planKey, months);
 
     // 6. Deduct balance and record Transaction
     const balanceBefore = user.balance;

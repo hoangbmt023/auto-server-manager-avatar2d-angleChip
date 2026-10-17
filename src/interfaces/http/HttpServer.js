@@ -28,6 +28,8 @@ const AccountService = require('../../application/services/AccountService');
 const FileProfileService = require('../../application/services/FileProfileService');
 const ProxyService = require('../../application/services/ProxyService');
 const ResourceAllocationEngine = require('../../application/services/ResourceAllocationEngine');
+const ProxyLifecycleCron = require('../../application/services/ProxyLifecycleCron');
+const ProxyVnApiClient = require('../../infrastructure/network/ProxyVnApiClient');
 
 // Use Cases
 const RentSlotUseCase = require('../../application/use-cases/rental/RentSlotUseCase');
@@ -128,12 +130,22 @@ class HttpServer {
       this.sseEventBus,
       this.transactionManager
     );
+    this.proxyVnApiClient = new ProxyVnApiClient(config.proxyVn);
     this.allocationEngine = new ResourceAllocationEngine(
       this.fileRepo,
       this.proxyRepo,
       this.accountRepo,
-      this.settingRepo
+      this.settingRepo,
+      this.proxyVnApiClient
     );
+    this.proxyLifecycleCron = new ProxyLifecycleCron({
+      proxyRepo: this.proxyRepo,
+      accountRepo: this.accountRepo,
+      multiBotManager: this.multiBotManager,
+      proxyVnApiClient: this.proxyVnApiClient,
+      sseEventBus: this.sseEventBus,
+      dbPool: this.dbPool
+    });
 
     // Use Cases
     this.rentSlotUseCase = new RentSlotUseCase(
@@ -343,7 +355,10 @@ class HttpServer {
 
       this.multiBotManager.resumePreviousRunningBots();
 
-      // 3. Rental Expiration Watchdog (Kiểm tra và ngắt an toàn bot hết hạn thuê)
+      // 3. Start Proxy Lifecycle & Waterfall Migration Cron
+      this.proxyLifecycleCron.start(30 * 60 * 1000);
+
+      // 4. Rental Expiration Watchdog (Kiểm tra và ngắt an toàn bot hết hạn thuê)
       setInterval(async () => {
         try {
           const allAccs = await this.accountRepo.findAll();
