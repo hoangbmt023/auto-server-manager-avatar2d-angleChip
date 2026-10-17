@@ -89,13 +89,17 @@ class Proxy {
     this.lastChecked = DateTimeUtil.formatIso();
   }
 
-  markFailed() {
+  markFailed(force = false, errorReason = null) {
     this.failCount += 1;
     this.lastChecked = DateTimeUtil.formatIso();
-    if (this.failCount >= 3) {
+    if (errorReason) {
+      this.errorReason = errorReason;
+    }
+    if (force || this.failCount >= 3) {
       this.isExpired = true;
       this.isActive = false;
       this.status = 'EXPIRED';
+      this.latencyMs = null;
     }
   }
 

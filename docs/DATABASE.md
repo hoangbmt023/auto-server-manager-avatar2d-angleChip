@@ -48,6 +48,11 @@ erDiagram
         varchar type
         varchar username
         varchar password
+        varchar external_id
+        varchar tier
+        varchar status
+        datetime expires_at
+        varchar proxy_category
         int latency_ms
         boolean is_expired
         datetime last_tested_at
@@ -96,9 +101,10 @@ Stores Avatar game credentials, server allocations, assigned proxies, and specia
 * `farm_settings`, `diamond_settings`, `fish_settings`, `sell_ore_settings`: JSON structured configurations.
 
 ### 2. `proxies`
-Manages SOCKS5 / HTTP networking tunnels:
+Manages SOCKS5 / HTTP networking tunnels & automation:
 * Realtime health check metadata (`latency_ms`, `is_expired`, `last_tested_at`).
-* Multi-account routing (supports up to 6 bots per proxy: 3 HM + 3 DK).
+* Multi-account routing (supports up to 6 bots per proxy: 3 HM + 3 DK with seat reservation).
+* Automation & Vendor integration: `external_id` (Proxy.vn purchased ID), `tier` (`CORE` vs `DYNAMIC`), `status` (`ACTIVE`, `DRAINING`, `DECOMMISSIONED`), `expires_at`, `proxy_category`.
 
 ### 3. `bot_files`
 Represents bot profile groupings and JAR mod associations (`chipmix`, `fish`, `upxu`).

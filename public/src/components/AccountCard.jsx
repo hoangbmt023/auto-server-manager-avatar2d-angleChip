@@ -201,41 +201,6 @@ window.AccountCard = function AccountCard({
             </div>
           </div>
         </div>
-
-        {/* Live Bot Running & Auto Indicator Strip */}
-        <div style={{
-          marginTop: '8px',
-          padding: '5px 10px',
-          borderRadius: '6px',
-          fontSize: '0.72rem',
-          fontWeight: 600,
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'space-between',
-          background: isRunning ? 'rgba(50, 215, 75, 0.1)' : (accountState.state === 'connecting' ? 'rgba(255, 214, 10, 0.1)' : 'rgba(255, 255, 255, 0.03)'),
-          color: isRunning ? 'var(--apple-green)' : (accountState.state === 'connecting' ? 'var(--apple-gold)' : 'var(--text-tertiary)'),
-          border: `1px solid ${isRunning ? 'rgba(50, 215, 75, 0.25)' : (accountState.state === 'connecting' ? 'rgba(255, 214, 10, 0.25)' : 'var(--glass-border-subtle)')}`
-        }}>
-          <span style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
-            <span style={{
-              width: '8px',
-              height: '8px',
-              borderRadius: '50%',
-              backgroundColor: isRunning ? 'var(--apple-green)' : (accountState.state === 'connecting' ? 'var(--apple-gold)' : '#777'),
-              boxShadow: isRunning ? '0 0 8px var(--apple-green)' : 'none'
-            }} />
-            {isRunning ? (
-              autoState.isRunning
-                ? `ĐANG TREO BOT • [AUTO: ${autoState.autoType ? autoState.autoType.toUpperCase() : 'BẬT'}]`
-                : 'ĐANG TREO BOT (ONLINE)'
-            ) : (
-              accountState.state === 'connecting' ? 'ĐANG KẾT NỐI MÁY CHỦ...' : 'BOT ĐANG DỪNG'
-            )}
-          </span>
-          <span style={{ fontSize: '0.68rem', opacity: 0.85, fontWeight: 500 }}>
-            {serverName}
-          </span>
-        </div>
       </div>
 
       {/* 2. Full 6-Metric Matrix with Live Sub-Panel */}

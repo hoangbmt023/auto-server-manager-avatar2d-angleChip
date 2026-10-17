@@ -74,7 +74,7 @@ class ProxyService {
 
   async saveProxy(data) {
     const existing = data.id ? await this.proxyRepo.findById(data.id) : null;
-    const proxyEntity = ProxyMapper.toEntityFromSaveDto(data, existing ? existing.password : null);
+    const proxyEntity = ProxyMapper.toEntityFromSaveDto(data, existing);
     proxyEntity.validate();
 
     // Live health check before saving
@@ -90,6 +90,15 @@ class ProxyService {
     // Single table operation (proxies) -> NO transaction needed
     const saved = await this.proxyRepo.save(proxyEntity);
     this.broadcastChange();
+
+    // Tự động khởi động lại tất cả bot đang chạy trên proxy này nếu IP hoặc Port bị thay đổi
+    if (existing && (existing.host !== saved.host || existing.port !== saved.port)) {
+      await ProxyChecker.restartBotsOnProxy({
+        proxy: saved,
+        multiBotManager: this.multiBotManager,
+        accountRepo: this.accountRepo
+      });
+    }
 
     return {
       proxy: ProxyMapper.toResponseDto(saved),
@@ -138,9 +147,9 @@ class ProxyService {
       throw new NotFoundException(`Không tìm thấy Proxy với ID [${id}]!`);
     }
 
-    const result = await ProxyChecker.testProxy(proxy.toJSON(), 5000);
+    const result = await ProxyChecker.testProxy(proxy.toJSON(), 2500, 3, 200);
     if (result.isExpired) {
-      proxy.markFailed();
+      proxy.markFailed(true, result.message || 'Kiểm tra kết nối thất bại!');
     } else {
       proxy.markActive(result.latencyMs);
     }
@@ -154,24 +163,23 @@ class ProxyService {
 
   async testAllProxies() {
     const proxies = await this.proxyRepo.findAll();
-    const results = [];
 
-    for (const p of proxies) {
+    const results = await Promise.all(proxies.map(async (p) => {
       try {
-        const res = await ProxyChecker.testProxy(p.toJSON(), 3000);
+        const res = await ProxyChecker.testProxy(p.toJSON(), 2500, 3, 200);
         if (res.isExpired) {
-          p.markFailed();
+          p.markFailed(true, res.message || 'Không thể kết nối!');
         } else {
           p.markActive(res.latencyMs);
         }
         await this.proxyRepo.save(p);
-        results.push({ id: p.id, name: p.name, ...res });
+        return { id: p.id, name: p.name, ...res };
       } catch (e) {
-        p.markFailed();
+        p.markFailed(true, e.message || 'Lỗi kiểm tra!');
         await this.proxyRepo.save(p);
-        results.push({ id: p.id, name: p.name, isExpired: true, message: e.message });
+        return { id: p.id, name: p.name, isExpired: true, message: e.message };
       }
-    }
+    }));
 
     this.broadcastChange();
     return results;

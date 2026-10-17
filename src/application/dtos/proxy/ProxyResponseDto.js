@@ -28,6 +28,7 @@ class ProxyResponseDto {
     this.lastRotatedAt = proxy.lastRotatedAt ? DateTimeUtil.formatIso(proxy.lastRotatedAt) : null;
     this.latencyMs = proxy.latencyMs;
     this.failCount = proxy.failCount;
+    this.errorReason = proxy.errorReason || null;
   }
 }
 

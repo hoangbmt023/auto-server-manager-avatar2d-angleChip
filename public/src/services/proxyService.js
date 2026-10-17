@@ -27,6 +27,18 @@
 
     testAllProxies() {
       return http().post('/api/proxies/test-all', {});
+    },
+
+    rotateProxy(id) {
+      return http().post(`/api/proxies/${encodeURIComponent(id)}/rotate`, {});
+    },
+
+    getSystemConfig() {
+      return http().get('/api/proxies/config/system');
+    },
+
+    saveSystemConfig(payload) {
+      return http().post('/api/proxies/config/system', payload);
     }
   };
 

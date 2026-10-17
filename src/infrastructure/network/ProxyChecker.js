@@ -18,7 +18,7 @@ class ProxyChecker {
    * @param {number} retryDelayMs - Delay between failed retries in milliseconds (default: 500ms)
    * @returns {Promise<{ success: boolean, isExpired: boolean, latencyMs: number, message: string, attempts: number }>}
    */
-  static async testProxy(proxy, timeoutMs = 2500, maxRetries = 1, retryDelayMs = 200) {
+  static async testProxy(proxy, timeoutMs = 2500, maxRetries = 3, retryDelayMs = 200) {
     if (!proxy) {
       return {
         success: false,
@@ -343,7 +343,52 @@ class ProxyChecker {
       return { rotated: true, proxy: reloaded, message: 'Đã đợi tiến trình đổi IP trước đó hoàn tất.' };
     }
 
-    // Check Cooldown 10 phút
+    // 1. Kiểm tra trên Proxy.vn (Lấy list proxy đã mua) xem ID này đã được đổi IP/Port mới chưa
+    if (proxyVnApiClient && typeof proxyVnApiClient.getProxyList === 'function') {
+      try {
+        const list = await proxyVnApiClient.getProxyList({
+          category: proxy.proxyCategory || 'DatacenterA',
+          idproxy: proxy.externalId
+        });
+
+        const matched = Array.isArray(list) ? list.find(item => 
+          String(item.idproxy || item.id || '').trim() === String(proxy.externalId).trim()
+        ) : null;
+
+        if (matched) {
+          const vnIp = String(matched.ip || matched.proxy || '').trim();
+          const isSocks = (proxy.type || 'socks').toLowerCase().startsWith('sock');
+          const vnPortRaw = isSocks 
+            ? (matched.port_socks5 || matched.port || matched.port_http)
+            : (matched.port_http || matched.port || matched.port_socks5);
+          const vnPort = parseInt(vnPortRaw, 10);
+
+          const hasChanged = (vnIp && vnIp !== proxy.host) || (vnPort && !isNaN(vnPort) && vnPort !== proxy.port);
+          if (hasChanged) {
+            console.log(`📡 [ProxyChecker] Phát hiện Proxy.vn đã cập nhật sẵn IP/Port mới cho ID [${proxy.externalId}]: ${vnIp}:${vnPort} (Cũ: ${proxy.host}:${proxy.port}). Đang đồng bộ...`);
+            proxy.host = vnIp;
+            if (!isNaN(vnPort)) proxy.port = vnPort;
+            if (matched.user || matched.username) proxy.username = String(matched.user || matched.username).trim();
+            if (matched.pass || matched.password) proxy.password = String(matched.pass || matched.password).trim();
+            proxy.setRotated();
+            proxy.markActive();
+
+            await proxyRepo.save(proxy);
+            await this.restartBotsOnProxy({ proxy, multiBotManager, accountRepo });
+
+            return {
+              rotated: true,
+              proxy,
+              message: `Phát hiện Proxy.vn đã đổi sẵn IP mới (${vnIp}:${vnPort}) -> Đã đồng bộ & tự động đăng nhập lại Game!`
+            };
+          }
+        }
+      } catch (checkErr) {
+        console.warn(`⚠️ [ProxyChecker] Không thể kiểm tra listproxy.php trước khi xoay: ${checkErr.message}. Tiếp tục quy trình xoay...`);
+      }
+    }
+
+    // 2. Check Cooldown 10 phút
     if (proxy.isRotationCoolingDown && proxy.isRotationCoolingDown(10)) {
       return {
         rotated: false,
@@ -372,35 +417,44 @@ class ProxyChecker {
 
       await proxyRepo.save(proxy);
 
-      // Auto-restart all running bots attached to this rotated proxy
-      if (multiBotManager && accountRepo) {
-        try {
-          const accounts = await accountRepo.findAll();
-          const affected = accounts.filter(a => a.proxyId === proxy.id);
-          for (const acc of affected) {
-            if (multiBotManager.isAccountRunning(acc.id)) {
-              console.log(`🔄 [ProxyChecker] Khởi động lại bot [${acc.username}] với IP Proxy mới (${rotatedResult.ip}:${rotatedResult.port})...`);
-              if (typeof multiBotManager.restartAccount === 'function') {
-                await multiBotManager.restartAccount(acc.id);
-              } else {
-                await multiBotManager.stopAccount(acc.id);
-                await multiBotManager.startAccount(acc.id);
-              }
-            }
-          }
-        } catch (e) {
-          console.error(`[ProxyChecker] Lỗi restart bot sau khi đổi IP proxy [${proxy.id}]:`, e.message);
-        }
-      }
+      // Auto-restart all running bots attached to this rotated proxy (giống như khi sửa nick sửa IP rồi ấn lưu)
+      await this.restartBotsOnProxy({ proxy, multiBotManager, accountRepo });
 
       return {
         rotated: true,
         proxy,
-        message: `Đổi IP Proxy [${proxy.name}] thành công -> IP mới: ${rotatedResult.ip}:${rotatedResult.port}`
+        message: `Đổi IP Proxy [${proxy.name}] thành công -> IP mới: ${rotatedResult.ip}:${rotatedResult.port} (Đã tự động kết nối lại game)`
       };
     } finally {
       this._rotationLocks.delete(proxy.id);
       if (releaseLock) releaseLock();
+    }
+  }
+
+  /**
+   * Tự động khởi động lại tất cả bot đang chạy trên một Proxy khi Proxy được đổi IP hoặc cập nhật
+   * (Hoạt động mượt mà tương tự như khi ấn sửa nick sửa IP rồi ấn Lưu)
+   */
+  static async restartBotsOnProxy({ proxy, multiBotManager, accountRepo }) {
+    if (!multiBotManager || !accountRepo || !proxy) return;
+    try {
+      const accounts = await accountRepo.findAll();
+      const affected = accounts.filter(a => a.proxyId === proxy.id);
+      for (const acc of affected) {
+        if (multiBotManager.isAccountRunning(acc.id)) {
+          console.log(`🔄 [Auto-Restart] Khởi động lại bot [${acc.username}] với IP Proxy mới (${proxy.host}:${proxy.port})...`);
+          multiBotManager.stopAccount(acc.id);
+          setTimeout(async () => {
+            try {
+              await multiBotManager.startAccount(acc.id);
+            } catch (e) {
+              console.error(`[Auto-Restart] Lỗi khởi động lại bot [${acc.username}]:`, e.message);
+            }
+          }, 1200);
+        }
+      }
+    } catch (e) {
+      console.error(`[Auto-Restart] Lỗi restart bot trên proxy [${proxy.id}]:`, e.message);
     }
   }
 }

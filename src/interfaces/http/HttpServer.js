@@ -184,7 +184,7 @@ class HttpServer {
     this.accountController = new AccountController(this.accountService, this.settingRepo, this.fileRepo, this.sseEventBus);
     this.botController = new BotController(this.multiBotManager, this.sseEventBus, this.accountRepo, this.fileRepo, this.settingRepo);
     this.fileController = new FileController(this.fileProfileService, this.fileRepo, this.sseEventBus);
-    this.proxyController = new ProxyController(this.proxyService, this.sseEventBus);
+    this.proxyController = new ProxyController(this.proxyService, this.sseEventBus, this.proxyVnApiClient, this.settingRepo);
     this.systemController = new SystemController(this.settingRepo, this.sseEventBus);
     this.rentalController = new RentalController(this.rentSlotUseCase, this.allocationEngine);
     this.billingController = new BillingController(this.billingUseCase, this.userRepo);

@@ -1,10 +1,230 @@
 /**
- * ProxyModal & ProxyFormModal Component (Presentation Layer / Modals)
+ * ProxyModal, ProxyFormModal & ProxySystemConfigModal Component (Presentation Layer / Modals)
  * Porsche & Apple Minimalist Liquid Glass Proxy Manager
- * Realtime Health Check, Expiration Flags, and Status Filtering.
- * Main List view with dedicated standalone popup box modal for Add / Edit.
+ * Realtime Health Check, Expiration Flags, Status Filtering & Smart Proxy.vn Auto Allocation.
+ * ZERO Inline Styles - 100% Modals CSS Semantic Classes & Full Mobile Responsive.
  */
-const { useState: useProxyModalState, useEffect: useProxyModalEffect } = React;
+const { useState: useProxyModalState, useEffect: useProxyModalEffect, useCallback: useProxyModalCallback } = React;
+
+/**
+ * Standalone popup box modal for Configuring Proxy.vn System Automation
+ */
+function ProxySystemConfigModal({
+  config,
+  onClose,
+  onSaved
+}) {
+  const [proxyVnEnabled, setProxyVnEnabled] = useProxyModalState(Boolean(config?.proxyVnEnabled));
+  const [apiKey, setApiKey] = useProxyModalState('');
+  const [isChangingKey, setIsChangingKey] = useProxyModalState(!config?.hasApiKey);
+  const [defaultCategory, setDefaultCategory] = useProxyModalState(config?.defaultCategory || 'DatacenterA');
+  const [defaultType, setDefaultType] = useProxyModalState(config?.defaultType || 'SOCKS5');
+  const [defaultPeriod, setDefaultPeriod] = useProxyModalState(config?.defaultPeriod ? String(config.defaultPeriod) : '30');
+  const [loading, setLoading] = useProxyModalState(false);
+  const [error, setError] = useProxyModalState('');
+
+  const handleSubmit = async (e) => {
+    if (e) e.preventDefault();
+    setLoading(true);
+    setError('');
+
+    try {
+      if (window.ApiClient && typeof window.ApiClient.saveProxySystemConfig === 'function') {
+        const payload = {
+          proxyVnEnabled,
+          defaultCategory,
+          defaultType,
+          defaultPeriod: parseInt(defaultPeriod, 10) || 30,
+          emergencySlotEnabled: false
+        };
+        // Chỉ gửi apiKey nếu người dùng nhập mới
+        if (isChangingKey && apiKey.trim()) {
+          payload.apiKey = apiKey.trim();
+        }
+
+        const res = await window.ApiClient.saveProxySystemConfig(payload);
+        if (res && res.success) {
+          if (onSaved) onSaved();
+          if (onClose) onClose();
+        } else {
+          setError(res?.message || 'Không thể lưu cấu hình hệ thống!');
+        }
+      }
+    } catch (err) {
+      setError(err.message || 'Lỗi khi lưu cấu hình Proxy hệ thống!');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <window.ModalBase
+      title="Cấu Hình Hệ Thống Điều Phối & Proxy.vn"
+      subtitle="Thiết lập cơ chế tự động mua, xoay vòng IP và slot khẩn cấp"
+      icon="cpu"
+      iconColor="var(--apple-blue)"
+      size="md"
+      zIndex={10020}
+      onClose={onClose}
+      footer={
+        <div className="proxy-form-footer-actions">
+          <button type="button" className="btn btn-secondary" onClick={onClose}>
+            Hủy Bỏ
+          </button>
+          <button type="button" className="btn btn-primary" onClick={handleSubmit} disabled={loading}>
+            <window.Icon name="check" size={14} />
+            {loading ? 'Đang lưu...' : 'Lưu Cấu Hình'}
+          </button>
+        </div>
+      }
+    >
+      {error && <div className="alert alert-danger proxy-alert-box">{error}</div>}
+
+      <form onSubmit={handleSubmit} className="proxy-form-stack">
+        {/* Section 1: Kích Hoạt Tự Động Hóa */}
+        <div className="proxy-config-card-sec">
+          <div className="proxy-config-card-header">
+            <window.Icon name="zap" size={16} color="var(--apple-blue)" />
+            <span>Cơ Chế Tự Động Hóa (Auto-Provisioning)</span>
+          </div>
+          <div className="checkbox-group">
+            <input
+              type="checkbox"
+              id="cfgProxyVnEnabled"
+              checked={proxyVnEnabled}
+              onChange={(e) => setProxyVnEnabled(e.target.checked)}
+            />
+            <label htmlFor="cfgProxyVnEnabled">
+              <strong>Bật Tự Động Mua Proxy Khi Hết Slot</strong>
+            </label>
+          </div>
+          <p className="proxy-config-desc">
+            Khi tất cả Proxy trong hệ thống đã đầy kín (6/6 bot), hệ thống tự động gọi API Proxy.vn mua thêm Proxy mới 30 ngày cho nick vừa thuê.
+          </p>
+        </div>
+
+        {/* Section 2: Tài Khoản & API Key */}
+        <div className="proxy-config-card-sec">
+          <div className="proxy-config-card-header">
+            <window.Icon name="key" size={16} color="var(--apple-orange)" />
+            <span>Tài Khoản & API Key Proxy.vn</span>
+          </div>
+
+          {config?.hasApiKey && !isChangingKey ? (
+            <div className="proxy-key-status-row">
+              <div className="proxy-key-status-badge is-connected">
+                <window.Icon name="check-circle" size={15} color="var(--apple-green)" />
+                <span>Đã kết nối API Key Proxy.vn</span>
+              </div>
+              <button
+                type="button"
+                className="btn btn-secondary btn-sm proxy-change-key-btn"
+                onClick={() => setIsChangingKey(true)}
+              >
+                <window.Icon name="edit" size={12} /> Đổi Key Mới
+              </button>
+            </div>
+          ) : (
+            <div className="form-group">
+              <label>API Key Proxy.vn:</label>
+              <div className="form-row">
+                <input
+                  type="text"
+                  className="form-control"
+                  placeholder="Dán API Key lấy từ https://proxy.vn/?home=apiv2"
+                  value={apiKey}
+                  onChange={(e) => setApiKey(e.target.value)}
+                  autoFocus={isChangingKey}
+                />
+                {config?.hasApiKey && (
+                  <button
+                    type="button"
+                    className="btn btn-secondary btn-sm"
+                    onClick={() => {
+                      setIsChangingKey(false);
+                      setApiKey('');
+                    }}
+                  >
+                    Hủy
+                  </button>
+                )}
+              </div>
+              <span className="form-helper-text">
+                Khóa bí mật kết nối với tài khoản trên nền tảng <code>https://proxy.vn</code>.
+              </span>
+            </div>
+          )}
+        </div>
+
+        {/* Section 3: Quy Chuẩn Gói & Slot Mở Rộng */}
+        <div className="proxy-config-card-sec">
+          <div className="proxy-config-card-header">
+            <window.Icon name="server" size={16} color="var(--apple-purple)" />
+            <span>Quy Chuẩn Gói Proxy & Phân Bổ</span>
+          </div>
+
+          <div className="form-row">
+            <div className="form-group">
+              <label>Gói Proxy Mặc Định (Category):</label>
+              <select
+                className="form-control"
+                value={defaultCategory}
+                onChange={(e) => setDefaultCategory(e.target.value)}
+              >
+                <option value="DatacenterA">DatacenterA (IPv4 VN Viettel/FPT)</option>
+                <option value="DatacenterB">DatacenterB (IPv4 VN VNPT)</option>
+                <option value="Residential">Residential (Dân cư xoay IP)</option>
+                <option value="US">Datacenter Mỹ (US)</option>
+                <option value="SG">Datacenter Singapore (SG)</option>
+              </select>
+            </div>
+
+            <div className="form-group">
+              <label>Giao Thức Mạng Mặc Định:</label>
+              <select
+                className="form-control"
+                value={defaultType}
+                onChange={(e) => setDefaultType(e.target.value)}
+              >
+                <option value="SOCKS5">SOCKS5 (Tối ưu cho Game Bot)</option>
+                <option value="HTTP">HTTP / HTTPS</option>
+              </select>
+            </div>
+          </div>
+
+          <div className="form-row">
+            <div className="form-group">
+              <label>Thời Hạn Mua Tự Động (Ngày):</label>
+              <div className="proxy-period-input-wrap">
+                <input
+                  type="number"
+                  className="form-control"
+                  min="1"
+                  max="365"
+                  value={defaultPeriod}
+                  onChange={(e) => setDefaultPeriod(e.target.value)}
+                  placeholder="30"
+                />
+                <span className="proxy-period-unit">ngày</span>
+              </div>
+            </div>
+
+            <div className="form-group">
+              <label>Giới Hạn Tải Proxy (Avatar):</label>
+              <div className="proxy-limit-fixed-tag">
+                <window.Icon name="shield-check" size={14} color="var(--apple-green)" />
+                <span>Cố định: 6 nick/IP (3 Hoàn Mỹ + 3 Diệu Kỳ)</span>
+              </div>
+            </div>
+          </div>
+          <span className="form-helper-text">
+            Khóa cứng đúng 6 slot để tuân thủ 100% giới hạn máy chủ TeaMobi, tránh tình trạng bị văng game.
+          </span>
+        </div>
+      </form>
+    </window.ModalBase>
+  );
+}
 
 /**
  * Standalone popup box modal for Adding / Editing a Proxy
@@ -38,7 +258,6 @@ function ProxyFormModal({
   const handleSubmit = async (e) => {
     if (e) e.preventDefault();
 
-    // 1. Validate ngay tại tầng Frontend
     const feErrors = {};
     if (!host.trim()) {
       feErrors.host = 'Địa chỉ IP / Host của Proxy không được để trống!';
@@ -71,7 +290,6 @@ function ProxyFormModal({
         if (onSaved) onSaved();
         if (onClose) onClose();
       } else if (res && res.errors && typeof res.errors === 'object') {
-        // 2. Nhận errors từ Backend
         setFieldErrors(res.errors);
       } else if (res && res.message) {
         setError(res.message);
@@ -93,20 +311,20 @@ function ProxyFormModal({
       zIndex={10010}
       onClose={onClose}
       footer={
-        <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px', width: '100%' }}>
+        <div className="proxy-form-footer-actions">
           <button type="button" className="btn btn-secondary" onClick={onClose}>
             Hủy Bỏ
           </button>
-          <button type="button" className="btn btn-primary" onClick={handleSubmit} disabled={loading} style={{ gap: '6px' }}>
+          <button type="button" className="btn btn-primary" onClick={handleSubmit} disabled={loading}>
             <window.Icon name="check" size={14} />
             {loading ? 'Đang lưu...' : (isEditing ? 'Cập Nhật Proxy' : 'Lưu Proxy')}
           </button>
         </div>
       }
     >
-      {error && <div className="alert alert-danger" style={{ marginBottom: '14px' }}>{error}</div>}
+      {error && <div className="alert alert-danger proxy-alert-box">{error}</div>}
 
-      <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+      <form onSubmit={handleSubmit} className="proxy-form-stack">
         <div className="form-group">
           <label>Tên gợi nhớ Proxy:</label>
           <input
@@ -151,7 +369,7 @@ function ProxyFormModal({
           </div>
 
           <div className="form-group">
-            <label>Cổng Port <span style={{ color: 'var(--apple-red)' }}>*</span>:</label>
+            <label>Cổng Port <span className="proxy-field-required">*</span>:</label>
             <input
               type="number"
               className={`form-control ${fieldErrors.port ? 'input-error' : ''}`}
@@ -174,7 +392,7 @@ function ProxyFormModal({
         </div>
 
         <div className="form-group">
-          <label>Host / IP <span style={{ color: 'var(--apple-red)' }}>*</span>:</label>
+          <label>Host / IP <span className="proxy-field-required">*</span>:</label>
           <input
             type="text"
             className={`form-control ${fieldErrors.host ? 'input-error' : ''}`}
@@ -244,19 +462,44 @@ function ProxyFormModal({
  */
 window.ProxyModal = function ProxyModal({
   onClose,
-  proxies = [],
+  proxies: initialProxies = [],
   onSaveProxy,
   onDeleteProxy,
   initialFilter = 'all',
   onRefreshProxies
 }) {
-  const [filter, setFilter] = useProxyModalState(initialFilter || 'all'); // 'all' | 'active' | 'expired'
+  const [filter, setFilter] = useProxyModalState(initialFilter || 'all');
+  const [localProxies, setLocalProxies] = useProxyModalState(initialProxies);
   const [editingProxy, setEditingProxy] = useProxyModalState(null);
   const [showFormModal, setShowFormModal] = useProxyModalState(false);
+  const [showSystemConfigModal, setShowSystemConfigModal] = useProxyModalState(false);
 
   const [testingId, setTestingId] = useProxyModalState(null);
   const [testingAll, setTestingAll] = useProxyModalState(false);
-  const [testNotice, setTestNotice] = useProxyModalState(null); // { type: 'success'|'error'|'info', text: '' }
+  const [rotatingId, setRotatingId] = useProxyModalState(null);
+  const [testNotice, setTestNotice] = useProxyModalState(null);
+  const [systemConfig, setSystemConfig] = useProxyModalState(null);
+
+  // Sync prop proxies to local state
+  useProxyModalEffect(() => {
+    setLocalProxies(initialProxies);
+  }, [initialProxies]);
+
+  // Load Proxy System Configuration
+  const loadSystemConfig = useProxyModalCallback(async () => {
+    try {
+      if (window.ApiClient && typeof window.ApiClient.getProxySystemConfig === 'function') {
+        const res = await window.ApiClient.getProxySystemConfig();
+        if (res && res.success) {
+          setSystemConfig(res.data);
+        }
+      }
+    } catch (e) {}
+  }, []);
+
+  useProxyModalEffect(() => {
+    loadSystemConfig();
+  }, [loadSystemConfig]);
 
   useProxyModalEffect(() => {
     if (initialFilter) {
@@ -264,10 +507,10 @@ window.ProxyModal = function ProxyModal({
     }
   }, [initialFilter]);
 
-  const activeCount = proxies.filter(p => !p.isExpired).length;
-  const expiredCount = proxies.filter(p => p.isExpired).length;
+  const activeCount = localProxies.filter(p => !p.isExpired).length;
+  const expiredCount = localProxies.filter(p => p.isExpired).length;
 
-  const filteredProxies = proxies.filter(p => {
+  const filteredProxies = localProxies.filter(p => {
     if (filter === 'active') return !p.isExpired;
     if (filter === 'expired') return Boolean(p.isExpired);
     return true;
@@ -308,28 +551,59 @@ window.ProxyModal = function ProxyModal({
     setTestNotice(null);
     try {
       const res = await window.ApiClient.testProxy(id);
-      if (res.success) {
+      if (res.success && !res.isExpired) {
         setTestNotice({
           type: 'success',
-          text: `Proxy [${pName}]: ${res.message || 'Hoạt động tốt'}`
+          text: `Proxy [${pName}]: Hoạt động tốt (${res.latencyMs || 0}ms)`
         });
+        setLocalProxies(prev => prev.map(p => p.id === id ? { ...p, isExpired: false, latencyMs: res.latencyMs } : p));
       } else {
         setTestNotice({
           type: 'error',
           text: `Proxy [${pName}]: ${res.message || 'Không thể kết nối / Hết hạn'}`
         });
+        setLocalProxies(prev => prev.map(p => p.id === id ? { ...p, isExpired: true, latencyMs: null, errorReason: res.message } : p));
       }
       if (typeof onRefreshProxies === 'function') onRefreshProxies();
     } catch (err) {
-      setTestNotice({ type: 'error', text: `Lỗi kiểm tra: ${err.message}` });
+      setTestNotice({ type: 'error', text: `Lỗi kiểm tra [${pName}]: ${err.message}` });
+      // Nếu timeout hoặc lỗi mạng, proxy không phản hồi -> đánh dấu lỗi ngay lập tức
+      setLocalProxies(prev => prev.map(p => p.id === id ? { ...p, isExpired: true, latencyMs: null, errorReason: err.message } : p));
+      if (typeof onRefreshProxies === 'function') onRefreshProxies();
     } finally {
       setTestingId(null);
     }
   };
 
+  const handleRotateProxy = async (id, pName) => {
+    setRotatingId(id);
+    setTestNotice(null);
+    try {
+      if (window.ApiClient && typeof window.ApiClient.rotateProxy === 'function') {
+        const res = await window.ApiClient.rotateProxy(id);
+        if (res && res.success) {
+          setTestNotice({
+            type: 'success',
+            text: `Proxy [${pName}]: ${res.message || 'Đổi địa chỉ IP mới thành công!'}`
+          });
+        } else {
+          setTestNotice({
+            type: 'error',
+            text: `Proxy [${pName}]: ${res.message || 'Không thể xoay IP Proxy!'}`
+          });
+        }
+      }
+      if (typeof onRefreshProxies === 'function') onRefreshProxies();
+    } catch (err) {
+      setTestNotice({ type: 'error', text: `Lỗi xoay IP: ${err.message}` });
+    } finally {
+      setRotatingId(null);
+    }
+  };
+
   const handleTestAll = async () => {
     setTestingAll(true);
-    setTestNotice({ type: 'info', text: 'Đang kiểm tra toàn bộ danh sách proxy...' });
+    setTestNotice({ type: 'info', text: 'Đang kiểm tra toàn bộ danh sách proxy (song song)...' });
     try {
       const res = await window.ApiClient.testAllProxies();
       if (res.success) {
@@ -343,6 +617,7 @@ window.ProxyModal = function ProxyModal({
       if (typeof onRefreshProxies === 'function') onRefreshProxies();
     } catch (err) {
       setTestNotice({ type: 'error', text: `Lỗi kiểm tra tất cả: ${err.message}` });
+      if (typeof onRefreshProxies === 'function') onRefreshProxies();
     } finally {
       setTestingAll(false);
     }
@@ -351,16 +626,16 @@ window.ProxyModal = function ProxyModal({
   return (
     <>
       <window.ModalBase
-        title={`Quản Lý Danh Sách Proxy (${proxies.length})`}
-        subtitle="Kiểm tra đường truyền, trạng thái sống/chết và gán tài khoản"
+        title={`Quản Lý Danh Sách Proxy (${localProxies.length})`}
+        subtitle="Hệ thống tự động điều phối Best-Fit, kiểm tra kết nối và xoay IP"
         icon="globe"
         iconColor="var(--apple-blue)"
         size="lg"
         onClose={onClose}
         footer={
-          <div style={{ display: 'flex', justifyContent: 'space-between', width: '100%', alignItems: 'center' }}>
-            <div style={{ fontSize: '0.78rem', color: 'var(--text-secondary)' }}>
-              Tối đa 6 nick / Proxy mạng
+          <div className="proxy-footer-row">
+            <div className="proxy-capacity-tip">
+              Tối đa 6 nick / Proxy mạng (Đúng chuẩn 3 Hoàn Mỹ + 3 Diệu Kỳ)
             </div>
             <button type="button" className="btn btn-secondary" onClick={onClose}>
               Đóng
@@ -368,65 +643,99 @@ window.ProxyModal = function ProxyModal({
           </div>
         }
       >
+        {/* Banner Quản Lý & Tự Động Hóa Proxy.vn */}
+        <div className="proxy-system-banner">
+          <div className="proxy-system-banner-left">
+            <div className="proxy-system-icon-box">
+              <window.Icon name="cpu" size={20} color="var(--apple-blue)" />
+            </div>
+            <div>
+              <div className="proxy-system-banner-title">
+                Hệ Thống Điều Phối & Tự Động Hóa Proxy.vn
+              </div>
+              <div className="proxy-system-strategy-text">
+                Thuật toán: <strong>{systemConfig?.allocationStrategy || 'Best-Fit Waterfall 6/6'}</strong> · Gói: <strong>{systemConfig?.defaultCategory || 'DatacenterA'}</strong> · Giao thức: <strong>{systemConfig?.defaultType || 'SOCKS5'}</strong>
+              </div>
+            </div>
+          </div>
+          <div className="proxy-header-action-group">
+            {systemConfig?.proxyVnEnabled ? (
+              <span className="proxy-system-status-pill is-active">
+                <span className="proxy-status-dot-live"></span>
+                Proxy.vn: Tự Động Mua
+              </span>
+            ) : (
+              <span className="proxy-system-status-pill is-inactive">
+                <span className="proxy-status-dot-dead"></span>
+                Proxy.vn: Thủ Công
+              </span>
+            )}
+            <button
+              type="button"
+              className="btn btn-secondary btn-sm proxy-btn-config"
+              onClick={() => setShowSystemConfigModal(true)}
+              title="Cài đặt thông số Proxy.vn & Tự Động Hóa"
+            >
+              <window.Icon name="settings" size={13} /> Cấu Hình
+            </button>
+          </div>
+        </div>
+
         {/* Test Notice Banner */}
         {testNotice && (
-          <div className={`proxy-test-notice ${testNotice.type}`} style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '14px' }}>
+          <div className={`proxy-test-notice ${testNotice.type} proxy-test-notice-box`}>
             <window.Icon
               name={testNotice.type === 'success' ? 'check-circle' : (testNotice.type === 'error' ? 'alert-triangle' : 'zap')}
               size={16}
             />
-            <span style={{ flex: 1, fontSize: '0.84rem' }}>{testNotice.text}</span>
+            <span className="proxy-notice-text">{testNotice.text}</span>
             <button
               type="button"
-              className="btn-notice-close"
+              className="btn-notice-close proxy-notice-close-btn"
               onClick={() => setTestNotice(null)}
-              style={{ background: 'none', border: 'none', color: 'inherit', cursor: 'pointer', fontSize: '1.1rem' }}
             >
               &times;
             </button>
           </div>
         )}
 
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+        <div className="proxy-content-container">
           {/* Action & Filter Bar */}
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '10px' }}>
+          <div className="proxy-toolbar-row">
             {/* Status Filter Tabs */}
-            <div className="segmented-control" style={{ display: 'flex', gap: '2px' }}>
+            <div className="segmented-control proxy-filter-tabs">
               <button
                 type="button"
                 className={`btn btn-sm ${filter === 'all' ? 'active btn-primary' : ''}`}
                 onClick={() => setFilter('all')}
               >
-                Tất cả ({proxies.length})
+                Tất cả ({localProxies.length})
               </button>
               <button
                 type="button"
-                className={`btn btn-sm ${filter === 'active' ? 'active btn-primary' : ''}`}
+                className={`btn btn-sm ${filter === 'active' ? 'active btn-primary' : ''} proxy-filter-btn`}
                 onClick={() => setFilter('active')}
-                style={{ gap: '4px' }}
               >
-                <span style={{ width: '6px', height: '6px', borderRadius: '50%', background: 'var(--apple-green)', display: 'inline-block' }}></span>
+                <span className="proxy-status-dot-live"></span>
                 Sống ({activeCount})
               </button>
               <button
                 type="button"
-                className={`btn btn-sm ${filter === 'expired' ? 'active btn-danger' : ''}`}
+                className={`btn btn-sm ${filter === 'expired' ? 'active btn-danger' : ''} proxy-filter-btn`}
                 onClick={() => setFilter('expired')}
-                style={{ gap: '4px' }}
               >
-                <span style={{ width: '6px', height: '6px', borderRadius: '50%', background: 'var(--apple-red)', display: 'inline-block' }}></span>
+                <span className="proxy-status-dot-dead"></span>
                 Lỗi ({expiredCount})
               </button>
             </div>
 
-            <div style={{ display: 'flex', gap: '8px' }}>
+            <div className="proxy-header-action-group">
               <button
                 type="button"
                 className="btn btn-secondary btn-sm"
                 onClick={handleTestAll}
-                disabled={testingAll || proxies.length === 0}
+                disabled={testingAll || localProxies.length === 0}
                 title="Kiểm tra kết nối toàn bộ Proxy"
-                style={{ gap: '6px', display: 'inline-flex', alignItems: 'center' }}
               >
                 <window.Icon name="zap" size={14} color="var(--apple-orange)" />
                 {testingAll ? 'Đang test...' : 'Test tất cả'}
@@ -435,7 +744,6 @@ window.ProxyModal = function ProxyModal({
                 type="button"
                 className="btn btn-primary btn-sm"
                 onClick={openCreateForm}
-                style={{ gap: '6px', display: 'inline-flex', alignItems: 'center' }}
               >
                 <window.Icon name="plus" size={14} /> Thêm Proxy
               </button>
@@ -444,11 +752,11 @@ window.ProxyModal = function ProxyModal({
 
           {/* List of Proxies */}
           {filteredProxies.length === 0 ? (
-            <div className="proxy-empty-state" style={{ padding: '36px 20px', background: 'var(--glass-matrix-bg)', borderRadius: 'var(--radius-md)', border: '1px dashed var(--glass-border-subtle)', textAlign: 'center' }}>
-              <div style={{ marginBottom: '8px' }}>
+            <div className="proxy-empty-container">
+              <div className="proxy-empty-icon-wrap">
                 <window.Icon name="globe" size={32} color="var(--text-tertiary)" />
               </div>
-              <p style={{ margin: '0 0 12px 0', color: 'var(--text-secondary)', fontSize: '0.88rem' }}>
+              <p className="proxy-empty-msg">
                 {filter === 'expired'
                   ? 'Không có Proxy nào bị lỗi hoặc hết hạn.'
                   : (filter === 'active' ? 'Không có Proxy nào đang sống.' : 'Chưa có Proxy nào trong danh sách.')}
@@ -458,194 +766,144 @@ window.ProxyModal = function ProxyModal({
                   Xem tất cả Proxy
                 </button>
               ) : (
-                <button type="button" className="btn btn-primary btn-sm" onClick={openCreateForm} style={{ gap: '6px' }}>
+                <button type="button" className="btn btn-primary btn-sm" onClick={openCreateForm}>
                   <window.Icon name="plus" size={14} /> Thêm Proxy Đầu Tiên
                 </button>
               )}
             </div>
           ) : (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+            <div className="proxy-card-list">
               {filteredProxies.map(p => {
-                const isFull = p.onlineCount >= 6;
+                const isFull = (p.onlineCount || 0) >= 6;
                 const isTestingThis = testingId === p.id;
+                const isRotatingThis = rotatingId === p.id;
                 const isExpired = Boolean(p.isExpired);
+                const isDraining = p.status === 'DRAINING';
                 const protocolType = (p.type || 'socks').toLowerCase() === 'http' ? 'http' : 'socks';
+
+                // Phân biệt tên tùy chỉnh vs trùng lặp Host:Port
+                const endpointText = `${p.host}:${p.port}`;
+                const hasCustomName = Boolean(p.name && p.name.trim() !== endpointText);
+                const titleText = hasCustomName ? p.name : endpointText;
 
                 return (
                   <div
                     key={p.id}
-                    style={{
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'space-between',
-                      padding: '14px 16px',
-                      background: isExpired ? 'rgba(255, 69, 58, 0.06)' : 'var(--glass-matrix-bg)',
-                      borderRadius: 'var(--radius-md)',
-                      border: '1px solid',
-                      borderColor: isExpired ? 'rgba(255, 69, 58, 0.35)' : 'var(--glass-border-subtle)',
-                      flexWrap: 'wrap',
-                      gap: '12px',
-                      transition: 'var(--transition-fast)'
-                    }}
+                    className={`proxy-item-card ${isExpired ? 'is-expired' : ''} ${isDraining ? 'is-draining' : ''}`}
                   >
-                    <div style={{ flex: '1 1 240px', minWidth: 0 }}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px', flexWrap: 'wrap' }}>
-                        <strong style={{ color: isExpired ? 'var(--apple-red)' : 'var(--text-primary)', fontSize: '0.94rem' }}>
-                          {p.name}
+                    {/* CỘT TRÁI: Tên, Trạng thái, Protocol, Endpoint & Thông tin bổ sung */}
+                    <div className="proxy-primary-info">
+                      <div className="proxy-headline">
+                        <strong className={`proxy-title-text ${isExpired ? 'is-expired' : ''}`}>
+                          {titleText}
                         </strong>
 
                         {isExpired ? (
-                          <span style={{
-                            display: 'inline-flex',
-                            alignItems: 'center',
-                            gap: '4px',
-                            padding: '2px 7px',
-                            borderRadius: '4px',
-                            fontSize: '0.7rem',
-                            fontWeight: 700,
-                            background: 'rgba(255, 69, 58, 0.18)',
-                            color: 'var(--apple-red)',
-                            border: '1px solid rgba(255, 69, 58, 0.35)'
-                          }}>
+                          <span className="proxy-badge-status-dead">
                             <window.Icon name="alert-triangle" size={11} /> LỖI / HẾT HẠN
                           </span>
                         ) : (
-                          <span style={{
-                            display: 'inline-flex',
-                            alignItems: 'center',
-                            gap: '4px',
-                            padding: '2px 7px',
-                            borderRadius: '4px',
-                            fontSize: '0.7rem',
-                            fontWeight: 700,
-                            background: 'rgba(48, 209, 88, 0.15)',
-                            color: 'var(--apple-green)',
-                            border: '1px solid rgba(48, 209, 88, 0.3)'
-                          }}>
-                            <span style={{ width: '5px', height: '5px', borderRadius: '50%', background: 'var(--apple-green)' }}></span>
+                          <span className="proxy-badge-status-live">
+                            <span className="proxy-status-dot-live"></span>
                             SỐNG {p.latencyMs ? `(${p.latencyMs}ms)` : ''}
                           </span>
                         )}
 
-                        <span style={{
-                          padding: '2px 6px',
-                          borderRadius: '4px',
-                          fontSize: '0.7rem',
-                          fontWeight: 600,
-                          textTransform: 'uppercase',
-                          background: protocolType === 'socks' ? 'rgba(191, 90, 242, 0.15)' : 'rgba(255, 159, 10, 0.15)',
-                          color: protocolType === 'socks' ? 'var(--apple-purple)' : 'var(--apple-orange)',
-                          border: '1px solid',
-                          borderColor: protocolType === 'socks' ? 'rgba(191, 90, 242, 0.3)' : 'rgba(255, 159, 10, 0.3)'
-                        }}>
+                        <span className={`proxy-badge-protocol ${protocolType === 'socks' ? 'is-socks' : 'is-http'}`}>
                           {p.type || 'SOCKS5'}
                         </span>
                       </div>
 
-                      <div style={{ fontSize: '0.82rem', color: 'var(--text-secondary)', fontFamily: 'var(--font-mono)' }}>
-                        {p.host}:{p.port} {p.username ? `(User: ${p.username})` : ''}
-                      </div>
+                      <div className="proxy-endpoint-row">
+                        {hasCustomName && (
+                          <span className="proxy-endpoint-code">{endpointText}</span>
+                        )}
 
-                      {isExpired && p.errorReason && (
-                        <div style={{ fontSize: '0.74rem', color: 'var(--apple-red)', marginTop: '4px', fontStyle: 'italic' }}>
-                          {p.errorReason}
-                        </div>
-                      )}
-
-                      <div style={{ display: 'flex', gap: '6px', alignItems: 'center', marginTop: '6px', flexWrap: 'wrap' }}>
-                        {p.status === 'DRAINING' && (
-                          <span style={{
-                            padding: '1px 6px',
-                            borderRadius: '4px',
-                            fontSize: '0.68rem',
-                            fontWeight: 700,
-                            background: 'rgba(255, 159, 10, 0.18)',
-                            color: 'var(--apple-orange)',
-                            border: '1px solid rgba(255, 159, 10, 0.35)'
-                          }}>
-                            DRAINING (Chờ dọn)
+                        {/* Metadata tags bổ sung gọn gàng */}
+                        {isDraining && (
+                          <span className="proxy-badge-draining">
+                            <window.Icon name="alert-triangle" size={10} /> DRAINING
                           </span>
                         )}
                         {p.tier && (
-                          <span style={{
-                            padding: '1px 6px',
-                            borderRadius: '4px',
-                            fontSize: '0.68rem',
-                            fontWeight: 600,
-                            background: p.tier === 'CORE' ? 'rgba(10, 132, 255, 0.15)' : 'rgba(142, 142, 147, 0.15)',
-                            color: p.tier === 'CORE' ? 'var(--apple-blue)' : 'var(--text-secondary)',
-                            border: '1px solid var(--glass-border-subtle)'
-                          }}>
+                          <span className={p.tier === 'CORE' ? 'proxy-badge-tier-core' : 'proxy-badge-tier-dynamic'}>
                             {p.tier}
                           </span>
                         )}
                         {p.remainingDays !== null && p.remainingDays !== undefined && (
-                          <span style={{
-                            fontSize: '0.72rem',
-                            color: p.remainingDays <= 3 ? 'var(--apple-orange)' : 'var(--text-secondary)'
-                          }}>
-                            Hạn: {p.remainingDays} ngày
+                          <span className={`proxy-badge-expiry ${p.remainingDays <= 3 ? 'is-urgent' : ''}`}>
+                            <window.Icon name="clock" size={10} /> Hạn: {p.remainingDays} ngày
                           </span>
                         )}
                         {p.externalId && (
-                          <span style={{
-                            fontSize: '0.70rem',
-                            color: 'var(--apple-green)',
-                            fontWeight: 600
-                          }}>
-                            [Proxy.vn #{p.externalId}]
+                          <span className="proxy-badge-external">
+                            <window.Icon name="link" size={10} /> Proxy.vn #{p.externalId}
                           </span>
                         )}
                       </div>
+
+                      {/* Dòng báo lỗi kết nối nếu có */}
+                      {isExpired && p.errorReason && (
+                        <div className="proxy-error-callout">
+                          {p.errorReason}
+                        </div>
+                      )}
                     </div>
 
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexShrink: 0 }}>
-                      <div style={{ textAlign: 'right' }}>
-                        <span style={{
-                          display: 'inline-block',
-                          padding: '2px 7px',
-                          borderRadius: '6px',
-                          fontSize: '0.74rem',
-                          fontWeight: 600,
-                          background: isFull ? 'rgba(255, 69, 58, 0.15)' : (p.onlineCount > 0 ? 'rgba(48, 209, 88, 0.15)' : 'var(--glass-matrix-bg)'),
-                          color: isFull ? 'var(--apple-red)' : (p.onlineCount > 0 ? 'var(--apple-green)' : 'var(--text-secondary)'),
-                          border: '1px solid',
-                          borderColor: isFull ? 'rgba(255, 69, 58, 0.3)' : (p.onlineCount > 0 ? 'rgba(48, 209, 88, 0.3)' : 'var(--glass-border-subtle)')
-                        }}>
-                          Online: {p.onlineCount || 0}/{p.maxSlots || 6}
+                    {/* CỘT PHẢI: Số lượng Online/Gán Nick & Cụm nút hành động */}
+                    <div className="proxy-right-group">
+                      <div className="proxy-stats-col">
+                        <span className={`proxy-online-badge ${isFull ? 'is-full' : ((p.onlineCount || 0) > 0 ? 'is-active' : 'is-empty')}`}>
+                          Online: {p.onlineCount || 0}/6
                         </span>
-                        <div style={{ fontSize: '0.72rem', color: 'var(--text-secondary)', marginTop: '2px' }}>
+                        <div className="proxy-stats-subtext">
                           {p.countHM || 0} HM · {p.countDK || 0} DK ({p.totalAssigned || 0} nick)
                         </div>
                       </div>
 
-                      <div style={{ display: 'flex', gap: '6px' }}>
+                      <div className="proxy-actions-row">
                         <button
                           type="button"
-                          className="btn btn-sm btn-secondary"
+                          className="btn btn-sm btn-secondary proxy-btn-action"
                           onClick={() => handleTestProxy(p.id, p.name)}
                           disabled={isTestingThis}
-                          title="Kiểm tra kết nối"
-                          style={{ padding: '5px 8px', gap: '4px', display: 'inline-flex', alignItems: 'center' }}
+                          title="Kiểm tra kết nối Proxy"
                         >
                           <window.Icon name="zap" size={13} color="var(--apple-orange)" />
                           {isTestingThis ? 'Test...' : 'Test'}
                         </button>
+
+                        {(p.externalId || p.tier === 'DYNAMIC') && (
+                          <button
+                            type="button"
+                            className="btn btn-sm btn-secondary proxy-btn-action"
+                            onClick={() => handleRotateProxy(p.id, p.name)}
+                            disabled={isRotatingThis}
+                            title="Xoay IP mới từ Proxy.vn"
+                          >
+                            <window.Icon
+                              name="refresh-cw"
+                              size={13}
+                              className={`proxy-btn-rotate ${isRotatingThis ? 'is-rotating' : ''}`}
+                              color="var(--apple-blue)"
+                            />
+                            {isRotatingThis ? 'Đổi...' : 'Đổi IP'}
+                          </button>
+                        )}
+
                         <button
                           type="button"
-                          className="btn btn-sm btn-secondary"
+                          className="btn btn-sm btn-secondary proxy-btn-action"
                           onClick={() => openEditForm(p)}
                           title="Sửa Proxy"
-                          style={{ padding: '5px 8px' }}
                         >
                           <window.Icon name="edit" size={13} />
                         </button>
                         <button
                           type="button"
-                          className="btn btn-sm btn-danger"
+                          className="btn btn-sm btn-danger proxy-btn-action"
                           onClick={() => handleDelete(p.id, p.name)}
                           title="Xóa Proxy"
-                          style={{ padding: '5px 8px' }}
                         >
                           <window.Icon name="trash" size={13} />
                         </button>
@@ -667,6 +925,18 @@ window.ProxyModal = function ProxyModal({
           onClose={() => setShowFormModal(false)}
           onSaved={() => {
             setShowFormModal(false);
+            if (typeof onRefreshProxies === 'function') onRefreshProxies();
+          }}
+        />
+      )}
+
+      {/* Standalone Box Modal for Proxy.vn System Configuration */}
+      {showSystemConfigModal && (
+        <ProxySystemConfigModal
+          config={systemConfig}
+          onClose={() => setShowSystemConfigModal(false)}
+          onSaved={() => {
+            loadSystemConfig();
             if (typeof onRefreshProxies === 'function') onRefreshProxies();
           }}
         />

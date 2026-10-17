@@ -214,11 +214,29 @@ class ResourceAllocationEngine {
     }
 
     try {
-      console.log('🛒 [ResourceAllocationEngine] Toàn bộ Proxy hiện tại đã đầy kín (6/6). Đang tự động gọi API proxy.vn để mua Proxy mới 30 ngày...');
+      let category = 'DatacenterA';
+      let periodDays = 30;
+      let protocol = 'SOCKS5';
+
+      if (this.settingRepo) {
+        try {
+          const cat = await this.settingRepo.get('proxy_vn_category');
+          if (cat) category = cat;
+          const period = await this.settingRepo.get('proxy_vn_default_period');
+          if (period) {
+            const p = parseInt(period, 10);
+            if (!isNaN(p) && p >= 1) periodDays = Math.min(365, p);
+          }
+          const type = await this.settingRepo.get('proxy_vn_default_type');
+          if (type) protocol = type.toUpperCase();
+        } catch (e) {}
+      }
+
+      console.log(`🛒 [ResourceAllocationEngine] Toàn bộ Proxy hiện tại đã đầy kín (6/6). Đang tự động gọi API proxy.vn để mua Proxy mới ${periodDays} ngày (Gói: ${category}, Giao thức: ${protocol})...`);
       const buyResult = await this.proxyVnApiClient.buyProxy({
-        category: 'DatacenterA',
-        days: 30,
-        type: 'SOCKS5'
+        category,
+        days: periodDays,
+        type: protocol
       });
 
       const newProxy = new Proxy({

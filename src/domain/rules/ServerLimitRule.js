@@ -13,7 +13,7 @@ class ServerLimitRule {
    * Validates if a new/updated account can be added to a file based on server limits.
    * Each IP (Direct IP or specific Proxy) allows max 6 accounts (3 Hoàn Mỹ + 3 Diệu Kỳ).
    */
-  static validateAccountAddition(accountsInFile, targetServerId, editingAccountId = null, targetProxyId = null, maxAccounts = 6, proxyName = '', isEmergency = false) {
+  static validateAccountAddition(accountsInFile, targetServerId, editingAccountId = null, targetProxyId = null, maxAccounts = 6, proxyName = '') {
     const existing = accountsInFile.filter(a => a.id !== editingAccountId);
     const effectiveMax = Math.max(6, parseInt(maxAccounts || 6, 10));
 
@@ -29,8 +29,8 @@ class ServerLimitRule {
     const existingInIp = existing.filter(a => (a.proxyId || 'direct') === targetKey);
     const serverCountInIp = existingInIp.filter(a => parseInt(a.serverId, 10) === sId).length;
 
-    const maxPerServer = isEmergency ? 4 : this.MAX_PER_SERVER;
-    const maxPerIp = isEmergency ? 7 : this.MAX_PER_FILE;
+    const maxPerServer = this.MAX_PER_SERVER;
+    const maxPerIp = this.MAX_PER_PROXY;
 
     if (serverCountInIp >= maxPerServer) {
       throw new BadRequestException(`❌ GIỚI HẠN IP [${ipDisplayName}]: Đã đủ ${maxPerServer} tài khoản Server [${serverName}] (Tối đa ${maxPerServer} nick/server cho mỗi IP/Proxy)! Vui lòng chọn IP/Proxy khác.`);
@@ -43,17 +43,16 @@ class ServerLimitRule {
 
   /**
    * Validates if an account can start running based on current running bots system-wide on the same IP / Proxy.
-   * Supports Emergency 7th slot (overbooking 4 HM + 3 DK or 3 HM + 4 DK on proxies with maxSlots = 7).
+   * Enforces strictly 6 bots max per IP (3 Hoàn Mỹ + 3 Diệu Kỳ).
    */
-  static validateCanRun(allRunningAccounts, targetAccount, proxy = null, maxAccountsInFile = 6, isEmergency = false) {
+  static validateCanRun(allRunningAccounts, targetAccount, proxy = null, maxAccountsInFile = 6) {
     const sId = parseInt(targetAccount.serverId, 10) === 1 ? 1 : 0;
     const serverName = sId === 0 ? 'Hoàn Mỹ' : 'Diệu Kỳ';
     const targetKey = targetAccount.proxyId || 'direct';
     const ipDisplayName = targetKey === 'direct' ? 'IP Mặc định' : (proxy?.name ? `Proxy [${proxy.name}]` : `Proxy [${targetKey}]`);
 
-    const isEmer = Boolean(isEmergency || targetAccount?.isEmergencySlot || (proxy && (proxy.maxSlots === 7 || proxy.max_slots === 7)));
-    const maxPerServer = isEmer ? 4 : this.MAX_PER_SERVER;
-    const maxPerProxy = isEmer ? 7 : (proxy?.maxSlots || proxy?.max_slots || this.MAX_PER_FILE);
+    const maxPerServer = this.MAX_PER_SERVER;
+    const maxPerProxy = this.MAX_PER_PROXY;
 
     // 1. Validate System-Wide IP concurrency
     const runningInSameIp = allRunningAccounts.filter(a => (a.proxyId || 'direct') === targetKey);
@@ -77,10 +76,9 @@ class ServerLimitRule {
   /**
    * Validates if an account can start running based on current running bots on the same proxy.
    */
-  static validateProxyLimit(allRunningAccounts, targetAccount, proxy, isEmergency = false) {
+  static validateProxyLimit(allRunningAccounts, targetAccount, proxy) {
     if (!targetAccount.proxyId || !proxy) return;
-    const isEmer = Boolean(isEmergency || targetAccount?.isEmergencySlot || (proxy && (proxy.maxSlots === 7 || proxy.max_slots === 7)));
-    const limit = isEmer ? 7 : (proxy.maxSlots || proxy.max_slots || this.MAX_PER_PROXY);
+    const limit = this.MAX_PER_PROXY;
     const runningWithProxy = allRunningAccounts.filter(a => a.id !== targetAccount.id && a.proxyId === targetAccount.proxyId);
     if (runningWithProxy.length >= limit) {
       throw new Error(`❌ GIỚI HẠN PROXY: Proxy [${proxy.name || proxy.host}] đã đạt tối đa ${limit} tài khoản online cùng lúc! Vui lòng chọn Proxy khác hoặc dừng 1 nick.`);

@@ -106,12 +106,15 @@ Incoming Request
 * `GET /api/status` - Realtime hardware, CPU, RAM and bot count status.
 * `GET /api/events` - Server-Sent Events (SSE) live game log stream.
 
-### 4. Proxy Networking (`/api/proxies`)
-* `GET /api/proxies` - List all SOCKS5/HTTP proxies with latency metadata.
-* `POST /api/proxies` - Add or update proxy with immediate socket health check.
+### 4. Proxy Networking & Automation (`/api/proxies`)
+* `GET /api/proxies` - List all SOCKS5/HTTP proxies with enriched capacity & lifecycle metadata (`tier`, `status`, `expiresAt`, `remainingDays`, `externalId`, `countHM`, `countDK`, `totalAssigned`, `isDraining`).
+* `POST /api/proxies` - Add or update proxy (preserves `DYNAMIC` tier and `externalId`; triggers graceful bot auto-restart if host/port changed).
 * `DELETE /api/proxies/:id` - Remove proxy from pool.
-* `POST /api/proxies/test` - Perform ping test on single proxy.
+* `POST /api/proxies/test` - Perform ping test on single proxy (auto-rotates dynamic IP if dead).
 * `POST /api/proxies/test-all` - Batch test entire proxy pool.
+* `POST /api/proxies/rotate` - Rotate dynamic IP via Proxy.vn API with `listproxy.php` pre-check and bot auto-restart (`RotateProxyRequestDto`).
+* `GET /api/proxies/system-config` - Retrieve Proxy.vn automation configuration (API key status, strategy, default category, and protocol).
+* `POST /api/proxies/system-config` - Update Proxy.vn automation configuration (`SaveProxySystemConfigRequestDto`).
 
 ### 5. File Profiles (`/api/files`)
 * `GET /api/files` - List bot profiles and assigned account counts.
