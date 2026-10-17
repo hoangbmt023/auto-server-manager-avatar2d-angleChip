@@ -328,7 +328,7 @@ class ProxyChecker {
    * @param {IProxyRepository} options.proxyRepo
    * @returns {Promise<{ rotated: boolean, proxy: Proxy, message: string }>}
    */
-  static async rotateProxyWithCooldown({ proxy, proxyVnApiClient, proxyRepo }) {
+  static async rotateProxyWithCooldown({ proxy, proxyVnApiClient, proxyRepo, multiBotManager = null, accountRepo = null }) {
     if (!proxy || !proxy.id) {
       throw new Error('Dữ liệu proxy không hợp lệ để thực hiện đổi IP!');
     }
@@ -371,6 +371,27 @@ class ProxyChecker {
       proxy.markActive();
 
       await proxyRepo.save(proxy);
+
+      // Auto-restart all running bots attached to this rotated proxy
+      if (multiBotManager && accountRepo) {
+        try {
+          const accounts = await accountRepo.findAll();
+          const affected = accounts.filter(a => a.proxyId === proxy.id);
+          for (const acc of affected) {
+            if (multiBotManager.isAccountRunning(acc.id)) {
+              console.log(`🔄 [ProxyChecker] Khởi động lại bot [${acc.username}] với IP Proxy mới (${rotatedResult.ip}:${rotatedResult.port})...`);
+              if (typeof multiBotManager.restartAccount === 'function') {
+                await multiBotManager.restartAccount(acc.id);
+              } else {
+                await multiBotManager.stopAccount(acc.id);
+                await multiBotManager.startAccount(acc.id);
+              }
+            }
+          }
+        } catch (e) {
+          console.error(`[ProxyChecker] Lỗi restart bot sau khi đổi IP proxy [${proxy.id}]:`, e.message);
+        }
+      }
 
       return {
         rotated: true,

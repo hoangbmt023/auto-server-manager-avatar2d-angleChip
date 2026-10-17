@@ -15,14 +15,14 @@ const { uuidv7 } = require('../../shared/utils/uuid');
  *     - Auto-Renewal via proxy.vn only when economically justified (>= 2 bots or > 72h)
  */
 class ProxyLifecycleCron {
-  constructor({ proxyRepo, accountRepo, multiBotManager, proxyVnApiClient = null, sseEventBus = null, dbPool = null }) {
+  constructor({ proxyRepo, accountRepo, multiBotManager, proxyVnApiClient = null, sseEventBus = null, dbPool = null, mutex = null }) {
     this.proxyRepo = proxyRepo;
     this.accountRepo = accountRepo;
     this.multiBotManager = multiBotManager;
     this.proxyVnApiClient = proxyVnApiClient;
     this.sseEventBus = sseEventBus;
     this.dbPool = dbPool;
-    this.mutex = new AsyncMutex('proxy-lifecycle-cron');
+    this.mutex = mutex || AsyncMutex.globalAllocationMutex || new AsyncMutex('proxy-lifecycle-cron');
     this.timer = null;
     this.isRunning = false;
   }
@@ -170,9 +170,15 @@ class ProxyLifecycleCron {
         // Restart bot if it was running
         if (this.multiBotManager && this.multiBotManager.isAccountRunning(bot.id)) {
           try {
-            await this.multiBotManager.stopAccount(bot.id);
-            await this.multiBotManager.startAccount(bot.id);
-          } catch (e) {}
+            if (typeof this.multiBotManager.restartAccount === 'function') {
+              await this.multiBotManager.restartAccount(bot.id);
+            } else {
+              await this.multiBotManager.stopAccount(bot.id);
+              await this.multiBotManager.startAccount(bot.id);
+            }
+          } catch (e) {
+            console.error(`[ProxyLifecycleCron] Lỗi restart bot [${bot.username}] sau hạ tải:`, e.message);
+          }
         }
       }
     }
@@ -376,10 +382,14 @@ class ProxyLifecycleCron {
     // Restart process if running
     if (this.multiBotManager && this.multiBotManager.isAccountRunning(bot.id)) {
       try {
-        await this.multiBotManager.stopAccount(bot.id);
-        await this.multiBotManager.startAccount(bot.id);
+        if (typeof this.multiBotManager.restartAccount === 'function') {
+          await this.multiBotManager.restartAccount(bot.id);
+        } else {
+          await this.multiBotManager.stopAccount(bot.id);
+          await this.multiBotManager.startAccount(bot.id);
+        }
       } catch (e) {
-        console.error(`Lỗi restart bot [${bot.username}] sau migration:`, e.message);
+        console.error(`[ProxyLifecycleCron] Lỗi restart bot [${bot.username}] sau migration:`, e.message);
       }
     }
   }

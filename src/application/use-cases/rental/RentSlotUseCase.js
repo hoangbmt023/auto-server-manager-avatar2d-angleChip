@@ -2,28 +2,48 @@ const Account = require('../../../domain/entities/Account');
 const Transaction = require('../../../domain/entities/Transaction');
 const { BadRequestException } = require('../../../domain/errors');
 const { formatMoney } = require('../../../shared/utils/formatters');
+const AsyncMutex = require('../../../shared/utils/AsyncMutex');
 
 /**
  * RentSlotUseCase (Application Layer)
- * Handles rental of a new bot slot by a user:
+ * Handles rental and renewal of bot slots:
  * - Validates inputs and duplicate account names.
  * - Computes pricing, duration discount, and voucher savings.
- * - Deducts user balance.
- * - Automatically allocates file, proxy, and server via ResourceAllocationEngine.
- * - Creates Account with rental expiration date.
- * - Records Transaction.
+ * - Deducts user balance with safe rollback guarantee.
+ * - Enforces Zero Direct IP policy (100% bots require active proxy).
+ * - Sequential execution via shared AsyncMutex to eliminate race conditions.
+ * - Automatically evacuates accounts from Emergency 7th slots or dying proxies upon renewal.
  */
 class RentSlotUseCase {
-  constructor(userRepo, accountRepo, transactionRepo, voucherRepo, allocationEngine, settingRepo) {
+  constructor(
+    userRepo,
+    accountRepo,
+    transactionRepo,
+    voucherRepo,
+    allocationEngine,
+    settingRepo,
+    mutex = null,
+    multiBotManager = null,
+    proxyRepo = null
+  ) {
     this.userRepo = userRepo;
     this.accountRepo = accountRepo;
     this.transactionRepo = transactionRepo;
     this.voucherRepo = voucherRepo;
     this.allocationEngine = allocationEngine;
     this.settingRepo = settingRepo;
+    this.mutex = mutex || AsyncMutex.globalAllocationMutex || new AsyncMutex('rent-slot-use-case');
+    this.multiBotManager = multiBotManager;
+    this.proxyRepo = proxyRepo;
   }
 
-  async execute({ userId, username, password, plan = 'UPXU', durationMonths = 1, voucherCode = null, note = '' }) {
+  async execute(params) {
+    return this.mutex.runExclusive(async () => {
+      return this._executeInternal(params);
+    });
+  }
+
+  async _executeInternal({ userId, username, password, plan = 'UPXU', durationMonths = 1, voucherCode = null, note = '' }) {
     if (!userId) {
       throw new BadRequestException('Vui lòng đăng nhập để thuê nick bot!');
     }
@@ -85,66 +105,102 @@ class RentSlotUseCase {
       );
     }
 
-    // 5. Automatic Resource Allocation
-    const allocation = await this.allocationEngine.allocateResources(planKey, months);
-
-    // 6. Deduct balance and record Transaction
-    const balanceBefore = user.balance;
-    const balanceAfter = balanceBefore - finalPrice;
-    await this.userRepo.updateBalance(userId, -finalPrice);
-
-    const tx = new Transaction({
-      userId,
-      type: 'RENTAL',
-      amount: -finalPrice,
-      balanceBefore,
-      balanceAfter,
-      description: `Thuê bot ${planConfig.name} (${months} tháng) cho nick [${cleanUsername}]`,
-      voucherCode: appliedVoucher ? appliedVoucher.code : null,
-      status: 'SUCCESS'
-    });
-    await this.transactionRepo.save(tx);
-
-    // Increment voucher uses if applied
-    if (appliedVoucher) {
-      await this.voucherRepo.incrementUsedCount(appliedVoucher.code);
+    // 5. Automatic Resource Allocation (BEFORE deducting user balance)
+    let allocation = null;
+    try {
+      allocation = await this.allocationEngine.allocateResources(planKey, months);
+    } catch (allocErr) {
+      console.error('❌ [RentSlotUseCase] Cấp phát Proxy/File thất bại:', allocErr.message);
+      throw new BadRequestException(
+        'Hệ thống đang khởi tạo thêm máy chủ, vui lòng thử lại sau ít phút hoặc liên hệ Admin để được hỗ trợ!'
+      );
     }
 
-    // 7. Calculate Rental Expiration Date
-    // months * 30 days
-    const expiresAt = new Date(Date.now() + months * 30 * 24 * 60 * 60 * 1000);
+    if (!allocation || !allocation.proxyId) {
+      throw new BadRequestException(
+        'Không thể phân bổ Proxy khả dụng (Chính sách bảo vệ IP 100%). Vui lòng thử lại sau ít phút!'
+      );
+    }
 
-    // 8. Create and Save Account
-    const newAccount = new Account({
-      userId,
-      username: cleanUsername,
-      password: password || '',
-      serverId: allocation.serverId,
-      serverName: allocation.serverName,
-      fileId: allocation.fileId,
-      proxyId: allocation.proxyId,
-      note: note || `Thuê gói ${planConfig.name} (${months}T)`,
-      rentalExpiresAt: expiresAt,
-      rentalPlan: planKey
-    });
+    // 6. Deduct balance and record Transaction with Rollback Safety
+    let balanceDeducted = false;
+    const balanceBefore = user.balance;
+    const balanceAfter = balanceBefore - finalPrice;
 
-    await this.accountRepo.save(newAccount);
+    try {
+      await this.userRepo.updateBalance(userId, -finalPrice);
+      balanceDeducted = true;
 
-    return {
-      account: newAccount.toPublicJson(),
-      transaction: tx.toPublicJson(),
-      remainingBalance: balanceAfter,
-      pricing: {
-        subtotal,
-        durationDiscountPercent,
-        durationSavings,
-        voucherSavings,
-        finalPrice
+      const tx = new Transaction({
+        userId,
+        type: 'RENTAL',
+        amount: -finalPrice,
+        balanceBefore,
+        balanceAfter,
+        description: `Thuê bot ${planConfig.name} (${months} tháng) cho nick [${cleanUsername}]`,
+        voucherCode: appliedVoucher ? appliedVoucher.code : null,
+        status: 'SUCCESS'
+      });
+      await this.transactionRepo.save(tx);
+
+      // Increment voucher uses if applied
+      if (appliedVoucher) {
+        await this.voucherRepo.incrementUsedCount(appliedVoucher.code);
       }
-    };
+
+      // 7. Calculate Rental Expiration Date (months * 30 days)
+      const expiresAt = new Date(Date.now() + months * 30 * 24 * 60 * 60 * 1000);
+
+      // 8. Create and Save Account
+      const newAccount = new Account({
+        userId,
+        username: cleanUsername,
+        password: password || '',
+        serverId: allocation.serverId,
+        serverName: allocation.serverName,
+        fileId: allocation.fileId,
+        proxyId: allocation.proxyId,
+        note: note || `Thuê gói ${planConfig.name} (${months}T)`,
+        rentalExpiresAt: expiresAt,
+        rentalPlan: planKey,
+        isEmergencySlot: false
+      });
+
+      await this.accountRepo.save(newAccount);
+
+      return {
+        account: newAccount.toPublicJson(),
+        transaction: tx.toPublicJson(),
+        remainingBalance: balanceAfter,
+        pricing: {
+          subtotal,
+          durationDiscountPercent,
+          durationSavings,
+          voucherSavings,
+          finalPrice
+        }
+      };
+    } catch (saveErr) {
+      if (balanceDeducted) {
+        // Rollback balance if anything fails after deduction
+        try {
+          await this.userRepo.updateBalance(userId, finalPrice);
+          console.log(`↩️ [RentSlotUseCase] Đã hoàn lại ${finalPrice}đ cho user [${userId}] sau lỗi tạo nick: ${saveErr.message}`);
+        } catch (rbErr) {
+          console.error(`🚨 [RentSlotUseCase] Rollback tiền thất bại cho user [${userId}]:`, rbErr.message);
+        }
+      }
+      throw saveErr;
+    }
   }
 
-  async renewSlot({ userId, accountId, durationMonths = 1, voucherCode = null }) {
+  async renewSlot(params) {
+    return this.mutex.runExclusive(async () => {
+      return this._renewSlotInternal(params);
+    });
+  }
+
+  async _renewSlotInternal({ userId, accountId, durationMonths = 1, voucherCode = null }) {
     if (!userId) throw new BadRequestException('Vui lòng đăng nhập!');
     const account = await this.accountRepo.findById(accountId);
     if (!account) throw new BadRequestException('Tài khoản bot không tồn tại!');
@@ -212,11 +268,91 @@ class RentSlotUseCase {
     account.rentalExpiresAt = newExpiresAt;
     await this.accountRepo.save(account);
 
+    // Evacuate account if it was sitting on an Emergency 7th Slot or on a Dying Proxy
+    await this._evacuateAccountIfNeeded(account);
+
     return {
       account: account.toPublicJson(),
       transaction: tx.toPublicJson(),
       remainingBalance: balanceAfter
     };
+  }
+
+  /**
+   * If renewed account was in an emergency slot or is on a dying/draining proxy,
+   * move it to a healthy standard slot (< 6 bots) and restart bot process.
+   */
+  async _evacuateAccountIfNeeded(account) {
+    if (!this.proxyRepo) return;
+    try {
+      const currentProxy = account.proxyId ? await this.proxyRepo.findById(account.proxyId) : null;
+      const now = Date.now();
+      const isExpiringSoon = currentProxy && currentProxy.expiresAt && (new Date(currentProxy.expiresAt).getTime() <= now + 2 * 3600 * 1000);
+      const isDraining = currentProxy && currentProxy.status === 'DRAINING';
+      const isEmergency = Boolean(account.isEmergencySlot);
+
+      if (isEmergency || isExpiringSoon || isDraining) {
+        const allProxies = await this.proxyRepo.findAll();
+        const allAccounts = await this.accountRepo.findAll();
+
+        const healthyCandidate = allProxies.find(p => {
+          if (p.id === account.proxyId) return false;
+          if (p.status !== 'ACTIVE' || p.isExpired) return false;
+          if (p.expiresAt && new Date(p.expiresAt).getTime() <= now + 24 * 3600 * 1000) return false;
+          const currentBots = allAccounts.filter(a => a.proxyId === p.id);
+          return currentBots.length < 6;
+        });
+
+        if (healthyCandidate) {
+          const oldProxyId = account.proxyId;
+          console.log(`🚀 [RentSlotUseCase] Tự động di tản nick [${account.username}] sau gia hạn sang Proxy chuẩn [${healthyCandidate.id}]...`);
+
+          account.proxyId = healthyCandidate.id;
+          account.isEmergencySlot = false;
+
+          // Check server balance on candidate
+          const botsOnCand = allAccounts.filter(a => a.proxyId === healthyCandidate.id);
+          const countHM = botsOnCand.filter(a => parseInt(a.serverId, 10) === 0).length;
+          const countDK = botsOnCand.filter(a => parseInt(a.serverId, 10) === 1).length;
+
+          if (parseInt(account.serverId, 10) === 0 && countHM >= 3) {
+            account.flipServer();
+          } else if (parseInt(account.serverId, 10) === 1 && countDK >= 3) {
+            account.flipServer();
+          }
+
+          await this.accountRepo.save(account);
+
+          // Reset maxSlots on old proxy if no emergency bots left
+          if (oldProxyId) {
+            const oldP = await this.proxyRepo.findById(oldProxyId);
+            if (oldP && oldP.maxSlots > 6) {
+              const remainingEmergency = allAccounts.filter(a => a.proxyId === oldProxyId && a.id !== account.id && a.isEmergencySlot);
+              if (remainingEmergency.length === 0) {
+                oldP.maxSlots = 6;
+                await this.proxyRepo.save(oldP);
+              }
+            }
+          }
+
+          // Restart bot process if running
+          if (this.multiBotManager && this.multiBotManager.isAccountRunning(account.id)) {
+            try {
+              if (typeof this.multiBotManager.restartAccount === 'function') {
+                await this.multiBotManager.restartAccount(account.id);
+              } else {
+                await this.multiBotManager.stopAccount(account.id);
+                await this.multiBotManager.startAccount(account.id);
+              }
+            } catch (e) {
+              console.error(`[RentSlotUseCase] Lỗi restart bot [${account.username}] sau di tản gia hạn:`, e.message);
+            }
+          }
+        }
+      }
+    } catch (e) {
+      console.warn('Lỗi kiểm tra di tản sau gia hạn:', e.message);
+    }
   }
 }
 

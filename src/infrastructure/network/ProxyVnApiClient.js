@@ -89,8 +89,9 @@ class ProxyVnApiClient {
     // proxy.vn can return single object or array of objects with status
     const resultObj = Array.isArray(data) ? data[0] : data;
 
-    if (!resultObj || resultObj.status !== 100) {
-      const errCode = resultObj?.status || 'UNKNOWN';
+    // Check for explicit error fields or non-100 status
+    if (!resultObj || (resultObj.status !== undefined && resultObj.status !== 100) || resultObj.status === 'error' || resultObj.error) {
+      const errCode = resultObj?.status || resultObj?.error || 'UNKNOWN';
       const errMsgMap = {
         101: 'API Key proxy.vn không tồn tại hoặc sai!',
         102: 'Số dư tài khoản trên proxy.vn không đủ tiền để mua proxy!',
@@ -98,22 +99,77 @@ class ProxyVnApiClient {
         104: 'Lỗi không xác định từ máy chủ proxy.vn',
         201: 'Mua thành công nhưng không đủ số lượng yêu cầu'
       };
-      const msg = errMsgMap[errCode] || `Lỗi mua proxy (Code: ${errCode})`;
-      throw new Error(msg);
+      const msg = resultObj?.message || resultObj?.msg || errMsgMap[errCode] || `Lỗi mua proxy (Code: ${errCode})`;
+      throw new Error(`[Proxy.vn] ${msg}`);
     }
 
-    const expiresAt = resultObj.time ? new Date(resultObj.time * 1000) : new Date(Date.now() + numDays * 86400 * 1000);
+    // Verify valid IP and Port returned
+    const parsedIp = String(resultObj.ip || resultObj.proxy || '').trim();
+    const parsedPort = parseInt(resultObj.port, 10);
+    const parsedId = String(resultObj.idproxy || resultObj.id || '').trim();
+
+    if (!parsedIp || !parsedPort || isNaN(parsedPort)) {
+      throw new Error(`[Proxy.vn] API không trả về IP/Port hợp lệ (Có thể tài khoản hết số dư hoặc hệ thống proxy.vn tạm hết IP): ${JSON.stringify(resultObj)}`);
+    }
+
+    const expiresAt = this._parseExpiresAt(resultObj.time, numDays);
 
     return {
-      externalId: String(resultObj.idproxy || ''),
-      ip: String(resultObj.ip || '').trim(),
-      port: parseInt(resultObj.port, 10),
-      username: String(resultObj.user || '').trim(),
-      password: String(resultObj.password || '').trim(),
+      externalId: parsedId,
+      ip: parsedIp,
+      port: parsedPort,
+      username: String(resultObj.user || resultObj.username || '').trim(),
+      password: String(resultObj.password || resultObj.pass || '').trim(),
       type: pType,
       category: cat,
       expiresAt
     };
+  }
+
+  /**
+   * Safe parser for proxy.vn date formats:
+   * - Vietnamese string format: 'dd/mm/yyyy HH:mm:ss' or 'dd-mm-yyyy HH:mm:ss' or 'yyyy-mm-dd'
+   * - Unix timestamp (seconds or milliseconds)
+   * - Fallback: Date.now() + defaultDays
+   * @param {*} timeVal
+   * @param {number} defaultDays
+   * @returns {Date}
+   */
+  _parseExpiresAt(timeVal, defaultDays = 30) {
+    if (!timeVal) {
+      return new Date(Date.now() + defaultDays * 86400 * 1000);
+    }
+
+    // 1. Numeric timestamp (seconds or milliseconds)
+    if (typeof timeVal === 'number' || /^\d+$/.test(String(timeVal).trim())) {
+      const num = Number(timeVal);
+      const ms = num < 10000000000 ? num * 1000 : num;
+      const d = new Date(ms);
+      if (!isNaN(d.getTime())) return d;
+    }
+
+    // 2. String representation
+    const str = String(timeVal).trim();
+
+    // Check Vietnamese format: dd/mm/yyyy HH:mm:ss or dd-mm-yyyy HH:mm:ss
+    const vnMatch = str.match(/^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})(?:\s+(\d{1,2}):(\d{1,2})(?::(\d{1,2}))?)?/);
+    if (vnMatch) {
+      const day = parseInt(vnMatch[1], 10);
+      const month = parseInt(vnMatch[2], 10) - 1;
+      const year = parseInt(vnMatch[3], 10);
+      const hour = parseInt(vnMatch[4] || 0, 10);
+      const min = parseInt(vnMatch[5] || 0, 10);
+      const sec = parseInt(vnMatch[6] || 0, 10);
+      const d = new Date(year, month, day, hour, min, sec);
+      if (!isNaN(d.getTime())) return d;
+    }
+
+    // Standard ISO parse
+    const parsed = new Date(str);
+    if (!isNaN(parsed.getTime())) return parsed;
+
+    // Fallback safe date
+    return new Date(Date.now() + defaultDays * 86400 * 1000);
   }
 
   /**
@@ -143,18 +199,18 @@ class ProxyVnApiClient {
     const data = await this._fetchWithTimeout(url);
     const resultObj = Array.isArray(data) ? data[0] : data;
 
-    if (!resultObj || resultObj.status !== 100) {
-      const errCode = resultObj?.status || 'UNKNOWN';
+    if (!resultObj || (resultObj.status !== undefined && resultObj.status !== 100) || resultObj.status === 'error' || resultObj.error) {
+      const errCode = resultObj?.status || resultObj?.error || 'UNKNOWN';
       const errMsgMap = {
         101: 'API Key proxy.vn không tồn tại!',
         102: 'Số dư tài khoản trên proxy.vn không đủ tiền để gia hạn!',
         104: 'Lỗi không xác định khi gia hạn proxy'
       };
-      const msg = errMsgMap[errCode] || `Lỗi gia hạn proxy ID [${externalId}] (Code: ${errCode})`;
-      throw new Error(msg);
+      const msg = resultObj?.message || resultObj?.msg || errMsgMap[errCode] || `Lỗi gia hạn proxy ID [${externalId}] (Code: ${errCode})`;
+      throw new Error(`[Proxy.vn] ${msg}`);
     }
 
-    const expiresAt = resultObj.time ? new Date(resultObj.time * 1000) : new Date(Date.now() + numDays * 86400 * 1000);
+    const expiresAt = this._parseExpiresAt(resultObj.time, numDays);
 
     return {
       success: true,
@@ -193,24 +249,31 @@ class ProxyVnApiClient {
     const data = await this._fetchWithTimeout(url);
     const resultObj = Array.isArray(data) ? data[0] : data;
 
-    if (!resultObj || resultObj.status !== 100) {
-      const errCode = resultObj?.status || 'UNKNOWN';
+    if (!resultObj || (resultObj.status !== undefined && resultObj.status !== 100) || resultObj.status === 'error' || resultObj.error) {
+      const errCode = resultObj?.status || resultObj?.error || 'UNKNOWN';
       const errMsgMap = {
         101: 'API Key proxy.vn không tồn tại!',
         102: 'Không đủ tiền để đổi proxy!',
         103: 'Loại proxy này hiện đang hết hàng để đổi!',
         104: 'Lỗi không xác định khi đổi proxy'
       };
-      const msg = errMsgMap[errCode] || `Lỗi đổi IP proxy ID [${externalId}] (Code: ${errCode})`;
-      throw new Error(msg);
+      const msg = resultObj?.message || resultObj?.msg || errMsgMap[errCode] || `Lỗi đổi IP proxy ID [${externalId}] (Code: ${errCode})`;
+      throw new Error(`[Proxy.vn] ${msg}`);
+    }
+
+    const parsedIp = String(resultObj.ip || resultObj.proxy || '').trim();
+    const parsedPort = parseInt(resultObj.port, 10);
+
+    if (!parsedIp || !parsedPort || isNaN(parsedPort)) {
+      throw new Error(`[Proxy.vn] Đổi IP không thành công, không nhận được IP/Port mới: ${JSON.stringify(resultObj)}`);
     }
 
     return {
       externalId: String(resultObj.idproxy || externalId),
-      ip: String(resultObj.ip || '').trim(),
-      port: parseInt(resultObj.port, 10),
-      username: String(resultObj.user || '').trim(),
-      password: String(resultObj.password || '').trim(),
+      ip: parsedIp,
+      port: parsedPort,
+      username: String(resultObj.user || resultObj.username || '').trim(),
+      password: String(resultObj.password || resultObj.pass || '').trim(),
       type: pType
     };
   }

@@ -62,4 +62,8 @@ class AsyncMutex {
   }
 }
 
+const globalAllocationMutex = new AsyncMutex('global_proxy_allocation');
+AsyncMutex.globalAllocationMutex = globalAllocationMutex;
+
 module.exports = AsyncMutex;
+module.exports.globalAllocationMutex = globalAllocationMutex;

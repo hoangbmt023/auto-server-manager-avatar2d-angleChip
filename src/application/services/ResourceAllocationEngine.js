@@ -14,13 +14,13 @@ const Proxy = require('../../domain/entities/Proxy');
  * 5. On-Demand Auto-Purchase from proxy.vn when all proxies are full (>= 6 bots).
  */
 class ResourceAllocationEngine {
-  constructor(fileRepo, proxyRepo, accountRepo, settingRepo, proxyVnApiClient = null) {
+  constructor(fileRepo, proxyRepo, accountRepo, settingRepo, proxyVnApiClient = null, mutex = null) {
     this.fileRepo = fileRepo;
     this.proxyRepo = proxyRepo;
     this.accountRepo = accountRepo;
     this.settingRepo = settingRepo;
     this.proxyVnApiClient = proxyVnApiClient;
-    this.mutex = new AsyncMutex('resource-allocation');
+    this.mutex = mutex || AsyncMutex.globalAllocationMutex || new AsyncMutex('resource-allocation');
   }
 
   setProxyVnApiClient(client) {
@@ -244,7 +244,7 @@ class ResourceAllocationEngine {
       return newProxy;
     } catch (err) {
       console.error('❌ [ResourceAllocationEngine] Lỗi khi tự động mua Proxy từ proxy.vn:', err.message);
-      return null;
+      throw new Error(`Không thể khởi tạo Proxy mới từ proxy.vn: ${err.message}`);
     }
   }
 

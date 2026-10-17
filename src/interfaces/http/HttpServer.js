@@ -30,6 +30,7 @@ const ProxyService = require('../../application/services/ProxyService');
 const ResourceAllocationEngine = require('../../application/services/ResourceAllocationEngine');
 const ProxyLifecycleCron = require('../../application/services/ProxyLifecycleCron');
 const ProxyVnApiClient = require('../../infrastructure/network/ProxyVnApiClient');
+const AsyncMutex = require('../../shared/utils/AsyncMutex');
 
 // Use Cases
 const RentSlotUseCase = require('../../application/use-cases/rental/RentSlotUseCase');
@@ -130,13 +131,15 @@ class HttpServer {
       this.sseEventBus,
       this.transactionManager
     );
+    this.allocationMutex = AsyncMutex.globalAllocationMutex;
     this.proxyVnApiClient = new ProxyVnApiClient(config.proxyVn);
     this.allocationEngine = new ResourceAllocationEngine(
       this.fileRepo,
       this.proxyRepo,
       this.accountRepo,
       this.settingRepo,
-      this.proxyVnApiClient
+      this.proxyVnApiClient,
+      this.allocationMutex
     );
     this.proxyLifecycleCron = new ProxyLifecycleCron({
       proxyRepo: this.proxyRepo,
@@ -144,7 +147,8 @@ class HttpServer {
       multiBotManager: this.multiBotManager,
       proxyVnApiClient: this.proxyVnApiClient,
       sseEventBus: this.sseEventBus,
-      dbPool: this.dbPool
+      dbPool: this.dbPool,
+      mutex: this.allocationMutex
     });
 
     // Use Cases
@@ -154,7 +158,10 @@ class HttpServer {
       this.transactionRepo,
       this.voucherRepo,
       this.allocationEngine,
-      this.settingRepo
+      this.settingRepo,
+      this.allocationMutex,
+      this.multiBotManager,
+      this.proxyRepo
     );
     this.payOsService = new PayOsService(this.settingRepo);
     this.billingUseCase = new BillingUseCase(

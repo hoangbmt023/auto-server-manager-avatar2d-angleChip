@@ -176,6 +176,22 @@ class ProxyService {
     this.broadcastChange();
     return results;
   }
+
+  async rotateProxy(id, proxyVnApiClient) {
+    const proxy = await this.proxyRepo.findById(id);
+    if (!proxy) {
+      throw new NotFoundException(`Không tìm thấy Proxy với ID [${id}]!`);
+    }
+    const res = await ProxyChecker.rotateProxyWithCooldown({
+      proxy,
+      proxyVnApiClient,
+      proxyRepo: this.proxyRepo,
+      multiBotManager: this.multiBotManager,
+      accountRepo: this.accountRepo
+    });
+    this.broadcastChange();
+    return res;
+  }
 }
 
 module.exports = ProxyService;
