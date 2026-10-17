@@ -10,9 +10,11 @@ const { sendErrorResponse } = require('../helpers/errorHandler');
  * Automatically wraps responses with standard ApiResponse and maps Custom Exceptions.
  */
 class ProxyController {
-  constructor(proxyService, sseEventBus = null) {
+  constructor(proxyService, sseEventBus = null, proxyVnApiClient = null, settingRepo = null) {
     this.proxyService = proxyService;
     this.sseEventBus = sseEventBus;
+    this.proxyVnApiClient = proxyVnApiClient;
+    this.settingRepo = settingRepo;
   }
 
   _sendError(res, sendJson, err) {
@@ -134,6 +136,114 @@ class ProxyController {
       const resp = ApiResponse.success(results, 'Kiểm tra toàn bộ Proxy thành công!');
       resp.results = results; // Backward compatibility
       return sendJson(res, 200, resp);
+    } catch (err) {
+      return this._sendError(res, sendJson, err);
+    }
+  }
+
+  async rotateProxy(req, res, sendJson) {
+    try {
+      const proxyId = req.params?.id || (new URL(req.url, 'http://localhost')).searchParams.get('id');
+      if (!proxyId) {
+        throw new BadRequestException('Thiếu ID Proxy!', 'MISSING_PROXY_ID');
+      }
+      const result = await this.proxyService.rotateProxy(proxyId, this.proxyVnApiClient);
+      return sendJson(res, 200, ApiResponse.success(result, result.message || 'Đổi IP Proxy thành công!'));
+    } catch (err) {
+      return this._sendError(res, sendJson, err);
+    }
+  }
+
+  async getSystemConfig(req, res, sendJson) {
+    try {
+      let dbSettings = {};
+      if (this.settingRepo) {
+        dbSettings = await this.settingRepo.getCompleteConfig();
+      }
+
+      const isEnabled = dbSettings.proxy_vn_enabled !== undefined
+        ? (dbSettings.proxy_vn_enabled === 'true' || dbSettings.proxy_vn_enabled === true)
+        : Boolean(this.proxyVnApiClient && this.proxyVnApiClient.enabled);
+
+      const apiKey = dbSettings.proxy_vn_api_key !== undefined
+        ? dbSettings.proxy_vn_api_key
+        : (this.proxyVnApiClient?.apiKey || '');
+
+      const defaultCategory = dbSettings.proxy_vn_category || this.proxyVnApiClient?.defaultCategory || 'DatacenterA';
+      const defaultType = dbSettings.proxy_vn_default_type || this.proxyVnApiClient?.defaultType || 'SOCKS5';
+      const defaultPeriod = parseInt(dbSettings.proxy_vn_default_period || '30', 10);
+      const emergencySlotEnabled = dbSettings.proxy_emergency_slot_enabled !== undefined
+        ? (dbSettings.proxy_emergency_slot_enabled === 'true' || dbSettings.proxy_emergency_slot_enabled === true)
+        : true;
+
+      const config = {
+        proxyVnEnabled: isEnabled,
+        apiKey: apiKey ? '******' : '',
+        hasApiKey: Boolean(apiKey),
+        defaultCategory,
+        defaultType,
+        defaultPeriod,
+        emergencySlotEnabled,
+        maxSlotsPerIp: 6,
+        emergencySlotLimit: 7,
+        allocationStrategy: emergencySlotEnabled
+          ? 'Best-Fit Waterfall 6/6 (Tối đa 4 HM + 3 DK, Slot 7 khẩn cấp)'
+          : 'Best-Fit Waterfall 6/6 (Cố định 6 slot)'
+      };
+      return sendJson(res, 200, ApiResponse.success(config, 'Lấy cấu hình hệ thống Proxy thành công!'));
+    } catch (err) {
+      return this._sendError(res, sendJson, err);
+    }
+  }
+
+  async saveSystemConfig(req, res, sendJson, parseJsonBody) {
+    try {
+      const body = await parseJsonBody(req);
+      const updates = {};
+
+      if (body.proxyVnEnabled !== undefined) {
+        updates.proxy_vn_enabled = String(Boolean(body.proxyVnEnabled));
+      }
+      if (body.apiKey !== undefined && body.apiKey !== '******' && body.apiKey !== '') {
+        updates.proxy_vn_api_key = body.apiKey.trim();
+      }
+      if (body.defaultCategory) {
+        updates.proxy_vn_category = body.defaultCategory.trim();
+      }
+      if (body.defaultType) {
+        updates.proxy_vn_default_type = body.defaultType.trim().toUpperCase();
+      }
+      if (body.defaultPeriod !== undefined && body.defaultPeriod !== null) {
+        const periodNum = parseInt(body.defaultPeriod, 10);
+        const validPeriod = Math.min(365, Math.max(1, isNaN(periodNum) ? 30 : periodNum));
+        updates.proxy_vn_default_period = String(validPeriod);
+      }
+      if (body.emergencySlotEnabled !== undefined) {
+        updates.proxy_emergency_slot_enabled = String(Boolean(body.emergencySlotEnabled));
+      }
+
+      if (this.settingRepo && Object.keys(updates).length > 0) {
+        await this.settingRepo.setMany(updates);
+      }
+
+      // Hot-reload runtime client
+      if (this.proxyVnApiClient) {
+        if (updates.proxy_vn_enabled !== undefined) {
+          this.proxyVnApiClient.enabled = updates.proxy_vn_enabled === 'true';
+        }
+        if (updates.proxy_vn_api_key) {
+          this.proxyVnApiClient.apiKey = updates.proxy_vn_api_key;
+        }
+        if (updates.proxy_vn_category) {
+          this.proxyVnApiClient.defaultCategory = updates.proxy_vn_category;
+        }
+        if (updates.proxy_vn_default_type) {
+          this.proxyVnApiClient.defaultType = updates.proxy_vn_default_type;
+        }
+      }
+
+      this.broadcastChange();
+      return sendJson(res, 200, ApiResponse.success(null, 'Cập nhật cấu hình Proxy Hệ Thống thành công!'));
     } catch (err) {
       return this._sendError(res, sendJson, err);
     }

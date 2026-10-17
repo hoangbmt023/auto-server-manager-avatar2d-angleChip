@@ -95,6 +95,9 @@
     deleteProxy: (id) => window.proxyService.deleteProxy(id),
     testProxy: (id) => window.proxyService.testProxy(id),
     testAllProxies: () => window.proxyService.testAllProxies(),
+    rotateProxy: (id) => window.proxyService.rotateProxy(id),
+    getProxySystemConfig: () => window.proxyService.getSystemConfig(),
+    saveProxySystemConfig: (p) => window.proxyService.saveSystemConfig(p),
 
     // Account methods
     getAccounts: () => window.accountService.getAccounts(),

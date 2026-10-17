@@ -129,3 +129,26 @@ test-cpanel-avatar/
 2. **Dependency Inversion Principle (DIP)**: Application Services depend only on Repository Interfaces (`IAccountRepository`), never on MySQL, Drizzle, or file drivers directly.
 3. **Fail-Fast DTO Validation**: Every HTTP request is sanitized and validated at the boundary before executing use cases.
 4. **Single Responsibility (SRP)**: Controllers only parse incoming HTTP data, delegate to services, and serialize JSON responses.
+
+---
+
+## ⚡ Smart Proxy Allocation & Automation Engine (Proxy.vn Integration)
+
+### 1. Domain Constraints & Invariants (`ServerLimitRule`)
+* **Hard Concurrency Limit**: 1 IP / Proxy strictly accommodates a maximum of **6 accounts** (3 Hoàn Mỹ + 3 Diệu Kỳ).
+* **Seat Reservation (Chỗ ngồi đặt trước)**: Accounts with active rentals hold their assigned Server and Proxy slot permanently throughout the rental duration, **regardless of Online/Offline status**. This prevents race conditions and TeaMobi server disconnects (> 3 accounts per server per IP causes socket termination).
+* **Zero Emergency Over-allocation**: The legacy "Emergency 7th Slot" mechanism is completely eliminated to guarantee 100% stability against game bans.
+
+### 2. High-Concurrency Safety & Financial Integrity (`RentSlotUseCase` & `ResourceAllocationEngine`)
+* **Reentrant Async Mutex (`AsyncMutex.globalAllocationMutex`)**: Prevents race conditions during concurrent account rentals, while safely allowing nested lock acquisitions without deadlocking.
+* **Zero-Balance Guard**: Verifies customer wallet balance and deducts funds **before** calling external vendor APIs (`proxy.vn`).
+* **100% Refund Rollback**: If Proxy purchase or resource allocation fails, the customer's balance is automatically and immediately refunded in full.
+
+### 3. Automated Proxy Lifecycle (`ProxyLifecycleCron`)
+A background cron job runs automatically every 15 minutes across 3 stages:
+* **Stage 1 (Health & IP Rotation)**: Tests active proxies. If a dynamic proxy fails, it queries Proxy.vn's `listproxy.php` to detect external IP changes before calling `doiproxy.php`. When IP rotates, all running bots on that proxy are automatically restarted with the new endpoint.
+* **Stage 2 (Draining Transition)**: Flags proxies expiring within 24 hours as `DRAINING`, locking them from receiving new account allocations.
+* **Stage 3 (Auto-Migration & Renewal)**: Migrates bots on expiring proxies to available free slots ($\le 6$) on active proxies. If no slots are available, it automatically purchases a 30-day renewal on Proxy.vn to keep user bots running uninterrupted.
+
+### 4. Hot Proxy IP Switching & Bot Auto-Restart (`ProxyService` & `ProxyChecker`)
+* Updating proxy host/port manually in the dashboard or via Proxy.vn automatic rotation automatically triggers `restartBotsOnProxy`, ensuring zero manual intervention for bot managers.

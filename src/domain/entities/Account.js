@@ -25,6 +25,7 @@ class Account {
     fishSettings = null,
     sellOreSettings = null,
     ipSlot = 1,
+    isEmergencySlot = false,
     rentalExpiresAt = null,
     rentalPlan = 'UPXU'
   }) {
@@ -38,6 +39,7 @@ class Account {
     this.proxyId = proxyId || null;
     this.note = (note || '').trim();
     this.ipSlot = Math.max(1, parseInt(ipSlot || 1, 10));
+    this.isEmergencySlot = Boolean(isEmergencySlot);
     this.appId = appId || `avatar_${this.username || this.id}`;
     this.targetCoins = parseInt(targetCoins || 0, 10);
     this.upDays = parseInt(upDays || 0, 10);
@@ -118,6 +120,12 @@ class Account {
     return Math.max(0, this.rentalExpiresAt.getTime() - Date.now());
   }
 
+  flipServer() {
+    this.serverId = this.serverId === 0 ? 1 : 0;
+    this.serverName = this.serverId === 0 ? 'Hoàn Mỹ' : 'Diệu Kỳ';
+    return this.serverId;
+  }
+
   toPublicJson() {
     return {
       id: this.id,
@@ -130,6 +138,7 @@ class Account {
       proxyId: this.proxyId,
       note: this.note,
       ipSlot: this.ipSlot,
+      isEmergencySlot: this.isEmergencySlot,
       appId: this.appId,
       targetCoins: this.targetCoins,
       upDays: this.upDays,
@@ -152,10 +161,12 @@ class Account {
       username: this.username,
       password: this.password,
       serverId: this.serverId,
+      server_name: this.serverName,
       fileId: this.fileId,
       proxyId: this.proxyId,
       note: this.note,
       ipSlot: this.ipSlot,
+      is_emergency_slot: this.isEmergencySlot ? 1 : 0,
       appId: this.appId,
       targetCoins: this.targetCoins,
       upDays: this.upDays,

@@ -1507,7 +1507,6 @@ select.rms-rounds-select {
 }
 
 .voucher-form-grid {
-.voucher-form-grid {
   display: grid;
   grid-template-columns: 1.1fr 1fr 1fr 1.1fr 0.9fr 0.9fr auto;
   gap: 8px;
@@ -1848,4 +1847,834 @@ select.rms-rounds-select {
   font-size: 0.72rem;
   color: var(--text-tertiary);
 }
+
+/* ==========================================================================
+   🍎 PROXY MODAL CARD & BADGE SYSTEM (Zero Inline Styles)
+   ========================================================================== */
+.proxy-meta-row {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+  margin-top: 6px;
+  flex-wrap: wrap;
+}
+
+.proxy-badge-draining {
+  padding: 1px 6px;
+  border-radius: 4px;
+  font-size: 0.68rem;
+  font-weight: 700;
+  background: rgba(255, 159, 10, 0.18);
+  color: var(--apple-orange);
+  border: 1px solid rgba(255, 159, 10, 0.35);
+}
+
+.proxy-badge-tier-core {
+  padding: 1px 6px;
+  border-radius: 4px;
+  font-size: 0.68rem;
+  font-weight: 600;
+  background: rgba(10, 132, 255, 0.15);
+  color: var(--apple-blue);
+  border: 1px solid var(--glass-border-subtle);
+}
+
+.proxy-badge-tier-dynamic {
+  padding: 1px 6px;
+  border-radius: 4px;
+  font-size: 0.68rem;
+  font-weight: 600;
+  background: rgba(142, 142, 147, 0.15);
+  color: var(--text-secondary);
+  border: 1px solid var(--glass-border-subtle);
+}
+
+.proxy-badge-expiry {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 2px 7px;
+  border-radius: 4px;
+  font-size: 0.68rem;
+  font-weight: 500;
+  background: rgba(142, 142, 147, 0.12);
+  color: var(--text-secondary);
+  border: 1px solid var(--glass-border-subtle);
+  line-height: 1.2;
+}
+
+.proxy-badge-expiry.is-urgent {
+  background: rgba(255, 159, 10, 0.18);
+  color: var(--apple-orange);
+  border-color: rgba(255, 159, 10, 0.35);
+  font-weight: 600;
+}
+
+.proxy-badge-external {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 7px;
+  border-radius: 4px;
+  font-size: 0.68rem;
+  font-weight: 600;
+  background: rgba(48, 209, 88, 0.12);
+  color: var(--apple-green);
+  border: 1px solid rgba(48, 209, 88, 0.25);
+  line-height: 1.2;
+}
+
+.proxy-badge-draining {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 7px;
+  border-radius: 4px;
+  font-size: 0.68rem;
+  font-weight: 700;
+  background: rgba(255, 159, 10, 0.18);
+  color: var(--apple-orange);
+  border: 1px solid rgba(255, 159, 10, 0.35);
+  line-height: 1.2;
+}
+
+.proxy-badge-expiry svg,
+.proxy-badge-external svg,
+.proxy-badge-draining svg,
+.proxy-badge-status-dead svg {
+  flex-shrink: 0;
+  vertical-align: middle;
+}
+
+.proxy-btn-rotate {
+  transition: transform 0.3s ease;
+}
+
+.proxy-btn-rotate.is-rotating {
+  animation: proxy-spin 1s linear infinite;
+}
+
+@keyframes proxy-spin {
+  100% { transform: rotate(360deg); }
+}
+
+.proxy-right-group {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-shrink: 0;
+}
+
+.proxy-stats-col {
+  text-align: right;
+}
+
+.proxy-online-badge {
+  display: inline-block;
+  padding: 2px 7px;
+  border-radius: 6px;
+  font-size: 0.74rem;
+  font-weight: 600;
+  border: 1px solid;
+}
+
+.proxy-online-badge.is-full {
+  background: rgba(255, 69, 58, 0.15);
+  color: var(--apple-red);
+  border-color: rgba(255, 69, 58, 0.3);
+}
+
+.proxy-online-badge.is-active {
+  background: rgba(48, 209, 88, 0.15);
+  color: var(--apple-green);
+  border-color: rgba(48, 209, 88, 0.3);
+}
+
+.proxy-online-badge.is-empty {
+  background: var(--glass-matrix-bg);
+  color: var(--text-secondary);
+  border-color: var(--glass-border-subtle);
+}
+
+.proxy-assigned-text {
+  font-size: 0.72rem;
+  color: var(--text-secondary);
+  margin-top: 2px;
+}
+
+.proxy-action-buttons {
+  display: flex;
+  gap: 6px;
+}
+
+.proxy-btn-action {
+  padding: 5px 8px;
+  gap: 4px;
+  display: inline-flex;
+  align-items: center;
+}
+
+/* ==========================================================================
+   🍎 PROXY MODAL COMPLETE SYSTEM STYLES (100% Zero Inline CSS)
+   ========================================================================== */
+.proxy-form-footer-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  width: 100%;
+}
+
+.proxy-form-stack {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.proxy-field-required {
+  color: var(--apple-red);
+}
+
+.proxy-alert-box {
+  margin-bottom: 14px;
+}
+
+.proxy-footer-row {
+  display: flex;
+  justify-content: space-between;
+  width: 100%;
+  align-items: center;
+}
+
+.proxy-capacity-tip {
+  font-size: 0.78rem;
+  color: var(--text-secondary);
+}
+
+.proxy-test-notice-box {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 14px;
+}
+
+.proxy-notice-text {
+  flex: 1;
+  font-size: 0.84rem;
+}
+
+.proxy-notice-close-btn {
+  background: none;
+  border: none;
+  color: inherit;
+  cursor: pointer;
+  font-size: 1.1rem;
+}
+
+.proxy-content-container {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.proxy-toolbar-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.proxy-filter-tabs {
+  display: flex;
+  gap: 2px;
+}
+
+.proxy-filter-btn {
+  gap: 4px;
+}
+
+.proxy-status-dot-live {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--apple-green);
+  display: inline-block;
+}
+
+.proxy-status-dot-dead {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--apple-red);
+  display: inline-block;
+}
+
+.proxy-status-dot-draining {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--apple-orange);
+  display: inline-block;
+}
+
+.proxy-header-action-group {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.proxy-system-banner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 16px;
+  background: linear-gradient(135deg, rgba(10, 132, 255, 0.08) 0%, rgba(10, 132, 255, 0.02) 100%);
+  border: 1px solid rgba(10, 132, 255, 0.25);
+  border-radius: var(--radius-md);
+  margin-bottom: 8px;
+  flex-wrap: wrap;
+  gap: 12px;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.06);
+}
+
+.proxy-system-banner-left {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex: 1 1 320px;
+}
+
+.proxy-system-icon-box {
+  width: 36px;
+  height: 36px;
+  border-radius: 8px;
+  background: rgba(10, 132, 255, 0.15);
+  border: 1px solid rgba(10, 132, 255, 0.3);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.proxy-system-banner-title {
+  font-size: 0.86rem;
+  font-weight: 700;
+  color: var(--text-primary);
+  margin-bottom: 2px;
+}
+
+.proxy-system-strategy-text {
+  font-size: 0.74rem;
+  color: var(--text-secondary);
+  line-height: 1.4;
+}
+
+.proxy-system-status-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  border-radius: 6px;
+  font-size: 0.74rem;
+  font-weight: 600;
+}
+
+.proxy-system-status-pill.is-active {
+  background: rgba(48, 209, 88, 0.15);
+  color: var(--apple-green);
+  border: 1px solid rgba(48, 209, 88, 0.3);
+}
+
+.proxy-system-status-pill.is-inactive {
+  background: rgba(142, 142, 147, 0.15);
+  color: var(--text-secondary);
+  border: 1px solid var(--glass-border-subtle);
+}
+
+.proxy-empty-container {
+  padding: 36px 20px;
+  background: var(--glass-matrix-bg);
+  border-radius: var(--radius-md);
+  border: 1px dashed var(--glass-border-subtle);
+  text-align: center;
+}
+
+.proxy-empty-icon-wrap {
+  margin-bottom: 8px;
+}
+
+.proxy-empty-msg {
+  margin: 0 0 12px 0;
+  color: var(--text-secondary);
+  font-size: 0.88rem;
+}
+
+.proxy-card-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  max-height: 52vh;
+  overflow-y: auto;
+  padding-right: 4px;
+}
+
+.proxy-item-card {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 16px;
+  background: var(--glass-matrix-bg);
+  border-radius: var(--radius-md);
+  border: 1px solid var(--glass-border-subtle);
+  flex-wrap: wrap;
+  gap: 12px;
+  transition: var(--transition-fast);
+}
+
+.proxy-item-card.is-expired {
+  background: rgba(255, 69, 58, 0.06);
+  border-color: rgba(255, 69, 58, 0.35);
+}
+
+.proxy-item-card.is-draining {
+  background: rgba(255, 159, 10, 0.04);
+  border-color: rgba(255, 159, 10, 0.3);
+}
+
+.proxy-primary-info {
+  flex: 1 1 280px;
+  min-width: 0;
+}
+
+.proxy-headline {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 4px;
+  flex-wrap: wrap;
+}
+
+.proxy-title-text {
+  font-size: 0.94rem;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.proxy-title-text.is-expired {
+  color: var(--apple-red);
+}
+
+.proxy-badge-status-live {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 7px;
+  border-radius: 4px;
+  font-size: 0.70rem;
+  font-weight: 700;
+  background: rgba(48, 209, 88, 0.15);
+  color: var(--apple-green);
+  border: 1px solid rgba(48, 209, 88, 0.3);
+}
+
+.proxy-badge-status-dead {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 7px;
+  border-radius: 4px;
+  font-size: 0.70rem;
+  font-weight: 700;
+  background: rgba(255, 69, 58, 0.18);
+  color: var(--apple-red);
+  border: 1px solid rgba(255, 69, 58, 0.35);
+}
+
+.proxy-badge-protocol {
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-size: 0.70rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  border: 1px solid;
+}
+
+.proxy-badge-protocol.is-socks {
+  background: rgba(191, 90, 242, 0.15);
+  color: var(--apple-purple);
+  border-color: rgba(191, 90, 242, 0.3);
+}
+
+.proxy-badge-protocol.is-http {
+  background: rgba(255, 159, 10, 0.15);
+  color: var(--apple-orange);
+  border-color: rgba(255, 159, 10, 0.3);
+}
+
+.proxy-endpoint-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.82rem;
+  color: var(--text-secondary);
+  font-family: var(--font-mono);
+  margin-top: 4px;
+  flex-wrap: wrap;
+}
+
+.proxy-endpoint-code {
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.proxy-auth-tag {
+  font-size: 0.72rem;
+  padding: 1px 6px;
+  background: var(--glass-panel-bg);
+  border-radius: 4px;
+  border: 1px solid var(--glass-border-subtle);
+  color: var(--text-tertiary);
+  font-family: var(--font-sans);
+}
+
+.proxy-error-callout {
+  font-size: 0.74rem;
+  color: var(--apple-red);
+  margin-top: 4px;
+  font-style: italic;
+}
+
+.proxy-right-group {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-shrink: 0;
+}
+
+.proxy-stats-col {
+  text-align: right;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+}
+
+.proxy-online-badge {
+  display: inline-block;
+  padding: 2px 7px;
+  border-radius: 6px;
+  font-size: 0.74rem;
+  font-weight: 600;
+  border: 1px solid;
+}
+
+.proxy-online-badge.is-full {
+  background: rgba(255, 69, 58, 0.15);
+  color: var(--apple-red);
+  border-color: rgba(255, 69, 58, 0.3);
+}
+
+.proxy-online-badge.is-active {
+  background: rgba(48, 209, 88, 0.15);
+  color: var(--apple-green);
+  border-color: rgba(48, 209, 88, 0.3);
+}
+
+.proxy-online-badge.is-empty {
+  background: var(--glass-matrix-bg);
+  color: var(--text-secondary);
+  border-color: var(--glass-border-subtle);
+}
+
+.proxy-stats-subtext {
+  font-size: 0.72rem;
+  color: var(--text-secondary);
+  margin-top: 2px;
+}
+
+.proxy-actions-row {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+}
+
+.proxy-btn-action {
+  padding: 5px 8px;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 0.78rem;
+}
+
+[data-theme="light"] .proxy-system-banner {
+  background: #ffffff;
+  border-color: rgba(0, 0, 0, 0.08);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+}
+
+[data-theme="light"] .proxy-item-card {
+  background: #ffffff;
+  border-color: rgba(0, 0, 0, 0.08);
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.04);
+}
+
+[data-theme="light"] .proxy-item-card.is-expired {
+  background: rgba(255, 59, 48, 0.06);
+  border-color: rgba(255, 59, 48, 0.3);
+}
+
+[data-theme="light"] .proxy-endpoint-code {
+  color: #1c1c1e;
+}
+
+[data-theme="light"] .proxy-auth-tag {
+  background: rgba(0, 0, 0, 0.04);
+  border-color: rgba(0, 0, 0, 0.08);
+  color: var(--text-secondary);
+}
+
+.proxy-btn-config {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 0.76rem;
+  padding: 4px 10px;
+}
+
+.proxy-assigned-pill {
+  font-size: 0.72rem;
+  color: var(--text-secondary);
+  background: var(--glass-panel-bg);
+  padding: 1px 7px;
+  border-radius: 4px;
+  border: 1px solid var(--glass-border-subtle);
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+/* ==========================================================================
+   📱 PROXY MODAL ULTRA MOBILE RESPONSIVE ENGINE (320px - 768px)
+   ========================================================================== */
+@media (max-width: 680px) {
+  .proxy-system-banner {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 10px;
+    padding: 12px;
+  }
+
+  .proxy-system-banner-left {
+    flex: 1 1 100%;
+  }
+
+  .proxy-system-banner .proxy-header-action-group {
+    width: 100%;
+    justify-content: space-between;
+  }
+
+  .proxy-card-list {
+    max-height: none !important;
+    overflow-y: visible !important;
+    padding-right: 0 !important;
+    gap: 12px;
+  }
+
+  .proxy-item-card {
+    flex-direction: column;
+    align-items: stretch;
+    justify-content: flex-start !important;
+    padding: 12px 14px;
+    gap: 10px;
+    min-height: auto !important;
+  }
+
+  .proxy-primary-info {
+    flex: 0 0 auto !important;
+    width: 100% !important;
+    min-width: 0 !important;
+  }
+
+  .proxy-right-group {
+    width: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    border-top: 1px solid var(--glass-border-subtle);
+    padding-top: 10px;
+    margin-top: 2px;
+  }
+
+  .proxy-stats-col {
+    text-align: left;
+    align-items: flex-start;
+  }
+
+  .proxy-actions-row {
+    display: flex;
+    align-items: center;
+    flex-wrap: nowrap;
+    gap: 6px;
+  }
+
+  .proxy-btn-action {
+    padding: 6px 9px;
+    font-size: 0.76rem;
+  }
+
+  .proxy-toolbar-row {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 10px;
+  }
+
+  .proxy-filter-tabs {
+    width: 100%;
+    display: flex;
+  }
+
+  .proxy-filter-tabs .btn {
+    flex: 1;
+    text-align: center;
+    justify-content: center;
+    font-size: 0.78rem;
+    padding: 7px 4px;
+  }
+
+  .proxy-toolbar-row .proxy-header-action-group {
+    width: 100%;
+    display: flex;
+    gap: 8px;
+  }
+
+  .proxy-toolbar-row .proxy-header-action-group .btn {
+    flex: 1;
+    justify-content: center;
+    font-size: 0.82rem;
+    height: 36px;
+  }
+
+  .proxy-footer-row {
+    flex-direction: column-reverse;
+    align-items: stretch;
+    gap: 10px;
+    width: 100%;
+  }
+
+  .proxy-capacity-tip {
+    text-align: center;
+    font-size: 0.74rem;
+    color: var(--text-tertiary);
+    line-height: 1.4;
+  }
+
+  .proxy-footer-row .btn {
+    width: 100%;
+    justify-content: center;
+    height: 38px;
+  }
+}
+
+/* ==========================================================================
+   ⚙️ PROXY SYSTEM CONFIGURATION MODAL (Apple Glassmorphism UI)
+   ========================================================================== */
+.proxy-config-card-sec {
+  background: var(--glass-matrix-bg);
+  border: 1px solid var(--glass-border-subtle);
+  border-radius: var(--radius-md);
+  padding: 14px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+[data-theme="light"] .proxy-config-card-sec {
+  background: #ffffff;
+  border-color: rgba(0, 0, 0, 0.08);
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.03);
+}
+
+.proxy-config-card-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.88rem;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.proxy-config-desc {
+  font-size: 0.76rem;
+  color: var(--text-secondary);
+  line-height: 1.4;
+  margin: 0;
+}
+
+.proxy-key-status-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding: 8px 12px;
+  background: var(--glass-panel-bg);
+  border: 1px solid var(--glass-border-subtle);
+  border-radius: var(--radius-xs);
+}
+
+.proxy-key-status-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 0.74rem;
+  font-weight: 600;
+}
+
+.proxy-key-status-badge.is-connected {
+  color: var(--apple-green);
+}
+
+.proxy-key-status-badge.is-missing {
+  color: var(--apple-orange);
+}
+
+.proxy-change-key-btn {
+  font-size: 0.74rem;
+  padding: 3px 8px;
+}
+
+.proxy-limit-fixed-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 7px 12px;
+  background: var(--glass-panel-bg);
+  border: 1px solid var(--glass-border-subtle);
+  border-radius: var(--radius-xs);
+  font-size: 0.76rem;
+  font-weight: 600;
+  color: var(--text-primary);
+  margin-top: 4px;
+}
+
+.proxy-period-input-wrap {
+  position: relative;
+  display: flex;
+  align-items: center;
+  width: 100%;
+}
+
+.proxy-period-input-wrap input {
+  padding-right: 48px;
+}
+
+.proxy-period-unit {
+  position: absolute;
+  right: 12px;
+  font-size: 0.8rem;
+  color: var(--text-tertiary);
+  pointer-events: none;
+  font-weight: 500;
+}
+
+
 

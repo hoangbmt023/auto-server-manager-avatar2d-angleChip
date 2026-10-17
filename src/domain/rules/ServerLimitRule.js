@@ -29,17 +29,21 @@ class ServerLimitRule {
     const existingInIp = existing.filter(a => (a.proxyId || 'direct') === targetKey);
     const serverCountInIp = existingInIp.filter(a => parseInt(a.serverId, 10) === sId).length;
 
-    if (serverCountInIp >= this.MAX_PER_SERVER) {
-      throw new BadRequestException(`❌ GIỚI HẠN IP [${ipDisplayName}]: Đã đủ ${this.MAX_PER_SERVER} tài khoản Server [${serverName}] (Tối đa ${this.MAX_PER_SERVER} nick/server cho mỗi IP/Proxy)! Vui lòng chọn IP/Proxy khác.`);
+    const maxPerServer = this.MAX_PER_SERVER;
+    const maxPerIp = this.MAX_PER_PROXY;
+
+    if (serverCountInIp >= maxPerServer) {
+      throw new BadRequestException(`❌ GIỚI HẠN IP [${ipDisplayName}]: Đã đủ ${maxPerServer} tài khoản Server [${serverName}] (Tối đa ${maxPerServer} nick/server cho mỗi IP/Proxy)! Vui lòng chọn IP/Proxy khác.`);
     }
 
-    if (existingInIp.length >= this.MAX_PER_FILE) {
-      throw new BadRequestException(`❌ GIỚI HẠN IP [${ipDisplayName}]: Đã đạt tối đa ${this.MAX_PER_FILE} tài khoản (3 Hoàn Mỹ + 3 Diệu Kỳ)! Vui lòng chọn IP/Proxy khác.`);
+    if (existingInIp.length >= maxPerIp) {
+      throw new BadRequestException(`❌ GIỚI HẠN IP [${ipDisplayName}]: Đã đạt tối đa ${maxPerIp} tài khoản! Vui lòng chọn IP/Proxy khác.`);
     }
   }
 
   /**
    * Validates if an account can start running based on current running bots system-wide on the same IP / Proxy.
+   * Enforces strictly 6 bots max per IP (3 Hoàn Mỹ + 3 Diệu Kỳ).
    */
   static validateCanRun(allRunningAccounts, targetAccount, proxy = null, maxAccountsInFile = 6) {
     const sId = parseInt(targetAccount.serverId, 10) === 1 ? 1 : 0;
@@ -47,16 +51,19 @@ class ServerLimitRule {
     const targetKey = targetAccount.proxyId || 'direct';
     const ipDisplayName = targetKey === 'direct' ? 'IP Mặc định' : (proxy?.name ? `Proxy [${proxy.name}]` : `Proxy [${targetKey}]`);
 
-    // 1. Validate System-Wide IP concurrency (Max 3 HM + 3 DK = 6 per IP across all files)
+    const maxPerServer = this.MAX_PER_SERVER;
+    const maxPerProxy = this.MAX_PER_PROXY;
+
+    // 1. Validate System-Wide IP concurrency
     const runningInSameIp = allRunningAccounts.filter(a => (a.proxyId || 'direct') === targetKey);
     const runningInServerIp = runningInSameIp.filter(a => parseInt(a.serverId, 10) === sId).length;
 
-    if (runningInServerIp >= this.MAX_PER_SERVER) {
-      throw new Error(`❌ GIỚI HẠN IP [${ipDisplayName}]: Server [${serverName}] trên IP này đã đạt tối đa ${this.MAX_PER_SERVER} nick online trên toàn hệ thống! Vui lòng dừng bớt 1 nick trước khi treo tiếp.`);
+    if (runningInServerIp >= maxPerServer) {
+      throw new Error(`❌ GIỚI HẠN IP [${ipDisplayName}]: Server [${serverName}] trên IP này đã đạt tối đa ${maxPerServer} nick online trên toàn hệ thống! Vui lòng dừng bớt 1 nick trước khi treo tiếp.`);
     }
 
-    if (runningInSameIp.length >= this.MAX_PER_FILE) {
-      throw new Error(`❌ GIỚI HẠN IP [${ipDisplayName}]: IP này đã đạt tối đa ${this.MAX_PER_FILE} nick online cùng lúc (3 HM + 3 DK) trên toàn hệ thống!`);
+    if (runningInSameIp.length >= maxPerProxy) {
+      throw new Error(`❌ GIỚI HẠN IP [${ipDisplayName}]: IP này đã đạt tối đa ${maxPerProxy} nick online cùng lúc trên toàn hệ thống!`);
     }
 
     // 2. Validate File Profile running limit
@@ -71,9 +78,10 @@ class ServerLimitRule {
    */
   static validateProxyLimit(allRunningAccounts, targetAccount, proxy) {
     if (!targetAccount.proxyId || !proxy) return;
+    const limit = this.MAX_PER_PROXY;
     const runningWithProxy = allRunningAccounts.filter(a => a.id !== targetAccount.id && a.proxyId === targetAccount.proxyId);
-    if (runningWithProxy.length >= this.MAX_PER_PROXY) {
-      throw new Error(`❌ GIỚI HẠN PROXY: Proxy [${proxy.name || proxy.host}] đã đạt tối đa ${this.MAX_PER_PROXY} tài khoản online cùng lúc! Vui lòng chọn Proxy khác hoặc dừng 1 nick.`);
+    if (runningWithProxy.length >= limit) {
+      throw new Error(`❌ GIỚI HẠN PROXY: Proxy [${proxy.name || proxy.host}] đã đạt tối đa ${limit} tài khoản online cùng lúc! Vui lòng chọn Proxy khác hoặc dừng 1 nick.`);
     }
   }
 }

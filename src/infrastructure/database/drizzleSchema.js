@@ -60,22 +60,32 @@ const botFiles = mysqlTable('bot_files', {
 // 3. Proxies Table
 const proxies = mysqlTable('proxies', {
   id: varchar('id', { length: 50 }).primaryKey(),
+  externalId: varchar('external_id', { length: 50 }),
+  provider: mysqlEnum('provider', ['PROXY_VN', 'MANUAL']).notNull().default('PROXY_VN'),
+  proxyCategory: varchar('proxy_category', { length: 30 }).notNull().default('DatacenterA'),
   name: varchar('name', { length: 150 }).notNull(),
   host: varchar('host', { length: 150 }).notNull(),
   port: int('port').notNull(),
   username: varchar('username', { length: 100 }).notNull().default(''),
   password: varchar('password', { length: 255 }).notNull().default(''),
   type: mysqlEnum('type', ['SOCKS5', 'HTTP']).notNull().default('SOCKS5'),
+  tier: mysqlEnum('tier', ['CORE', 'DYNAMIC']).notNull().default('DYNAMIC'),
+  status: mysqlEnum('status', ['ACTIVE', 'DRAINING', 'EXPIRED']).notNull().default('ACTIVE'),
+  maxSlots: int('max_slots').notNull().default(6),
+  expiresAt: datetime('expires_at'),
   isActive: boolean('is_active').notNull().default(true),
   isExpired: boolean('is_expired').notNull().default(false),
   latencyMs: int('latency_ms'),
   failCount: int('fail_count').notNull().default(0),
   lastChecked: datetime('last_checked'),
+  lastRotatedAt: datetime('last_rotated_at'),
   createdAt: timestamp('created_at').defaultNow().notNull(),
   updatedAt: timestamp('updated_at').defaultNow().onUpdateNow()
 }, (table) => [
   index('idx_proxies_status').on(table.isActive, table.isExpired),
-  index('idx_proxies_host_port').on(table.host, table.port)
+  index('idx_proxies_host_port').on(table.host, table.port),
+  index('idx_proxies_status_expires').on(table.status, table.expiresAt),
+  index('idx_proxies_external_id').on(table.externalId)
 ]);
 
 // 4. Accounts Table
@@ -90,6 +100,7 @@ const accounts = mysqlTable('accounts', {
   proxyId: varchar('proxy_id', { length: 50 }),
   note: text('note'),
   ipSlot: int('ip_slot').notNull().default(1),
+  isEmergencySlot: boolean('is_emergency_slot').notNull().default(false),
   appId: varchar('app_id', { length: 100 }),
   targetCoins: bigint('target_coins', { mode: 'number' }).notNull().default(0),
   upDays: int('up_days').notNull().default(0),
@@ -223,6 +234,21 @@ const accountsRelations = relations(accounts, ({ one }) => ({
   })
 }));
 
+const proxyMigrationLogs = mysqlTable('proxy_migration_logs', {
+  id: varchar('id', { length: 50 }).primaryKey(),
+  accountId: varchar('account_id', { length: 50 }).notNull(),
+  fromProxyId: varchar('from_proxy_id', { length: 50 }).notNull(),
+  toProxyId: varchar('to_proxy_id', { length: 50 }).notNull(),
+  fromServerId: tinyint('from_server_id').notNull(),
+  toServerId: tinyint('to_server_id').notNull(),
+  isEmergency: boolean('is_emergency').notNull().default(false),
+  reason: varchar('reason', { length: 255 }).notNull(),
+  createdAt: timestamp('created_at').defaultNow().notNull()
+}, (table) => [
+  index('idx_pml_account').on(table.accountId),
+  index('idx_pml_created').on(table.createdAt)
+]);
+
 module.exports = {
   users,
   botFiles,
@@ -232,6 +258,7 @@ module.exports = {
   vouchers,
   systemSettings,
   refreshTokens,
+  proxyMigrationLogs,
   usersRelations,
   transactionsRelations,
   refreshTokensRelations,

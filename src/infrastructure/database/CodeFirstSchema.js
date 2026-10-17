@@ -51,23 +51,33 @@ const TABLES = {
     tableName: 'proxies',
     columns: {
       id: { type: 'VARCHAR(50)', primaryKey: true, notNull: true },
+      external_id: { type: 'VARCHAR(50)', null: true },
+      provider: { type: "ENUM('PROXY_VN', 'MANUAL')", notNull: true, default: "'PROXY_VN'" },
+      proxy_category: { type: 'VARCHAR(30)', notNull: true, default: "'DatacenterA'" },
       name: { type: 'VARCHAR(150)', notNull: true },
       host: { type: 'VARCHAR(150)', notNull: true },
       port: { type: 'INT', notNull: true },
       username: { type: 'VARCHAR(100)', notNull: true, default: "''" },
       password: { type: 'VARCHAR(255)', notNull: true, default: "''" },
       type: { type: "ENUM('SOCKS5', 'HTTP')", notNull: true, default: "'SOCKS5'" },
+      tier: { type: "ENUM('CORE', 'DYNAMIC')", notNull: true, default: "'DYNAMIC'" },
+      status: { type: "ENUM('ACTIVE', 'DRAINING', 'EXPIRED')", notNull: true, default: "'ACTIVE'" },
+      max_slots: { type: 'INT', notNull: true, default: 6 },
+      expires_at: { type: 'DATETIME', null: true },
       is_active: { type: 'BOOLEAN', notNull: true, default: 1 },
       is_expired: { type: 'BOOLEAN', notNull: true, default: 0 },
       latency_ms: { type: 'INT', null: true },
       fail_count: { type: 'INT', notNull: true, default: 0 },
       last_checked: { type: 'DATETIME', null: true },
+      last_rotated_at: { type: 'DATETIME', null: true },
       created_at: { type: 'TIMESTAMP', default: 'CURRENT_TIMESTAMP' },
       updated_at: { type: 'TIMESTAMP', default: 'CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP' }
     },
     indexes: [
       { name: 'idx_proxies_status', columns: ['is_active', 'is_expired'] },
-      { name: 'idx_proxies_host_port', columns: ['host', 'port'] }
+      { name: 'idx_proxies_host_port', columns: ['host', 'port'] },
+      { name: 'idx_proxies_status_expires', columns: ['status', 'expires_at'] },
+      { name: 'idx_proxies_external_id', columns: ['external_id'] }
     ]
   },
 
@@ -84,6 +94,7 @@ const TABLES = {
       proxy_id: { type: 'VARCHAR(50)', null: true },
       note: { type: 'TEXT', null: true },
       ip_slot: { type: 'INT', notNull: true, default: 1 },
+      is_emergency_slot: { type: 'BOOLEAN', notNull: true, default: 0 },
       app_id: { type: 'VARCHAR(100)', null: true },
       target_coins: { type: 'BIGINT', notNull: true, default: 0 },
       up_days: { type: 'INT', notNull: true, default: 0 },
@@ -195,6 +206,25 @@ const TABLES = {
     ],
     foreignKeys: [
       { name: 'fk_refresh_tokens_user', column: 'user_id', refTable: 'users', refColumn: 'id', onDelete: 'CASCADE' }
+    ]
+  },
+
+  proxy_migration_logs: {
+    tableName: 'proxy_migration_logs',
+    columns: {
+      id: { type: 'VARCHAR(50)', primaryKey: true, notNull: true },
+      account_id: { type: 'VARCHAR(50)', notNull: true },
+      from_proxy_id: { type: 'VARCHAR(50)', notNull: true },
+      to_proxy_id: { type: 'VARCHAR(50)', notNull: true },
+      from_server_id: { type: 'TINYINT', notNull: true },
+      to_server_id: { type: 'TINYINT', notNull: true },
+      is_emergency: { type: 'BOOLEAN', notNull: true, default: 0 },
+      reason: { type: 'VARCHAR(255)', notNull: true },
+      created_at: { type: 'TIMESTAMP', default: 'CURRENT_TIMESTAMP' }
+    },
+    indexes: [
+      { name: 'idx_pml_account', columns: ['account_id'] },
+      { name: 'idx_pml_created', columns: ['created_at'] }
     ]
   }
 };

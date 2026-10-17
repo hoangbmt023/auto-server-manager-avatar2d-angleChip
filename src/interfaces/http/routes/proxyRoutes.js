@@ -49,7 +49,21 @@ module.exports = function createProxyRoutes(proxyController) {
     return proxyController.testAllProxies(req, res, helpers.sendJson);
   });
 
-  // 2. Backward-compatible aliases
+  router.post('/api/proxies/:id/rotate', (req, res, helpers) => {
+    if (!adminOnly(req, res, helpers)) return;
+    return proxyController.rotateProxy(req, res, helpers.sendJson);
+  });
+
+  router.get('/api/proxies/config/system', (req, res, helpers) => {
+    if (!adminOnly(req, res, helpers)) return;
+    return proxyController.getSystemConfig(req, res, helpers.sendJson);
+  });
+
+  router.post('/api/proxies/config/system', (req, res, helpers) => {
+    if (!adminOnly(req, res, helpers)) return;
+    return proxyController.saveSystemConfig(req, res, helpers.sendJson, helpers.parseJsonBody);
+  });
+
   router.post('/api/proxies/delete', (req, res, helpers) => {
     if (!adminOnly(req, res, helpers)) return;
     return proxyController.deleteProxy(req, res, helpers.sendJson, helpers.parseJsonBody);

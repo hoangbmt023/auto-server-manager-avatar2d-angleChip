@@ -28,6 +28,9 @@ const AccountService = require('../../application/services/AccountService');
 const FileProfileService = require('../../application/services/FileProfileService');
 const ProxyService = require('../../application/services/ProxyService');
 const ResourceAllocationEngine = require('../../application/services/ResourceAllocationEngine');
+const ProxyLifecycleCron = require('../../application/services/ProxyLifecycleCron');
+const ProxyVnApiClient = require('../../infrastructure/network/ProxyVnApiClient');
+const AsyncMutex = require('../../shared/utils/AsyncMutex');
 
 // Use Cases
 const RentSlotUseCase = require('../../application/use-cases/rental/RentSlotUseCase');
@@ -128,12 +131,25 @@ class HttpServer {
       this.sseEventBus,
       this.transactionManager
     );
+    this.allocationMutex = AsyncMutex.globalAllocationMutex;
+    this.proxyVnApiClient = new ProxyVnApiClient(config.proxyVn);
     this.allocationEngine = new ResourceAllocationEngine(
       this.fileRepo,
       this.proxyRepo,
       this.accountRepo,
-      this.settingRepo
+      this.settingRepo,
+      this.proxyVnApiClient,
+      this.allocationMutex
     );
+    this.proxyLifecycleCron = new ProxyLifecycleCron({
+      proxyRepo: this.proxyRepo,
+      accountRepo: this.accountRepo,
+      multiBotManager: this.multiBotManager,
+      proxyVnApiClient: this.proxyVnApiClient,
+      sseEventBus: this.sseEventBus,
+      dbPool: this.dbPool,
+      mutex: this.allocationMutex
+    });
 
     // Use Cases
     this.rentSlotUseCase = new RentSlotUseCase(
@@ -142,7 +158,10 @@ class HttpServer {
       this.transactionRepo,
       this.voucherRepo,
       this.allocationEngine,
-      this.settingRepo
+      this.settingRepo,
+      this.allocationMutex,
+      this.multiBotManager,
+      this.proxyRepo
     );
     this.payOsService = new PayOsService(this.settingRepo);
     this.billingUseCase = new BillingUseCase(
@@ -165,7 +184,7 @@ class HttpServer {
     this.accountController = new AccountController(this.accountService, this.settingRepo, this.fileRepo, this.sseEventBus);
     this.botController = new BotController(this.multiBotManager, this.sseEventBus, this.accountRepo, this.fileRepo, this.settingRepo);
     this.fileController = new FileController(this.fileProfileService, this.fileRepo, this.sseEventBus);
-    this.proxyController = new ProxyController(this.proxyService, this.sseEventBus);
+    this.proxyController = new ProxyController(this.proxyService, this.sseEventBus, this.proxyVnApiClient, this.settingRepo);
     this.systemController = new SystemController(this.settingRepo, this.sseEventBus);
     this.rentalController = new RentalController(this.rentSlotUseCase, this.allocationEngine);
     this.billingController = new BillingController(this.billingUseCase, this.userRepo);
@@ -343,7 +362,10 @@ class HttpServer {
 
       this.multiBotManager.resumePreviousRunningBots();
 
-      // 3. Rental Expiration Watchdog (Kiểm tra và ngắt an toàn bot hết hạn thuê)
+      // 3. Start Proxy Lifecycle & Waterfall Migration Cron
+      this.proxyLifecycleCron.start(30 * 60 * 1000);
+
+      // 4. Rental Expiration Watchdog (Kiểm tra và ngắt an toàn bot hết hạn thuê)
       setInterval(async () => {
         try {
           const allAccs = await this.accountRepo.findAll();

@@ -22,7 +22,7 @@ class DatabaseMigrator {
 
     try {
       // 1. Đồng bộ từng bảng theo thứ tự (users, bot_files, proxies trước; accounts, transactions, vouchers, refresh_tokens sau do có FK)
-      const tableKeys = ['users', 'bot_files', 'proxies', 'accounts', 'transactions', 'vouchers', 'system_settings', 'refresh_tokens'];
+      const tableKeys = ['users', 'bot_files', 'proxies', 'accounts', 'transactions', 'vouchers', 'system_settings', 'refresh_tokens', 'proxy_migration_logs'];
 
       for (const key of tableKeys) {
         const schema = TABLES[key];

@@ -98,6 +98,14 @@ const config = {
     accountName: env.get('BANK_ACCOUNT_NAME', '')
   },
 
+  proxyVn: {
+    enabled: env.getBoolean('PROXY_VN_ENABLED', true),
+    apiKey: env.get('PROXY_VN_API_KEY', ''),
+    baseUrl: env.get('PROXY_VN_BASE_URL', 'https://proxy.vn/apiv2'),
+    defaultCategory: env.get('PROXY_VN_DEFAULT_CATEGORY', 'DatacenterA'),
+    defaultType: env.get('PROXY_VN_DEFAULT_TYPE', 'SOCKS5')
+  },
+
   // Export intermediate Env helper for dynamic queries
   env
 };

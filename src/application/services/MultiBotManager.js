@@ -107,6 +107,33 @@ class MultiBotManager extends EventEmitter {
     return this.stopBotUseCase.execute(accountId);
   }
 
+  /**
+   * Safely restarts an account's Java bot process:
+   * Stops current running bot, waits for OS PID cleanup, then restarts with fresh DB config.
+   * @param {string} accountId
+   */
+  async restartAccount(accountId) {
+    if (!accountId) return;
+    const isRunning = this.isAccountRunning(accountId);
+    if (!isRunning) return;
+
+    try {
+      await this.stopAccount(accountId);
+    } catch (e) {
+      console.warn(`[MultiBotManager] Lỗi khi dừng account [${accountId}] để restart:`, e.message);
+    }
+
+    // Wait 1.2s for OS process exit and socket cleanup
+    await new Promise(resolve => setTimeout(resolve, 1200));
+
+    try {
+      return await this.startAccount(accountId);
+    } catch (e) {
+      console.error(`[MultiBotManager] Lỗi khi khởi động lại account [${accountId}]:`, e.message);
+      throw e;
+    }
+  }
+
   async stopAll() {
     // 1. Stop all local processes
     for (const [accId, botProcess] of this.runningBots.entries()) {
