@@ -1,17 +1,19 @@
 const Voucher = require('../../../domain/entities/Voucher');
 const { BadRequestException } = require('../../../domain/errors');
 const config = require('../../../../config');
+const AsyncMutex = require('../../../shared/utils/AsyncMutex');
 
 /**
  * ManageRentalAllocationsUseCase (Application Layer)
  * Allows Admin to configure bot rental plans, resource allocation policies, and vouchers.
  */
 class ManageRentalAllocationsUseCase {
-  constructor(settingRepo, voucherRepo, fileRepo, proxyRepo) {
+  constructor(settingRepo, voucherRepo, fileRepo, proxyRepo, mutex = null) {
     this.settingRepo = settingRepo;
     this.voucherRepo = voucherRepo;
     this.fileRepo = fileRepo;
     this.proxyRepo = proxyRepo;
+    this.mutex = mutex || AsyncMutex.globalAllocationMutex || new AsyncMutex('manage-rental-allocations');
   }
 
   async getAllocationConfig() {
@@ -93,6 +95,15 @@ class ManageRentalAllocationsUseCase {
   }
 
   async updateAllocationRules(newRules) {
+    if (this.mutex) {
+      return this.mutex.runExclusive(async () => {
+        return this._updateAllocationRulesInternal(newRules);
+      });
+    }
+    return this._updateAllocationRulesInternal(newRules);
+  }
+
+  async _updateAllocationRulesInternal(newRules) {
     if (!newRules || typeof newRules !== 'object') {
       throw new BadRequestException('Dữ liệu cấu hình không hợp lệ!');
     }

@@ -10,11 +10,12 @@ const BotIpcProtocol = require('./BotIpcProtocol');
  * Manages an individual Java process execution for a single Avatar account.
  */
 class SingleBotProcess extends EventEmitter {
-  constructor(account, fileProfile, globalConfig) {
+  constructor(account, fileProfile, globalConfig, proxy = null) {
     super();
     this.account = account;
     this.fileProfile = fileProfile;
     this.globalConfig = globalConfig;
+    this.proxy = proxy;
     this.child = null;
     this.startTime = null;
     this.restartAttempts = 0;
@@ -136,15 +137,23 @@ class SingleBotProcess extends EventEmitter {
       }
     }
 
-    // Proxy configuration (Account-specific Proxy from Proxy Pool, File Profile Proxy, or Global Proxy)
-    let proxy = null;
-    if (this.account.proxyId && Array.isArray(this.globalConfig.proxies)) {
+    // Proxy configuration (Directly injected Proxy, Account-specific Proxy, File Profile Proxy, or Global Proxy)
+    let proxy = this.proxy;
+    if (!proxy && this.account.proxyId && Array.isArray(this.globalConfig.proxies)) {
       proxy = this.globalConfig.proxies.find(p => p.id === this.account.proxyId) || null;
-    } else if (this.fileProfile && this.fileProfile.proxy && this.fileProfile.proxy.enabled && this.fileProfile.proxy.host) {
+    } else if (!proxy && this.fileProfile && this.fileProfile.proxy && this.fileProfile.proxy.enabled && this.fileProfile.proxy.host) {
       proxy = this.fileProfile.proxy;
-    } else if (this.globalConfig.proxy && this.globalConfig.proxy.enabled && this.globalConfig.proxy.host) {
+    } else if (!proxy && this.globalConfig.proxy && this.globalConfig.proxy.enabled && this.globalConfig.proxy.host) {
       proxy = this.globalConfig.proxy;
     }
+
+    // FAIL-CLOSED SECURITY GUARD: 100% Zero Direct IP Policy
+    if (!proxy || !proxy.host || !proxy.port) {
+      const errText = `[SECURITY BLOCK] Không tìm thấy cấu hình Proxy hợp lệ cho tài khoản [${this.account.username || this.account.id}]. Đã chặn đứng tiến trình bot để bảo vệ 100% IP máy chủ!`;
+      this.emitLog('error', `🚨 ${errText}`);
+      throw new Error(errText);
+    }
+    this.proxy = proxy;
 
     if (proxy && proxy.host && proxy.port) {
       const type = (proxy.type || 'socks').toLowerCase();
@@ -430,8 +439,8 @@ class SingleBotProcess extends EventEmitter {
   }
 
   triggerProxyHealthCheck(reason = '') {
-    if (!this.account.proxyId || this._isCheckingProxy || this.isManualStop) return;
-    const proxy = (this.globalConfig.proxies || []).find(p => p.id === this.account.proxyId);
+    if (this._isCheckingProxy || this.isManualStop) return;
+    const proxy = this.proxy || (this.globalConfig.proxies || []).find(p => p.id === this.account.proxyId);
     if (!proxy) return;
 
     this._isCheckingProxy = true;

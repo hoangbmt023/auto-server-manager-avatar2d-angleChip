@@ -50,10 +50,11 @@ class AccountService {
     const targetFileId = account.fileId || activeFileId || 'file_1';
     account.fileId = targetFileId;
 
-    // 2. Validate account limits within the file and IP/Proxy
+    // 2. Validate account limits within the file and IP/Proxy across entire system
     const targetFile = await this.fileRepo.findById(targetFileId);
     const maxAccounts = targetFile ? (targetFile.maxAccounts || 6) : 6;
     const accountsInFile = await this.accountRepo.findByFileId(targetFileId);
+    const allAccountsInSystem = await this.accountRepo.findAll();
 
     const proxyObj = account.proxyId ? await this.proxyRepo.findById(account.proxyId) : null;
     const proxyName = proxyObj ? proxyObj.name : '';
@@ -63,7 +64,8 @@ class AccountService {
       data.id || null,
       account.proxyId || null,
       maxAccounts,
-      proxyName
+      proxyName,
+      allAccountsInSystem
     );
 
     // 3. Save to database (Single table: accounts -> NO transaction needed)

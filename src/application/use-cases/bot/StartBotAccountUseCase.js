@@ -69,8 +69,8 @@ class StartBotAccountUseCase {
       throw new Error('Không tìm thấy Java runtime. Vui lòng cài đặt Java hoặc Portable JRE!');
     }
 
-    // 8. Instantiate SingleBotProcess
-    const botProcess = new SingleBotProcess(account, fileProfile, config);
+    // 8. Instantiate SingleBotProcess with injected Proxy entity
+    const botProcess = new SingleBotProcess(account, fileProfile, config, proxy);
 
     botProcess.on('log', (entry) => {
       this.sseEventBus.addLog(entry);
