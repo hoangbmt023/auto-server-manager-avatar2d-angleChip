@@ -7,6 +7,14 @@
 const { useState: useSettingsModalState, useEffect: useSettingsModalEffect } = React;
 const { formatMoney } = window.formatters;
 
+const ALL_AVAILABLE_FEATURES = [
+  { key: 'farm', label: 'Auto Farm', icon: 'sprout' },
+  { key: 'fish', label: 'Auto Câu cá', icon: 'fish' },
+  { key: 'diamond', label: 'Auto KC', icon: 'gem' },
+  { key: 'sellOre', label: 'Auto Bán đá', icon: 'rock' },
+  { key: 'upThue', label: 'Cài đặt Úp thuê', icon: 'coins' }
+];
+
 window.SettingsModal = function SettingsModal({ config, theme = 'dark', setTheme, onClose, onSaved }) {
   const [activeTab, setActiveTab] = useSettingsModalState('system'); // 'system' | 'rental'
 
@@ -39,6 +47,25 @@ window.SettingsModal = function SettingsModal({ config, theme = 'dark', setTheme
   const [newBonusPercent, setNewBonusPercent] = useSettingsModalState(5);
   const [newPresetAmount, setNewPresetAmount] = useSettingsModalState(50000);
   const [payosEnv, setPayosEnv] = useSettingsModalState(null);
+
+  const handleTogglePlanFeature = (planKey, featureKey) => {
+    setAllocationRules(prev => {
+      const currentFeatures = prev.plans?.[planKey]?.features || (planKey === 'FULL' ? ['farm', 'fish', 'diamond', 'sellOre', 'upThue'] : (planKey === 'FISH' ? ['fish', 'upThue'] : ['farm', 'upThue']));
+      const newFeatures = currentFeatures.includes(featureKey)
+        ? currentFeatures.filter(f => f !== featureKey)
+        : [...currentFeatures, featureKey];
+      return {
+        ...prev,
+        plans: {
+          ...prev.plans,
+          [planKey]: {
+            ...prev.plans[planKey],
+            features: newFeatures
+          }
+        }
+      };
+    });
+  };
 
   const clearFieldError = (f) => {
     setFieldErrors(prev => {
@@ -470,52 +497,81 @@ window.SettingsModal = function SettingsModal({ config, theme = 'dark', setTheme
               <div className="farm-section-card">
                 <span className="sidebar-section-lbl" style={{ marginBottom: '8px' }}>BẢNG GIÁ VÀ FILE PHÂN BỔ MẶC ĐỊNH</span>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-                  {Object.entries(allocationRules.plans || {}).map(([key, plan]) => (
-                    <div key={key} style={{ display: 'grid', gridTemplateColumns: '1.2fr 1fr 1fr', gap: '10px', alignItems: 'center', background: 'var(--glass-matrix-bg)', padding: '10px 12px', borderRadius: 'var(--radius-sm)' }}>
-                      <div>
-                        <strong style={{ fontSize: '0.86rem', color: 'var(--text-primary)' }}>{plan.name} ({key})</strong>
+                  {Object.entries(allocationRules.plans || {}).map(([key, plan]) => {
+                    const currentFeats = plan.features || (key === 'FULL' ? ['farm', 'fish', 'diamond', 'sellOre', 'upThue'] : (key === 'FISH' ? ['fish', 'upThue'] : ['farm', 'upThue']));
+                    return (
+                      <div key={key} style={{ display: 'grid', gridTemplateColumns: '1.2fr 1fr 1fr', gap: '10px', alignItems: 'center', background: 'var(--glass-matrix-bg)', padding: '10px 12px', borderRadius: 'var(--radius-sm)' }}>
+                        <div>
+                          <strong style={{ fontSize: '0.86rem', color: 'var(--text-primary)' }}>{plan.name} ({key})</strong>
+                        </div>
+                        <div>
+                          <label style={{ fontSize: '0.72rem', color: 'var(--text-tertiary)' }}>Giá / Tháng (VNĐ):</label>
+                          <input
+                            type="number"
+                            className="form-control"
+                            value={plan.priceMonth}
+                            onChange={(e) => {
+                              const val = parseInt(e.target.value, 10) || 0;
+                              setAllocationRules(prev => ({
+                                ...prev,
+                                plans: {
+                                  ...prev.plans,
+                                  [key]: { ...prev.plans[key], priceMonth: val }
+                                }
+                              }));
+                            }}
+                          />
+                        </div>
+                        <div>
+                          <label style={{ fontSize: '0.72rem', color: 'var(--text-tertiary)' }}>File Bot Ưu Tiên:</label>
+                          <select
+                            className="form-control"
+                            value={plan.defaultFileId || 'file_1'}
+                            onChange={(e) => {
+                              const val = e.target.value;
+                              setAllocationRules(prev => ({
+                                ...prev,
+                                plans: {
+                                  ...prev.plans,
+                                  [key]: { ...prev.plans[key], defaultFileId: val }
+                                }
+                              }));
+                            }}
+                          >
+                            {availableFiles.map(f => (
+                              <option key={f.id} value={f.id}>{f.name} ({f.modType})</option>
+                            ))}
+                          </select>
+                        </div>
+
+                        {/* Danh sách các chức năng được cấp phép cho gói */}
+                        <div className="plan-feature-chips-container">
+                          <span className="plan-feature-chips-label">
+                            <window.Icon name="shield" size={12} color="var(--apple-blue)" />
+                            Chức Năng Được Phép Hoạt Động Trong Gói:
+                          </span>
+                          <div className="plan-feature-chips-grid">
+                            {ALL_AVAILABLE_FEATURES.map(feat => {
+                              const isActive = currentFeats.includes(feat.key);
+                              return (
+                                <button
+                                  key={feat.key}
+                                  type="button"
+                                  className={`plan-feature-chip ${isActive ? 'active' : ''}`}
+                                  onClick={() => handleTogglePlanFeature(key, feat.key)}
+                                  title={isActive ? `Bấm để tắt tính năng ${feat.label}` : `Bấm để bật tính năng ${feat.label}`}
+                                >
+                                  <window.Icon name={feat.icon} size={12} color={isActive ? 'var(--apple-green)' : 'var(--text-tertiary)'} />
+                                  <span>{feat.label}</span>
+                                  {isActive && <window.Icon name="check" size={10} color="var(--apple-green)" />}
+                                </button>
+                              );
+                            })}
+                          </div>
+                        </div>
                       </div>
-                      <div>
-                        <label style={{ fontSize: '0.72rem', color: 'var(--text-tertiary)' }}>Giá / Tháng (VNĐ):</label>
-                        <input
-                          type="number"
-                          className="form-control"
-                          value={plan.priceMonth}
-                          onChange={(e) => {
-                            const val = parseInt(e.target.value, 10) || 0;
-                            setAllocationRules(prev => ({
-                              ...prev,
-                              plans: {
-                                ...prev.plans,
-                                [key]: { ...prev.plans[key], priceMonth: val }
-                              }
-                            }));
-                          }}
-                        />
-                      </div>
-                      <div>
-                        <label style={{ fontSize: '0.72rem', color: 'var(--text-tertiary)' }}>File Bot Ưu Tiên:</label>
-                        <select
-                          className="form-control"
-                          value={plan.defaultFileId || 'file_1'}
-                          onChange={(e) => {
-                            const val = e.target.value;
-                            setAllocationRules(prev => ({
-                              ...prev,
-                              plans: {
-                                ...prev.plans,
-                                [key]: { ...prev.plans[key], defaultFileId: val }
-                              }
-                            }));
-                          }}
-                        >
-                          {availableFiles.map(f => (
-                            <option key={f.id} value={f.id}>{f.name} ({f.modType})</option>
-                          ))}
-                        </select>
-                      </div>
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
               </div>
 
@@ -780,31 +836,35 @@ window.SettingsModal = function SettingsModal({ config, theme = 'dark', setTheme
                 </div>
               </div>
 
-              {/* 5. Proxy & Server Allocation Strategy */}
-              <div className="form-row">
-                <div className="form-group">
-                  <label>Chiến Lược Chia Proxy Khi Thuê:</label>
-                  <select
-                    className="form-control"
-                    value={allocationRules.proxyStrategy || 'least_loaded'}
-                    onChange={(e) => setAllocationRules(prev => ({ ...prev, proxyStrategy: e.target.value }))}
-                  >
-                    <option value="least_loaded">Tự động chọn proxy ít tài khoản nhất (Khuyên dùng)</option>
-                    <option value="round_robin">Xoay vòng ngẫu nhiên qua các proxy</option>
-                    <option value="none">Không gán proxy (Chạy IP mặc định)</option>
-                  </select>
+              {/* 5. Proxy & Server Allocation Security Policy */}
+              <div className="proxy-security-card">
+                <div className="proxy-security-header">
+                  <div className="proxy-security-title">
+                    <window.Icon name="shield" size={15} color="var(--apple-green)" />
+                    <span>Hệ Thống Phân Bổ Proxy & Bảo Mật Máy Chủ</span>
+                  </div>
+                  <span className="proxy-security-badge">
+                    <window.Icon name="check" size={11} color="var(--apple-green)" />
+                    Dynamic Best-Fit & 100% Fail-Closed
+                  </span>
                 </div>
-                <div className="form-group">
-                  <label>Cân Bằng Server / Thành Phố:</label>
-                  <select
-                    className="form-control"
-                    value={allocationRules.serverBalanceStrategy || 'auto_balance'}
-                    onChange={(e) => setAllocationRules(prev => ({ ...prev, serverBalanceStrategy: e.target.value }))}
-                  >
-                    <option value="auto_balance">Tự cân bằng giữa Hoàn Mỹ và Diệu Kỳ</option>
-                    <option value="prefer_hoan_my">Ưu tiên Server 1 (Hoàn Mỹ)</option>
-                    <option value="prefer_dieu_ky">Ưu tiên Server 2 (Diệu Kỳ)</option>
-                  </select>
+                <div className="proxy-security-grid">
+                  <div className="proxy-security-item">
+                    <span className="proxy-security-item-lbl">Thuật Toán Phân Bổ:</span>
+                    <span className="proxy-security-item-val">Dynamic Priority Scoring (Lấp đầy thùng 6/6, dồn phòng tiết kiệm chi phí)</span>
+                  </div>
+                  <div className="proxy-security-item">
+                    <span className="proxy-security-item-lbl">Chính Sách Bảo Mật IP:</span>
+                    <span className="proxy-security-item-val">100% SOCKS5 Proxy (Fail-Closed, Tuyệt đối bảo vệ cPanel/IP VPS)</span>
+                  </div>
+                  <div className="proxy-security-item">
+                    <span className="proxy-security-item-lbl">Cân Bằng Server Game:</span>
+                    <span className="proxy-security-item-val">Tự động cân bằng 3 Hoàn Mỹ + 3 Diệu Kỳ / Proxy (Đạt chuẩn 100% Teamobi)</span>
+                  </div>
+                  <div className="proxy-security-item">
+                    <span className="proxy-security-item-lbl">Cơ Chế On-Demand:</span>
+                    <span className="proxy-security-item-val">Tự động mua Proxy mới 30 ngày qua API proxy.vn khi toàn bộ hệ thống kín 6/6</span>
+                  </div>
                 </div>
               </div>
 

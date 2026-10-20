@@ -92,28 +92,44 @@ class SingleBotProcess extends EventEmitter {
     args.push(`-Davatar.server=${this.account.serverId !== undefined ? this.account.serverId : 0}`);
     args.push(`-Davatar.serverName=${this.account.serverName || (this.account.serverId === 0 ? 'Hoàn Mỹ' : 'Diệu Kỳ')}`);
 
-    if (this.account.targetCoins) args.push(`-Davatar.targetCoins=${this.account.targetCoins}`);
-    if (this.account.upDays) args.push(`-Davatar.upDays=${this.account.upDays}`);
+    // =========================================================================
+    // BẢO MẬT TẦNG 2: RUNTIME ENFORCEMENT - CHỈ NẠP THÔNG SỐ CỦA TÍNH NĂNG ĐƯỢC PHÉP
+    // =========================================================================
+    let allowedFeatures = null;
+    if (this.account.rentalPlan) {
+      if (this.account.rentalPlan === 'FULL') {
+        allowedFeatures = ['farm', 'fish', 'diamond', 'sellOre', 'upThue'];
+      } else if (this.account.rentalPlan === 'FISH') {
+        allowedFeatures = ['fish', 'upThue'];
+      } else {
+        allowedFeatures = ['farm', 'upThue'];
+      }
+    }
+
+    const hasFeature = (f) => !allowedFeatures || allowedFeatures.includes(f);
+
+    if (this.account.targetCoins && hasFeature('upThue')) args.push(`-Davatar.targetCoins=${this.account.targetCoins}`);
+    if (this.account.upDays && hasFeature('upThue')) args.push(`-Davatar.upDays=${this.account.upDays}`);
     if (this.account.pendingReset) {
       args.push('-Davatar.resetOnStart=true');
       this.account.pendingReset = false;
     }
-    if (this.account.farmSettings) {
+    if (this.account.farmSettings && hasFeature('farm')) {
       const jsonStr = JSON.stringify(this.account.farmSettings);
       const b64 = Buffer.from(jsonStr, 'utf8').toString('base64');
       args.push(`-Davatar.farmSettingsB64=${b64}`);
     }
-    if (this.account.diamondSettings) {
+    if (this.account.diamondSettings && hasFeature('diamond')) {
       const jsonStr = JSON.stringify(this.account.diamondSettings);
       const b64 = Buffer.from(jsonStr, 'utf8').toString('base64');
       args.push(`-Davatar.diamondSettingsB64=${b64}`);
     }
-    if (this.account.fishSettings) {
+    if (this.account.fishSettings && hasFeature('fish')) {
       const jsonStr = JSON.stringify(this.account.fishSettings);
       const b64 = Buffer.from(jsonStr, 'utf8').toString('base64');
       args.push(`-Davatar.fishSettingsB64=${b64}`);
     }
-    if (this.account.sellOreSettings) {
+    if (this.account.sellOreSettings && hasFeature('sellOre')) {
       const jsonStr = JSON.stringify(this.account.sellOreSettings);
       const b64 = Buffer.from(jsonStr, 'utf8').toString('base64');
       args.push(`-Davatar.sellOreSettingsB64=${b64}`);
@@ -122,9 +138,19 @@ class SingleBotProcess extends EventEmitter {
     const safeAppId = `avatar_${this.account.username || this.account.id}_${this.fileProfile ? this.fileProfile.id : 'def'}`;
     args.push(`-Davatar.appId=${safeAppId}`);
 
-    const autoToStart = (this.autoState && this.autoState.isRunning && this.autoState.autoType)
+    let autoToStart = (this.autoState && this.autoState.isRunning && this.autoState.autoType)
       ? this.autoState.autoType
       : (this.account && (this.account.lastAutoType || this.account.defaultAutoType));
+
+    // Chặn autoStartType nếu không thuộc tính năng cho phép của gói
+    if (autoToStart) {
+      const autoFeatureMap = { farm: 'farm', fish: 'fish', diamond: 'diamond', sell_ore: 'sellOre' };
+      const reqFeat = autoFeatureMap[autoToStart];
+      if (reqFeat && !hasFeature(reqFeat)) {
+        autoToStart = null;
+      }
+    }
+
     if (autoToStart) {
       args.push(`-Davatar.autoStartType=${autoToStart}`);
       if (!this.autoState || !this.autoState.isRunning) {
@@ -244,11 +270,11 @@ class SingleBotProcess extends EventEmitter {
       this.restartTimer = null;
     }
 
-    const args = this.buildArgs(javaBin);
-    const serverName = this.account.serverName || (this.account.serverId === 0 ? 'Hoàn Mỹ' : 'Diệu Kỳ');
-    this.emitLog('system', `🚀 [${this.account.username}] Khởi chạy tiến trình bot trên Server [${serverName}]...`);
-
     try {
+      const args = this.buildArgs(javaBin);
+      const serverName = this.account.serverName || (this.account.serverId === 0 ? 'Hoàn Mỹ' : 'Diệu Kỳ');
+      this.emitLog('system', `🚀 [${this.account.username}] Khởi chạy tiến trình bot trên Server [${serverName}]...`);
+
       this.child = spawn(javaBin, args, {
         cwd: this.workspaceRoot,
         env: {

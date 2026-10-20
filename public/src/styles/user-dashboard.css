@@ -901,8 +901,13 @@ button .tx-spinner-circular {
 }
 
 @keyframes txSpin {
-  0% { transform: rotate(0deg); }
-  100% { transform: rotate(360deg); }
+  0% {
+    transform: rotate(0deg);
+  }
+
+  100% {
+    transform: rotate(360deg);
+  }
 }
 
 .tx-end-of-list {
@@ -940,7 +945,8 @@ button .tx-spinner-circular {
 
 .tx-table {
   width: 100%;
-  min-width: 780px; /* CRITICAL: Prevents columns from compressing & wrapping */
+  min-width: 780px;
+  /* CRITICAL: Prevents columns from compressing & wrapping */
   border-collapse: collapse;
   font-size: 0.84rem;
 }
@@ -954,7 +960,8 @@ button .tx-spinner-circular {
 .tx-th-cell {
   padding: 10px 14px;
   font-weight: 700;
-  white-space: nowrap; /* CRITICAL: Prevents header text wrapping */
+  white-space: nowrap;
+  /* CRITICAL: Prevents header text wrapping */
   font-size: 0.76rem;
   text-transform: uppercase;
   letter-spacing: 0.04em;
@@ -964,7 +971,8 @@ button .tx-spinner-circular {
   padding: 10px 14px;
   text-align: right;
   font-weight: 700;
-  white-space: nowrap; /* CRITICAL: Prevents "Số Dư Sau GD" from wrapping */
+  white-space: nowrap;
+  /* CRITICAL: Prevents "Số Dư Sau GD" from wrapping */
   font-size: 0.76rem;
   text-transform: uppercase;
   letter-spacing: 0.04em;
@@ -982,19 +990,22 @@ button .tx-spinner-circular {
 .tx-td-time {
   padding: 12px 14px;
   color: var(--text-tertiary);
-  white-space: nowrap; /* CRITICAL: Prevents date/time break */
+  white-space: nowrap;
+  /* CRITICAL: Prevents date/time break */
   font-size: 0.82rem;
 }
 
 .tx-td-type {
   padding: 12px 14px;
-  white-space: nowrap; /* CRITICAL: Prevents badge break */
+  white-space: nowrap;
+  /* CRITICAL: Prevents badge break */
   width: 1%;
 }
 
 .tx-td-status {
   padding: 12px 14px;
-  white-space: nowrap; /* CRITICAL: Prevents status badge break */
+  white-space: nowrap;
+  /* CRITICAL: Prevents status badge break */
   width: 1%;
 }
 
@@ -1025,7 +1036,8 @@ button .tx-spinner-circular {
   padding: 12px 14px;
   text-align: right;
   font-weight: 700;
-  white-space: nowrap; /* CRITICAL: Prevents "+220.000 đ" from wrapping đ */
+  white-space: nowrap;
+  /* CRITICAL: Prevents "+220.000 đ" from wrapping đ */
   font-variant-numeric: tabular-nums;
   font-size: 0.9rem;
 }
@@ -1042,7 +1054,8 @@ button .tx-spinner-circular {
   padding: 12px 14px;
   text-align: right;
   color: var(--text-secondary);
-  white-space: nowrap; /* CRITICAL: Prevents balance from wrapping */
+  white-space: nowrap;
+  /* CRITICAL: Prevents balance from wrapping */
   font-family: var(--font-mono, monospace);
   font-variant-numeric: tabular-nums;
   font-size: 0.85rem;
@@ -1057,7 +1070,8 @@ button .tx-spinner-circular {
   border-radius: 999px;
   font-size: 0.74rem;
   font-weight: 600;
-  white-space: nowrap; /* CRITICAL: Prevents "Nạp\nTiền" or "Thành\ncông" */
+  white-space: nowrap;
+  /* CRITICAL: Prevents "Nạp\nTiền" or "Thành\ncông" */
   line-height: 1.25;
   flex-shrink: 0;
 }
@@ -1077,7 +1091,6 @@ button .tx-spinner-circular {
 .tx-status-failed {
   color: var(--apple-red);
   background: rgba(255, 69, 58, 0.15);
-  border: 1px solid rgba(255, 69, 58, 0.25);
 }
 
 .tx-status-cancelled {
@@ -1140,7 +1153,7 @@ button .tx-spinner-circular {
 }
 
 .rent-alert-danger {
-  margin: 14px 20px 0;
+  margin: 0 0 12px 0;
   padding: 10px 14px;
   border-radius: var(--radius-sm);
   font-size: 0.82rem;
@@ -1150,7 +1163,7 @@ button .tx-spinner-circular {
   display: flex;
   flex-direction: column;
   gap: 18px;
-  padding: 20px;
+  padding: 0;
 }
 
 .rent-grid-2col {
@@ -1283,6 +1296,11 @@ button .tx-spinner-circular {
 
 .rent-summary-val-green {
   color: var(--apple-green);
+  font-weight: 600;
+}
+
+.rent-summary-val-red {
+  color: var(--apple-red);
   font-weight: 600;
 }
 
@@ -1643,22 +1661,28 @@ button .tx-spinner-circular {
     padding: 12px 14px;
     gap: 8px;
   }
+
   .payos-receipt-row {
     gap: 8px;
   }
+
   .payos-receipt-label,
   .payos-receipt-total-label {
     font-size: 0.76rem;
   }
+
   .payos-receipt-order-code {
     font-size: 0.82rem;
   }
+
   .payos-receipt-amount {
     font-size: 0.88rem;
   }
+
   .payos-receipt-balance {
     font-size: 0.98rem;
   }
+
   .payos-receipt-notice {
     font-size: 0.74rem;
     padding: 8px 10px;
@@ -1976,6 +2000,7 @@ button .tx-spinner-circular {
    Apple Liquid Glass Mobile Experience with Unified Gutter Alignment
    ========================================================================== */
 @media (max-width: 768px) {
+
   /* 1. Unified Horizontal Gutter: Left and right margins align perfectly with screen edge */
   body {
     padding: 12px 14px !important;
@@ -2155,6 +2180,7 @@ button .tx-spinner-circular {
       opacity: 0;
       transform: translate(-50%, 16px);
     }
+
     to {
       opacity: 1;
       transform: translate(-50%, 0);
@@ -2300,4 +2326,3 @@ button .tx-spinner-circular {
     white-space: nowrap !important;
   }
 }
-

@@ -20,13 +20,16 @@ class AccountService {
 
   async getAccounts(fileId = null) {
     const accounts = await this.accountRepo.findAll();
+    const proxies = this.proxyRepo ? await this.proxyRepo.findAll() : [];
+    const proxyMap = new Map((proxies || []).map(p => [p.id, p.name]));
     const runningStatuses = this.multiBotManager ? this.multiBotManager.getAllStatuses() : { instances: {} };
 
     const filtered = fileId ? accounts.filter(a => a.fileId === fileId) : accounts;
 
     return filtered.map(acc => {
       const runningInfo = runningStatuses.instances[acc.id] || null;
-      return AccountMapper.toResponseDto(acc, runningInfo);
+      const proxyName = acc.proxyId ? (proxyMap.get(acc.proxyId) || null) : null;
+      return AccountMapper.toResponseDto(acc, runningInfo, proxyName);
     });
   }
 
@@ -35,9 +38,14 @@ class AccountService {
     if (!account) {
       throw new NotFoundException(`Không tìm thấy tài khoản với ID [${id}]!`);
     }
+    const proxy = (account.proxyId && this.proxyRepo) ? await this.proxyRepo.findById(account.proxyId) : null;
     const runningStatuses = this.multiBotManager ? this.multiBotManager.getAllStatuses() : { instances: {} };
     const runningInfo = runningStatuses.instances[account.id] || null;
-    return AccountMapper.toResponseDto(account, runningInfo);
+    return AccountMapper.toResponseDto(account, runningInfo, proxy ? proxy.name : null);
+  }
+
+  async getAccount(id) {
+    return this.getAccountById(id);
   }
 
   async saveAccount(data) {
@@ -118,12 +126,46 @@ class AccountService {
     const sId = parseInt(newServerId !== undefined ? newServerId : (targetAcc.serverId === 0 ? 1 : 0), 10) === 1 ? 1 : 0;
     const serverName = sId === 0 ? 'Hoàn Mỹ' : 'Diệu Kỳ';
 
-    const targetFileId = targetAcc.fileId || (await this.fileRepo.getActiveFileId()) || 'file_1';
-    const otherAccsInFile = (await this.accountRepo.findByFileId(targetFileId)).filter(a => a.id !== accountId);
-    const serverCount = otherAccsInFile.filter(a => parseInt(a.serverId, 10) === sId).length;
+    // 1. Nếu tài khoản đã được gán Proxy
+    if (targetAcc.proxyId && this.proxyRepo) {
+      const allAccounts = await this.accountRepo.findAll();
+      const livingOnSameProxy = allAccounts.filter(a => a.proxyId === targetAcc.proxyId && a.id !== accountId && !a.isRentalExpired());
+      const countNewServerOnProxy = livingOnSameProxy.filter(a => parseInt(a.serverId, 10) === sId).length;
 
-    if (serverCount >= ServerLimitRule.MAX_PER_SERVER) {
-      throw new BadRequestException(`❌ Server [${serverName}] trong file này đã đủ ${ServerLimitRule.MAX_PER_SERVER} tài khoản!`);
+      if (countNewServerOnProxy >= ServerLimitRule.MAX_PER_SERVER) {
+        // Proxy hiện tại đã đầy 3/3 ở Server mới -> Tìm Proxy ACTIVE khác còn slot trống để tự động di tản
+        const allProxies = await this.proxyRepo.findAll();
+        const now = Date.now();
+        const candidateProxy = allProxies.find(p => {
+          if (p.id === targetAcc.proxyId || p.status !== 'ACTIVE' || p.isExpired) return false;
+          if (p.expiresAt && new Date(p.expiresAt).getTime() <= now + 2 * 3600 * 1000) return false;
+          const livingBots = allAccounts.filter(a => a.proxyId === p.id && !a.isRentalExpired());
+          if (livingBots.length >= ServerLimitRule.MAX_PER_PROXY) return false;
+          const sameServerBots = livingBots.filter(a => parseInt(a.serverId, 10) === sId).length;
+          return sameServerBots < ServerLimitRule.MAX_PER_SERVER;
+        });
+
+        if (!candidateProxy) {
+          throw new BadRequestException(
+            `❌ Proxy hiện tại đã đủ ${ServerLimitRule.MAX_PER_SERVER} nick Server [${serverName}] và toàn bộ các Proxy ACTIVE khác đều không còn slot trống cho Server này! Vui lòng thêm Proxy mới.`
+          );
+        }
+
+        console.log(`🔀 [Admin switchServer] Tự động di tản nick [${targetAcc.username}] từ Proxy [${targetAcc.proxyId}] sang Proxy [${candidateProxy.id}] để đổi sang Server [${serverName}].`);
+        targetAcc.proxyId = candidateProxy.id;
+      }
+    } else {
+      // 2. Tài khoản không dùng Proxy (Nick Admin chạy IP Direct)
+      const allAccounts = await this.accountRepo.findAll();
+      const livingOnDirect = allAccounts.filter(a => !a.proxyId && a.id !== accountId && !a.isRentalExpired());
+      const countNewServerOnDirect = livingOnDirect.filter(a => parseInt(a.serverId, 10) === sId).length;
+
+      if (countNewServerOnDirect >= ServerLimitRule.MAX_PER_SERVER) {
+        throw new BadRequestException(`❌ IP Direct máy chủ đã đủ ${ServerLimitRule.MAX_PER_SERVER} tài khoản Server [${serverName}]! Vui lòng gán Proxy cho tài khoản.`);
+      }
+      if (livingOnDirect.length >= ServerLimitRule.MAX_PER_PROXY) {
+        throw new BadRequestException(`❌ IP Direct máy chủ đã đạt tối đa ${ServerLimitRule.MAX_PER_PROXY} tài khoản! Vui lòng gán Proxy cho tài khoản.`);
+      }
     }
 
     targetAcc.serverId = sId;
@@ -149,6 +191,45 @@ class AccountService {
     const targetAcc = await this.accountRepo.findById(accountId);
     if (!targetAcc) {
       throw new NotFoundException(`Không tìm thấy tài khoản với ID [${accountId}]!`);
+    }
+
+    // =========================================================================
+    // BẢO MẬT TẦNG 1: KIỂM SOÁT QUYỀN TÍNH NĂNG THEO GÓI THUÊ (ANTI-TAMPERING)
+    // =========================================================================
+    if (targetAcc.rentalPlan) {
+      let allowedFeatures = ['farm', 'upThue'];
+      let planName = targetAcc.rentalPlan;
+
+      if (this.settingRepo) {
+        try {
+          const rules = await this.settingRepo.get('rental_allocation_rules');
+          const plan = rules?.plans?.[targetAcc.rentalPlan];
+          if (plan) {
+            if (plan.name) planName = plan.name;
+            if (Array.isArray(plan.features)) allowedFeatures = plan.features;
+          } else {
+            if (targetAcc.rentalPlan === 'FULL') allowedFeatures = ['farm', 'fish', 'diamond', 'sellOre', 'upThue'];
+            else if (targetAcc.rentalPlan === 'FISH') allowedFeatures = ['fish', 'upThue'];
+            else allowedFeatures = ['farm', 'upThue'];
+          }
+        } catch (e) {}
+      }
+
+      if (farmSettings !== undefined && farmSettings !== null && !allowedFeatures.includes('farm')) {
+        throw new BadRequestException(`❌ Gói [${planName}] không hỗ trợ tính năng Auto Farm! Vui lòng nâng cấp gói để sử dụng.`);
+      }
+      if (fishSettings !== undefined && fishSettings !== null && !allowedFeatures.includes('fish')) {
+        throw new BadRequestException(`❌ Gói [${planName}] không hỗ trợ tính năng Auto Câu cá! Vui lòng nâng cấp gói để sử dụng.`);
+      }
+      if (diamondSettings !== undefined && diamondSettings !== null && !allowedFeatures.includes('diamond')) {
+        throw new BadRequestException(`❌ Gói [${planName}] không hỗ trợ tính năng Auto KC! Vui lòng nâng cấp gói để sử dụng.`);
+      }
+      if (sellOreSettings !== undefined && sellOreSettings !== null && !allowedFeatures.includes('sellOre')) {
+        throw new BadRequestException(`❌ Gói [${planName}] không hỗ trợ tính năng Auto Bán đá! Vui lòng nâng cấp gói để sử dụng.`);
+      }
+      if ((targetCoins !== undefined || upDays !== undefined) && !allowedFeatures.includes('upThue')) {
+        throw new BadRequestException(`❌ Gói [${planName}] không hỗ trợ tính năng Cài đặt Úp thuê! Vui lòng nâng cấp gói để sử dụng.`);
+      }
     }
 
     if (targetCoins !== undefined && targetCoins !== null && targetCoins !== '') {

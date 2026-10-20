@@ -4,7 +4,7 @@
  * Password is NEVER exposed as plain text.
  */
 class AccountResponseDto {
-  constructor(account, runtimeInfo = null) {
+  constructor(account, runtimeInfo = null, proxyName = null) {
     this.id = account.id;
     this.userId = account.userId || null;
     this.username = account.username;
@@ -13,6 +13,7 @@ class AccountResponseDto {
     this.serverName = account.serverName;
     this.fileId = account.fileId;
     this.proxyId = account.proxyId;
+    this.proxyName = proxyName || account.proxyName || null;
     this.note = account.note;
     this.ipSlot = account.ipSlot;
     this.appId = account.appId;

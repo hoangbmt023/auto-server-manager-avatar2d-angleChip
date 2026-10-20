@@ -1,5 +1,6 @@
 const ProxyChecker = require('../../infrastructure/network/ProxyChecker');
 const ProxyMapper = require('../mappers/ProxyMapper');
+const ServerLimitRule = require('../../domain/rules/ServerLimitRule');
 const { NotFoundException, BadRequestException } = require('../../domain/errors');
 
 /**
@@ -108,10 +109,68 @@ class ProxyService {
 
   /**
    * Delete Proxy: Modifies 2 tables (accounts, proxies)
-   * -> MANDATORY TRANSACTION USED
+   * Tự động di tản (Evacuate) các nick còn hạn sang Proxy ACTIVE khác.
+   * Nếu không đủ chỗ dồn thì CHẶN ĐỨNG lệnh xóa để bảo vệ tài khoản của khách.
    */
   async deleteProxy(id) {
-    // 1. Stop any bots running with this proxy
+    const allAccounts = await this.accountRepo.findAll();
+    const accountsOnProxy = allAccounts.filter(a => a.proxyId === id);
+    const livingBots = accountsOnProxy.filter(a => !a.isRentalExpired());
+
+    // 1. Thử tự động di tản các nick còn hạn sang các Proxy ACTIVE khác
+    if (livingBots.length > 0) {
+      const allProxies = await this.proxyRepo.findAll();
+      const now = Date.now();
+      const availableProxies = allProxies.filter(p => {
+        if (p.id === id || p.status !== 'ACTIVE' || p.isExpired) return false;
+        if (p.expiresAt && new Date(p.expiresAt).getTime() <= now + 2 * 3600 * 1000) return false;
+        return true;
+      });
+
+      const stuckBots = [];
+      const currentGlobalAccounts = [...allAccounts];
+
+      for (const bot of livingBots) {
+        const sId = parseInt(bot.serverId, 10) === 1 ? 1 : 0;
+        const targetProxy = availableProxies.find(p => {
+          const botsOnP = currentGlobalAccounts.filter(a => a.proxyId === p.id && !a.isRentalExpired());
+          if (botsOnP.length >= ServerLimitRule.MAX_PER_PROXY) return false;
+          const sameServer = botsOnP.filter(a => (parseInt(a.serverId, 10) === 1 ? 1 : 0) === sId).length;
+          return sameServer < ServerLimitRule.MAX_PER_SERVER;
+        });
+
+        if (targetProxy) {
+          console.log(`🚀 [deleteProxy Evacuate] Di tản nick [${bot.username}] từ Proxy [${id}] sang Proxy [${targetProxy.id}]...`);
+          bot.proxyId = targetProxy.id;
+          await this.accountRepo.save(bot);
+
+          // Cập nhật mảng local để nick kế tiếp tính chính xác
+          const idx = currentGlobalAccounts.findIndex(a => a.id === bot.id);
+          if (idx !== -1) currentGlobalAccounts[idx] = bot;
+
+          // Nếu bot đang chạy, khởi động lại trên Proxy mới
+          if (this.multiBotManager && this.multiBotManager.isAccountRunning(bot.id)) {
+            this.multiBotManager.stopAccount(bot.id);
+            setTimeout(async () => {
+              try {
+                await this.multiBotManager.startAccount(bot.id);
+              } catch (e) {}
+            }, 1200);
+          }
+        } else {
+          stuckBots.push(bot);
+        }
+      }
+
+      // Nếu còn bất kỳ nick nào không thể di tản do thiếu chỗ trống trên các Proxy khác
+      if (stuckBots.length > 0) {
+        throw new BadRequestException(
+          `❌ Không thể xóa Proxy này! Hiện còn ${stuckBots.length} tài khoản thuê còn hạn hoạt động nhưng các Proxy ACTIVE khác không đủ slot trống để di tản (Tối đa 6 nick/proxy, 3 nick/server). Vui lòng thêm Proxy mới trước khi xóa!`
+        );
+      }
+    }
+
+    // 2. Dừng các nick đã hết hạn còn sót lại trên proxy này nếu đang chạy
     const runningAccounts = this.multiBotManager ? await this.multiBotManager.getRunningAccounts() : [];
     const runningOnProxy = runningAccounts.filter(a => a.proxyId === id);
     for (const acc of runningOnProxy) {
@@ -120,10 +179,10 @@ class ProxyService {
       } catch (e) {}
     }
 
-    // MULTI-TABLE OPERATION (2 tables) -> Use MySQL Transaction
+    // 3. MULTI-TABLE OPERATION (2 tables) -> Use MySQL Transaction
     if (this.transactionManager) {
       const result = await this.transactionManager.withTransaction(async (conn) => {
-        // Table 1: Unlink proxy from accounts
+        // Table 1: Unlink proxy from accounts (chỉ còn các nick đã hết hạn hoặc không thuê)
         await this.accountRepo.unlinkProxy(id, conn);
 
         // Table 2: Delete proxy record

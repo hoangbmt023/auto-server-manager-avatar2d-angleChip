@@ -60,17 +60,17 @@ class ServerLimitRule {
     const runningInServerIp = runningInSameIp.filter(a => parseInt(a.serverId, 10) === sId).length;
 
     if (runningInServerIp >= maxPerServer) {
-      throw new Error(`❌ GIỚI HẠN IP [${ipDisplayName}]: Server [${serverName}] trên IP này đã đạt tối đa ${maxPerServer} nick online trên toàn hệ thống! Vui lòng dừng bớt 1 nick trước khi treo tiếp.`);
+      throw new BadRequestException(`❌ GIỚI HẠN IP [${ipDisplayName}]: Server [${serverName}] trên IP này đã đạt tối đa ${maxPerServer} nick online trên toàn hệ thống! Vui lòng dừng bớt 1 nick trước khi treo tiếp.`);
     }
 
     if (runningInSameIp.length >= maxPerProxy) {
-      throw new Error(`❌ GIỚI HẠN IP [${ipDisplayName}]: IP này đã đạt tối đa ${maxPerProxy} nick online cùng lúc trên toàn hệ thống!`);
+      throw new BadRequestException(`❌ GIỚI HẠN IP [${ipDisplayName}]: IP này đã đạt tối đa ${maxPerProxy} nick online cùng lúc trên toàn hệ thống!`);
     }
 
     // 2. Validate File Profile running limit
     const runningInSameFile = allRunningAccounts.filter(a => a.fileId === targetAccount.fileId);
     if (runningInSameFile.length >= maxAccountsInFile) {
-      throw new Error(`❌ GIỚI HẠN FILE: File này đã đạt tối đa ${maxAccountsInFile} nick online cùng lúc!`);
+      throw new BadRequestException(`❌ GIỚI HẠN FILE: File này đã đạt tối đa ${maxAccountsInFile} nick online cùng lúc!`);
     }
   }
 
@@ -82,7 +82,7 @@ class ServerLimitRule {
     const limit = this.MAX_PER_PROXY;
     const runningWithProxy = allRunningAccounts.filter(a => a.id !== targetAccount.id && a.proxyId === targetAccount.proxyId);
     if (runningWithProxy.length >= limit) {
-      throw new Error(`❌ GIỚI HẠN PROXY: Proxy [${proxy.name || proxy.host}] đã đạt tối đa ${limit} tài khoản online cùng lúc! Vui lòng chọn Proxy khác hoặc dừng 1 nick.`);
+      throw new BadRequestException(`❌ GIỚI HẠN PROXY: Proxy [${proxy.name || proxy.host}] đã đạt tối đa ${limit} tài khoản online cùng lúc! Vui lòng chọn Proxy khác hoặc dừng 1 nick.`);
     }
   }
 }

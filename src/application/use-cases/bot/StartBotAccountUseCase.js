@@ -2,6 +2,7 @@ const SingleBotProcess = require('../../../infrastructure/process/SingleBotProce
 const JavaDetector = require('../../../infrastructure/process/JavaDetector');
 const ServerLimitRule = require('../../../domain/rules/ServerLimitRule');
 const ProxyChecker = require('../../../infrastructure/network/ProxyChecker');
+const { BadRequestException, NotFoundException } = require('../../../domain/errors');
 
 /**
  * StartBotAccountUseCase (Application Layer - Use Case)
@@ -23,14 +24,14 @@ class StartBotAccountUseCase {
     // 1. Fetch Account directly from MySQL
     const account = await this.accountRepo.findById(accountId);
     if (!account) {
-      throw new Error(`Không tìm thấy tài khoản với ID [${accountId}]!`);
+      throw new NotFoundException(`Không tìm thấy tài khoản với ID [${accountId}]!`);
     }
 
     // 2. Fetch File Profile directly from MySQL
     const fileId = account.fileId || (await this.fileRepo.getActiveFileId()) || 'file_1';
     const fileProfile = await this.fileRepo.findById(fileId);
     if (!fileProfile) {
-      throw new Error(`Không tìm thấy cấu hình File/Profile cho tài khoản này!`);
+      throw new NotFoundException(`Không tìm thấy cấu hình File/Profile cho tài khoản này!`);
     }
 
     // 3. Cross-worker check: if already running in local RAM or on OS, return idempotent success
@@ -47,19 +48,19 @@ class StartBotAccountUseCase {
     // 5. Check proxy limits and liveness
     const isCustomerRental = Boolean(account.userId || account.rentalExpiresAt);
     if (isCustomerRental && (!account.proxyId || !proxy)) {
-      throw new Error(`[SECURITY BLOCK] Tài khoản thuê của khách [${account.username}] bắt buộc phải có Proxy khả dụng để bảo vệ IP máy chủ!`);
+      throw new BadRequestException(`[SECURITY BLOCK] Tài khoản thuê của khách [${account.username}] bắt buộc phải có Proxy khả dụng để bảo vệ IP máy chủ!`);
     }
 
     if (account.proxyId && proxy) {
       if (proxy.isExpired) {
-        throw new Error(`❌ Proxy [${proxy.name || proxy.host}] gán cho nick [${account.username}] ĐÃ BỊ ĐÁNH DẤU HẾT HẠN! Vui lòng đổi proxy khác.`);
+        throw new BadRequestException(`❌ Proxy [${proxy.name || proxy.host}] gán cho nick [${account.username}] ĐÃ BỊ ĐÁNH DẤU HẾT HẠN! Vui lòng đổi proxy khác.`);
       }
 
       // Live Health Test before spawning process
       const testRes = await ProxyChecker.testProxy(proxy, 3500);
       if (testRes.isExpired) {
         await this.multiBotManager.markProxyExpired(account.proxyId, testRes.message, account.id);
-        throw new Error(`❌ Proxy [${proxy.name || proxy.host}] của nick [${account.username}] ĐÃ HẾT HẠN hoặc LỖI KẾT NỐI (${testRes.message})! Đã tự động đánh dấu cờ.`);
+        throw new BadRequestException(`❌ Proxy [${proxy.name || proxy.host}] của nick [${account.username}] ĐÃ HẾT HẠN hoặc LỖI KẾT NỐI (${testRes.message})! Đã tự động đánh dấu cờ.`);
       }
 
       ServerLimitRule.validateProxyLimit(otherRunning, account, proxy);

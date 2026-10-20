@@ -1,5 +1,6 @@
 const AsyncMutex = require('../../shared/utils/AsyncMutex');
 const Proxy = require('../../domain/entities/Proxy');
+const ProxyChecker = require('../../infrastructure/network/ProxyChecker');
 
 /**
  * ResourceAllocationEngine (Application Layer - Domain Service)
@@ -36,7 +37,7 @@ class ResourceAllocationEngine {
     return rules || {
       plans: {
         UPXU: { name: 'Auto Up Xu Nông Trại', priceMonth: 50000, modType: 'UPXU', defaultFileId: 'file_1' },
-        FULL: { name: 'Full Chức Năng ChipMix', priceMonth: 90000, modType: 'CHIPMIX', defaultFileId: 'file_1' },
+        FULL: { name: 'Auto Full chức năng', priceMonth: 90000, modType: 'CHIPMIX', defaultFileId: 'file_1' },
         FISH: { name: 'Auto Câu Cá Chuyên Nghiệp', priceMonth: 60000, modType: 'FISH', defaultFileId: 'file_1' }
       },
       durationDiscounts: { 1: 0, 3: 10, 6: 20, 12: 30 },
@@ -49,15 +50,16 @@ class ResourceAllocationEngine {
    * Determine best bot file, proxy and server for a new rental inside sequential mutex
    * @param {string} plan - UPXU | FULL | FISH
    * @param {number} durationMonths - Number of rental months (default: 1)
+   * @param {number|null} requiredServerId - 0 (HM) | 1 (DK) | null (Auto-balance)
    * @returns {Promise<{ fileId: string, proxyId: string, serverId: number, serverName: string }>}
    */
-  async allocateResources(plan = 'UPXU', durationMonths = 1) {
+  async allocateResources(plan = 'UPXU', durationMonths = 1, requiredServerId = null) {
     return this.mutex.runExclusive(async () => {
-      return this._allocateResourcesInternal(plan, durationMonths);
+      return this._allocateResourcesInternal(plan, durationMonths, requiredServerId);
     });
   }
 
-  async _allocateResourcesInternal(plan, durationMonths) {
+  async _allocateResourcesInternal(plan, durationMonths, requiredServerId = null) {
     const rules = await this.getAllocationRules();
     const planKey = String(plan || 'UPXU').toUpperCase();
     const planConfig = rules.plans[planKey] || rules.plans.UPXU;
@@ -106,7 +108,8 @@ class ResourceAllocationEngine {
     let selectedProxy = await this._selectOptimalProxy({
       allProxies: allProxies || [],
       allAccounts: allAccounts || [],
-      botExpiresAt
+      botExpiresAt,
+      requiredServerId
     });
 
     // If no proxy has available slots (< 6 bots), trigger On-Demand Purchase from proxy.vn
@@ -121,9 +124,14 @@ class ResourceAllocationEngine {
     const proxyId = selectedProxy.id;
 
     // =========================================================================
-    // 3. CHOOSE SERVER (Auto-Balance HM / DK on selected proxy)
+    // 3. CHOOSE SERVER (Auto-Balance HM / DK hoặc Giữ nguyên server theo yêu cầu)
     // =========================================================================
-    const { serverId, serverName } = this._pickOptimalServer(selectedProxy, allAccounts);
+    const { serverId, serverName } = (requiredServerId !== null && requiredServerId !== undefined)
+      ? {
+          serverId: parseInt(requiredServerId, 10) === 1 ? 1 : 0,
+          serverName: parseInt(requiredServerId, 10) === 1 ? 'Diệu Kỳ' : 'Hoàn Mỹ'
+        }
+      : this._pickOptimalServer(selectedProxy, allAccounts);
 
     return {
       fileId,
@@ -136,7 +144,7 @@ class ResourceAllocationEngine {
   /**
    * Evaluates each living proxy and scores it using the 3 Group System and Best-Fit Decreasing formula.
    */
-  async _selectOptimalProxy({ allProxies, allAccounts, botExpiresAt }) {
+  async _selectOptimalProxy({ allProxies, allAccounts, botExpiresAt, requiredServerId = null }) {
     const now = Date.now();
     const candidateProxies = [];
 
@@ -150,7 +158,7 @@ class ResourceAllocationEngine {
       const totalBots = botsOnProxy.length;
       const maxCapacity = p.maxSlots || 6;
 
-      // Nếu đã đầy đủ 6 nick (hoặc 7 nick nếu là slot khẩn cấp) -> Bỏ qua
+      // Nếu đã đầy đủ 6 nick -> Bỏ qua
       if (totalBots >= maxCapacity) continue;
 
       const countHM = botsOnProxy.filter(a => parseInt(a.serverId, 10) === 0).length;
@@ -158,6 +166,13 @@ class ResourceAllocationEngine {
 
       // Phải còn ít nhất 1 slot server trống (HM < 3 hoặc DK < 3)
       if (countHM >= 3 && countDK >= 3) continue;
+
+      // Nếu có yêu cầu server cụ thể (ví dụ gia hạn nick cũ), phải còn slot cho server đó
+      if (requiredServerId !== null && requiredServerId !== undefined) {
+        const targetSId = parseInt(requiredServerId, 10) === 1 ? 1 : 0;
+        const countTarget = targetSId === 0 ? countHM : countDK;
+        if (countTarget >= 3) continue;
+      }
 
       // Tính overflow_bots: Số nick sống vượt quá hạn của Proxy
       const pExpiresMs = p.expiresAt ? new Date(p.expiresAt).getTime() : (now + 30 * 86400 * 1000);
@@ -239,6 +254,7 @@ class ResourceAllocationEngine {
         type: protocol
       });
 
+      // BƯỚC 1: BẮT BUỘC LƯU NGAY VÀO DATABASE ĐỂ KHÔNG BỊ MẤT 10.000Đ ĐÃ TRỪ TRÊN PROXY.VN
       const newProxy = new Proxy({
         externalId: buyResult.externalId,
         provider: 'PROXY_VN',
@@ -258,7 +274,22 @@ class ResourceAllocationEngine {
       });
 
       await this.proxyRepo.save(newProxy);
-      console.log(`✅ [ResourceAllocationEngine] Đã mua thành công Proxy mới [${newProxy.host}:${newProxy.port}] (ID: ${newProxy.externalId}). Hạn dùng: ${buyResult.expiresAt.toISOString()}`);
+      console.log(`✅ [ResourceAllocationEngine] ĐÃ LƯU DB AN TOÀN Proxy mới [${newProxy.host}:${newProxy.port}] (ID: ${newProxy.externalId}). Hạn dùng: ${buyResult.expiresAt.toISOString()}`);
+
+      // BƯỚC 2: KIỂM TRA SƠ BỘ KẾT NỐI (TUYỆT ĐỐI KHÔNG THROW ERROR ĐỂ TRÁNH ROLLBACK TIỀN KHÁCH)
+      try {
+        const testResult = await ProxyChecker.testProxy(newProxy.toJSON(), 3500);
+        if (!testResult.isExpired && testResult.latencyMs > 0) {
+          newProxy.markActive(testResult.latencyMs);
+          await this.proxyRepo.save(newProxy);
+          console.log(`⚡ [ResourceAllocationEngine] Proxy [${newProxy.host}:${newProxy.port}] đã mở cổng SOCKS5 thành công (Latency: ${testResult.latencyMs}ms).`);
+        } else {
+          console.warn(`⏳ [ResourceAllocationEngine] Proxy [${newProxy.host}:${newProxy.port}] vừa mua đang đợi nhà mạng mở cổng SOCKS5. Đã lưu DB an toàn, tiếp tục phân bổ cho khách.`);
+        }
+      } catch (testErr) {
+        console.warn(`⏳ [ResourceAllocationEngine] Kiểm tra kết nối ban đầu chưa phản hồi (${testErr.message}). Đã lưu DB an toàn, không hủy giao dịch.`);
+      }
+
       return newProxy;
     } catch (err) {
       console.error('❌ [ResourceAllocationEngine] Lỗi khi tự động mua Proxy từ proxy.vn:', err.message);

@@ -51,6 +51,16 @@ window.AccountActions = function AccountActions({
     if (onTriggerAuto) onTriggerAuto(account.id, autoType, action);
   };
 
+  const planFeatures = React.useMemo(() => {
+    if (!account.rentalPlan) return null; // Nick Admin/Nội bộ có full quyền
+    if (account.allowedFeatures && Array.isArray(account.allowedFeatures)) return account.allowedFeatures;
+    if (account.rentalPlan === 'FULL') return ['farm', 'fish', 'diamond', 'sellOre', 'upThue'];
+    if (account.rentalPlan === 'FISH') return ['fish', 'upThue'];
+    return ['farm', 'upThue'];
+  }, [account.rentalPlan, account.allowedFeatures]);
+
+  const canUse = (feat) => !planFeatures || planFeatures.includes(feat);
+
   const isAutoRunning = Boolean(autoState.isRunning || (stats.isAutoRunning && stats.autoType));
   const activeAutoType = autoState.autoType || stats.autoType || null;
   const subTask = autoState.subTask || null;
@@ -98,58 +108,34 @@ window.AccountActions = function AccountActions({
           <div className="dropdown-menu-glass">
             <div style={{ padding: '6px 10px', fontSize: '0.7rem', color: 'var(--text-tertiary)', borderBottom: '1px solid var(--glass-border-subtle)', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '5px' }}>
               <window.Icon name={modType === 'chipmix' ? 'zap' : isFishMod ? 'fish' : 'gem'} size={12} />
-              {modType === 'chipmix' ? 'CHIPMIX FULL AUTO' : isFishMod ? 'AUTO UP CÂU CÁ' : 'AUTO UP KIM CƯƠNG'}
+              {account.rentalPlan ? `GÓI ${account.rentalPlan}` : (modType === 'chipmix' ? 'CHIPMIX FULL AUTO' : isFishMod ? 'AUTO UP CÂU CÁ' : 'AUTO UP KIM CƯƠNG')}
             </div>
-            {modType === 'chipmix' ? (
-              <>
-                <button className="dropdown-item-glass" onClick={() => handleTriggerAutoAction('fish', isFishRunning ? 'stop' : 'start')}>
-                  <window.Icon name={isFishRunning ? 'stop' : 'fish'} size={14} />
-                  {isFishRunning ? 'Dừng Auto Câu Cá' : 'Bật Auto Câu Cá'}
-                </button>
-                <button className="dropdown-item-glass" onClick={() => handleTriggerAutoAction('diamond', isDiamondRunning ? 'stop' : 'start')}>
-                  <window.Icon name={isDiamondRunning ? 'stop' : 'gem'} size={14} />
-                  {isDiamondRunning ? 'Dừng Auto Kim Cương' : 'Bật Auto Kim Cương'}
-                </button>
-                <button className="dropdown-item-glass" onClick={() => handleTriggerAutoAction('farm', isFarmRunning ? 'stop' : 'start')}>
-                  <window.Icon name={isFarmRunning ? 'stop' : 'sprout'} size={14} />
-                  {isFarmRunning ? 'Dừng Auto Farm' : 'Bật Auto Farm'}
-                </button>
-                <button className="dropdown-item-glass" onClick={() => handleTriggerAutoAction('sell_ore', isSellOreRunning ? 'stop' : 'start')}>
-                  <window.Icon name={isSellOreRunning ? 'stop' : 'rock'} size={14} />
-                  {isSellOreRunning ? 'Dừng Bán Đá' : 'Bật Bán Đá'}
-                </button>
-              </>
-            ) : isFishMod ? (
-              <>
-                <button className="dropdown-item-glass" onClick={() => handleTriggerAutoAction('fish', isFishRunning ? 'stop' : 'start')}>
-                  <window.Icon name={isFishRunning ? 'stop' : 'fish'} size={14} />
-                  {isFishRunning ? 'Dừng Auto Câu Cá' : 'Bật Auto Câu Cá'}
-                </button>
-                <button className="dropdown-item-glass" onClick={() => handleTriggerAutoAction('farm', isFarmRunning ? 'stop' : 'start')}>
-                  <window.Icon name={isFarmRunning ? 'stop' : 'sprout'} size={14} />
-                  {isFarmRunning ? 'Dừng Auto Farm' : 'Bật Auto Farm'}
-                </button>
-                <button className="dropdown-item-glass" onClick={() => handleTriggerAutoAction('sell_ore', isSellOreRunning ? 'stop' : 'start')}>
-                  <window.Icon name={isSellOreRunning ? 'stop' : 'rock'} size={14} />
-                  {isSellOreRunning ? 'Dừng Bán Đá' : 'Bật Bán Đá'}
-                </button>
-              </>
-            ) : (
-              <>
-                <button className="dropdown-item-glass" onClick={() => handleTriggerAutoAction('diamond', isDiamondRunning ? 'stop' : 'start')}>
-                  <window.Icon name={isDiamondRunning ? 'stop' : 'gem'} size={14} />
-                  {isDiamondRunning ? 'Dừng Auto Kim Cương' : 'Bật Auto Kim Cương'}
-                </button>
-                <button className="dropdown-item-glass" onClick={() => handleTriggerAutoAction('farm', isFarmRunning ? 'stop' : 'start')}>
-                  <window.Icon name={isFarmRunning ? 'stop' : 'sprout'} size={14} />
-                  {isFarmRunning ? 'Dừng Auto Farm' : 'Bật Auto Farm'}
-                </button>
-                <button className="dropdown-item-glass" onClick={() => handleTriggerAutoAction('sell_ore', isSellOreRunning ? 'stop' : 'start')}>
-                  <window.Icon name={isSellOreRunning ? 'stop' : 'rock'} size={14} />
-                  {isSellOreRunning ? 'Dừng Bán Đá' : 'Bật Bán Đá'}
-                </button>
-              </>
+
+            {canUse('fish') && (modType === 'chipmix' || isFishMod) && (
+              <button className="dropdown-item-glass" onClick={() => handleTriggerAutoAction('fish', isFishRunning ? 'stop' : 'start')}>
+                <window.Icon name={isFishRunning ? 'stop' : 'fish'} size={14} />
+                {isFishRunning ? 'Dừng Auto Câu cá' : 'Bật Auto Câu cá'}
+              </button>
             )}
+            {canUse('diamond') && (modType === 'chipmix' || !isFishMod) && (
+              <button className="dropdown-item-glass" onClick={() => handleTriggerAutoAction('diamond', isDiamondRunning ? 'stop' : 'start')}>
+                <window.Icon name={isDiamondRunning ? 'stop' : 'gem'} size={14} />
+                {isDiamondRunning ? 'Dừng Auto KC' : 'Bật Auto KC'}
+              </button>
+            )}
+            {canUse('farm') && (
+              <button className="dropdown-item-glass" onClick={() => handleTriggerAutoAction('farm', isFarmRunning ? 'stop' : 'start')}>
+                <window.Icon name={isFarmRunning ? 'stop' : 'sprout'} size={14} />
+                {isFarmRunning ? 'Dừng Auto Farm' : 'Bật Auto Farm'}
+              </button>
+            )}
+            {canUse('sellOre') && (
+              <button className="dropdown-item-glass" onClick={() => handleTriggerAutoAction('sell_ore', isSellOreRunning ? 'stop' : 'start')}>
+                <window.Icon name={isSellOreRunning ? 'stop' : 'rock'} size={14} />
+                {isSellOreRunning ? 'Dừng Auto Bán đá' : 'Bật Auto Bán đá'}
+              </button>
+            )}
+
             {autoState.isRunning && (
               <button className="dropdown-item-glass" style={{ color: 'var(--apple-red)' }} onClick={() => handleTriggerAutoAction('all', 'stop')}>
                 <window.Icon name="stop" size={14} color="var(--apple-red)" /> Dừng Tất Cả Auto
@@ -174,33 +160,31 @@ window.AccountActions = function AccountActions({
 
         {menuOpen && (
           <div className="dropdown-menu-glass">
-            <button className="dropdown-item-glass" onClick={() => handleSelectFeature('upThue')}>
-              <window.Icon name="coins" size={14} /> Cài Đặt Up Thuê
-            </button>
-            <button className="dropdown-item-glass" onClick={() => handleSelectFeature('farm')}>
-              <window.Icon name="sprout" size={14} /> Cài Đặt Auto Farm
-            </button>
-            {modType === 'chipmix' ? (
-              <>
-                <button className="dropdown-item-glass" onClick={() => handleSelectFeature('fish')}>
-                  <window.Icon name="fish" size={14} /> Cài Đặt Auto Câu Cá
-                </button>
-                <button className="dropdown-item-glass" onClick={() => handleSelectFeature('diamond')}>
-                  <window.Icon name="gem" size={14} /> Cài Đặt Auto Kim Cương
-                </button>
-              </>
-            ) : isFishMod ? (
-              <button className="dropdown-item-glass" onClick={() => handleSelectFeature('fish')}>
-                <window.Icon name="fish" size={14} /> Cài Đặt Auto Câu Cá
-              </button>
-            ) : (
-              <button className="dropdown-item-glass" onClick={() => handleSelectFeature('diamond')}>
-                <window.Icon name="gem" size={14} /> Cài Đặt Auto Kim Cương
+            {canUse('upThue') && (
+              <button className="dropdown-item-glass" onClick={() => handleSelectFeature('upThue')}>
+                <window.Icon name="coins" size={14} /> Cài Đặt Úp Thuê
               </button>
             )}
-            <button className="dropdown-item-glass" onClick={() => handleSelectFeature('sellOre')}>
-              <window.Icon name="rock" size={14} /> Cài Đặt Bán Đá
-            </button>
+            {canUse('farm') && (
+              <button className="dropdown-item-glass" onClick={() => handleSelectFeature('farm')}>
+                <window.Icon name="sprout" size={14} /> Cài Đặt Auto Farm
+              </button>
+            )}
+            {canUse('fish') && (modType === 'chipmix' || isFishMod) && (
+              <button className="dropdown-item-glass" onClick={() => handleSelectFeature('fish')}>
+                <window.Icon name="fish" size={14} /> Cài Đặt Auto Câu cá
+              </button>
+            )}
+            {canUse('diamond') && (modType === 'chipmix' || !isFishMod) && (
+              <button className="dropdown-item-glass" onClick={() => handleSelectFeature('diamond')}>
+                <window.Icon name="gem" size={14} /> Cài Đặt Auto KC
+              </button>
+            )}
+            {canUse('sellOre') && (
+              <button className="dropdown-item-glass" onClick={() => handleSelectFeature('sellOre')}>
+                <window.Icon name="rock" size={14} /> Cài Đặt Auto Bán đá
+              </button>
+            )}
           </div>
         )}
       </div>

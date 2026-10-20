@@ -15,9 +15,9 @@ window.RentSlotModal = function RentSlotModal({
   onOpenTopup
 }) {
   const [plans, setPlans] = React.useState({
-    UPXU: { name: 'Auto Up Xu Nông Trại', priceMonth: 50000, desc: 'Chăm farm, thu hoạch, giao đơn hàng, bán nông sản tự động' },
-    FULL: { name: 'Full Chức Năng ChipMix', priceMonth: 90000, desc: 'Bản đầy đủ: Farm + Câu cá + Đập đá + Bán quặng đa năng' },
-    FISH: { name: 'Auto Câu Cá Chuyên Nghiệp', priceMonth: 60000, desc: 'Tự động câu mọi map, tự mua vé & bán cá thông minh' }
+    UPXU: { name: 'Auto Up Xu Nông Trại', priceMonth: 50000, desc: 'Gói cày xu cơ bản tiết kiệm chi phí cho tài khoản nông dân' },
+    FULL: { name: 'Auto Full chức năng', priceMonth: 90000, desc: 'Gói toàn năng hỗ trợ đầy đủ mọi hoạt động kiếm xu và ngọc tự động' },
+    FISH: { name: 'Auto Câu Cá Chuyên Nghiệp', priceMonth: 60000, desc: 'Gói chuyên biệt cho cần thủ, tối ưu hoá thời gian và lợi nhuận câu cá' }
   });
   const [durationDiscounts, setDurationDiscounts] = React.useState({ 1: 0, 3: 10, 6: 20, 12: 30 });
 
@@ -140,32 +140,28 @@ window.RentSlotModal = function RentSlotModal({
     }
   };
 
-  return (
-    <div className="modal-overlay" onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}>
-      <div className="modal-card rent-slot-modal">
-        {/* Modal Header */}
-        <div className="modal-header">
-          <div className="rent-header-left">
-            <div className="sidebar-icon-box rent-icon-blue">
-              <window.Icon name="zap" size={20} />
-            </div>
-            <div>
-              <h3 className="rent-title">Thuê Slot Bot Tự Động</h3>
-              <span className="rent-sub">
-                Hệ thống tự động phân bổ tài nguyên tối ưu cho tài khoản
-              </span>
-            </div>
-          </div>
-          <button type="button" className="modal-close-btn" onClick={onClose}>
-            <window.Icon name="x" size={16} />
-          </button>
-        </div>
+  const FEATURE_NAMES = {
+    farm: 'Auto Farm',
+    fish: 'Auto Câu cá',
+    diamond: 'Auto KC',
+    sellOre: 'Auto Bán đá',
+    upThue: 'Cài đặt Úp thuê'
+  };
 
-        {error && (
-          <div className="alert-badge-danger rent-alert-danger">
-            {error}
-          </div>
-        )}
+  return (
+    <window.ModalBase
+      title="Thuê Slot Bot Tự Động"
+      subtitle="Hệ thống tự động phân bổ tài nguyên tối ưu cho tài khoản"
+      icon="zap"
+      iconColor="var(--apple-blue)"
+      size="md"
+      onClose={onClose}
+    >
+      {error && (
+        <div className="alert-badge-danger rent-alert-danger">
+          {error}
+        </div>
+      )}
 
         <form onSubmit={handleSubmit} className="rent-form">
           {/* 1. Game Account Credentials */}
@@ -202,6 +198,7 @@ window.RentSlotModal = function RentSlotModal({
             <div className="rent-plan-grid">
               {Object.entries(plans).map(([key, p]) => {
                 const isSelected = selectedPlan === key;
+                const featuresList = p.features || (key === 'FULL' ? ['farm', 'fish', 'diamond', 'sellOre', 'upThue'] : (key === 'FISH' ? ['fish', 'upThue'] : ['farm', 'upThue']));
                 return (
                   <div
                     key={key}
@@ -217,6 +214,15 @@ window.RentSlotModal = function RentSlotModal({
                     <span className="rent-plan-desc-txt">
                       {p.desc}
                     </span>
+                    {Array.isArray(featuresList) && featuresList.length > 0 && (
+                      <div className="rent-plan-features-list">
+                        {featuresList.map(fKey => (
+                          <span key={fKey} className="rent-plan-feature-tag">
+                            ✓ {FEATURE_NAMES[fKey] || fKey}
+                          </span>
+                        ))}
+                      </div>
+                    )}
                     <span className="rent-plan-price-txt">
                       {formatMoney(p.priceMonth)} đ<span className="rent-plan-price-sub">/tháng</span>
                     </span>
@@ -319,7 +325,7 @@ window.RentSlotModal = function RentSlotModal({
             <div className="rent-summary-balance-row">
               <span>Số dư hiện tại: <strong>{formatMoney(currentBalance)} đ</strong></span>
               <span>
-                Số dư sau thuê: <strong className={isBalanceSufficient ? 'rent-summary-val-green' : 'tx-status-failed'}>
+                Số dư sau thuê: <strong className={isBalanceSufficient ? 'rent-summary-val-green' : 'rent-summary-val-red'}>
                   {formatMoney(remainingBalanceAfter)} đ
                 </strong>
               </span>
@@ -357,7 +363,6 @@ window.RentSlotModal = function RentSlotModal({
             </button>
           </div>
         </form>
-      </div>
-    </div>
+    </window.ModalBase>
   );
 };

@@ -254,40 +254,76 @@ class RentSlotUseCase {
     const balanceAfter = balanceBefore - finalPrice;
     await this.userRepo.updateBalance(userId, -finalPrice);
 
-    const tx = new Transaction({
-      userId,
-      type: 'RENEWAL',
-      amount: -finalPrice,
-      balanceBefore,
-      balanceAfter,
-      description: `Gia hạn bot ${planConfig.name} (${months} tháng) cho nick [${account.username}]`,
-      voucherCode: appliedVoucher ? appliedVoucher.code : null,
-      status: 'SUCCESS'
-    });
-    await this.transactionRepo.save(tx);
+    try {
+      // =======================================================================
+      // KIỂM TRA MẤT GHẾ: NẾU HẾT HẠN LÂU NGÀY ĐÃ BỊ GỠ PROXY HOẶC PROXY CŨ ĐÃ ĐẦY/CHẾT
+      // =======================================================================
+      let needsNewAllocation = false;
+      let currentProxy = account.proxyId ? await this.proxyRepo.findById(account.proxyId) : null;
 
-    if (appliedVoucher) {
-      await this.voucherRepo.incrementUsedCount(appliedVoucher.code);
+      if (!currentProxy || currentProxy.status === 'EXPIRED' || currentProxy.isExpired) {
+        needsNewAllocation = true;
+      } else {
+        const allAccounts = await this.accountRepo.findAll();
+        const otherLivingOnProxy = allAccounts.filter(a => a.proxyId === currentProxy.id && a.id !== account.id && !a.isRentalExpired());
+        const targetSId = parseInt(account.serverId, 10) === 1 ? 1 : 0;
+        const sameServerOnProxy = otherLivingOnProxy.filter(a => (parseInt(a.serverId, 10) === 1 ? 1 : 0) === targetSId).length;
+
+        if (otherLivingOnProxy.length >= 6 || sameServerOnProxy >= 3) {
+          needsNewAllocation = true;
+        }
+      }
+
+      if (needsNewAllocation) {
+        console.log(`🔀 [RentSlotUseCase] Nick [${account.username}] gia hạn khi slot cũ trên Proxy đã bị người khác chiếm hoặc Proxy hết hạn. Đang tự động cấp phát Proxy mới cho Server [${account.serverName || account.serverId}]...`);
+        const allocation = await this.allocationEngine.allocateResources(planKey, months, account.serverId);
+        account.proxyId = allocation.proxyId;
+        if (allocation.fileId) account.fileId = allocation.fileId;
+        console.log(`✅ [RentSlotUseCase] Đã cấp phát thành công Proxy mới [${allocation.proxyId}] cho nick [${account.username}].`);
+      } else {
+        // Nếu không cần cấp phát mới thì vẫn kiểm tra xem proxy cũ có sắp hết hạn (<= 2h) hoặc DRAINING để tận dụng slot trống miễn phí nếu có
+        await this._evacuateAccountIfNeeded(account, months);
+      }
+
+      const tx = new Transaction({
+        userId,
+        type: 'RENEWAL',
+        amount: -finalPrice,
+        balanceBefore,
+        balanceAfter,
+        description: `Gia hạn bot ${planConfig.name} (${months} tháng) cho nick [${account.username}]`,
+        voucherCode: appliedVoucher ? appliedVoucher.code : null,
+        status: 'SUCCESS'
+      });
+      await this.transactionRepo.save(tx);
+
+      if (appliedVoucher) {
+        await this.voucherRepo.incrementUsedCount(appliedVoucher.code);
+      }
+
+      // Extend expiration: if already expired, start from now; otherwise add to current expiration
+      const currentExpiry = account.rentalExpiresAt ? new Date(account.rentalExpiresAt).getTime() : Date.now();
+      const baseTime = currentExpiry > Date.now() ? currentExpiry : Date.now();
+      const newExpiresAt = new Date(baseTime + months * 30 * 24 * 60 * 60 * 1000);
+
+      account.rentalExpiresAt = newExpiresAt;
+      await this.accountRepo.save(account);
+
+      return {
+        account: account.toPublicJson(),
+        transaction: tx.toPublicJson(),
+        remainingBalance: balanceAfter
+      };
+    } catch (err) {
+      // Rollback tiền ví nếu cấp phát hoặc xử lý gia hạn thất bại
+      try {
+        await this.userRepo.updateBalance(userId, finalPrice);
+        console.log(`↩️ [RentSlotUseCase] ĐÃ HOÀN TRẢ LẠI ${finalPrice}đ CHO USER [${userId}] do lỗi gia hạn: ${err.message}`);
+      } catch (rbErr) {
+        console.error(`🚨 [RentSlotUseCase] Lỗi rollback tiền cho user [${userId}]:`, rbErr.message);
+      }
+      throw err;
     }
-
-    // Extend expiration: if already expired, start from now; otherwise add to current expiration
-    const currentExpiry = account.rentalExpiresAt ? new Date(account.rentalExpiresAt).getTime() : Date.now();
-    const baseTime = currentExpiry > Date.now() ? currentExpiry : Date.now();
-    const newExpiresAt = new Date(baseTime + months * 30 * 24 * 60 * 60 * 1000);
-
-    account.rentalExpiresAt = newExpiresAt;
-    await this.accountRepo.save(account);
-
-    // =========================================================================
-    // XỬ LÝ DI TẢN NICK SAU KHI GIA HẠN
-    // =========================================================================
-    await this._evacuateAccountIfNeeded(account, months);
-
-    return {
-      account: account.toPublicJson(),
-      transaction: tx.toPublicJson(),
-      remainingBalance: balanceAfter
-    };
   }
 
   /**

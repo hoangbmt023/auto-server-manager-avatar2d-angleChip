@@ -91,6 +91,13 @@ class ProxyLifecycleCron {
             await this.multiBotManager.stopAccount(acc.id);
           } catch (e) {}
         }
+
+        // Gỡ bỏ proxyId để giải phóng hẳn ghế trống trên Proxy cho khách mới
+        if (acc.proxyId) {
+          console.log(`🧹 [ProxyLifecycleCron] Thu hồi slot trên Proxy [${acc.proxyId}] của nick hết hạn [${acc.username}] để giải phóng ghế.`);
+          acc.proxyId = null;
+          await this.accountRepo.save(acc);
+        }
       }
     }
   }
