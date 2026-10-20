@@ -133,6 +133,7 @@ class HttpServer {
     );
     this.allocationMutex = AsyncMutex.globalAllocationMutex;
     this.proxyVnApiClient = new ProxyVnApiClient(config.proxyVn);
+    this.multiBotManager.setProxyVnApiClient(this.proxyVnApiClient);
     this.allocationEngine = new ResourceAllocationEngine(
       this.fileRepo,
       this.proxyRepo,
@@ -176,7 +177,8 @@ class HttpServer {
       this.settingRepo,
       this.voucherRepo,
       this.fileRepo,
-      this.proxyRepo
+      this.proxyRepo,
+      this.allocationMutex
     );
 
     // Interface Controllers

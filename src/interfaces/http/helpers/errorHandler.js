@@ -14,9 +14,17 @@ const config = require('../../../../config');
  * @param {Error} err - Error caught in try/catch
  */
 function sendErrorResponse(res, sendJson, err) {
-  // 1. Lỗi đã được định nghĩa và bắt chủ động trong ứng dụng (AppException)
-  if (err instanceof AppException || (err && err.statusCode && err.statusCode >= 400 && err.statusCode < 500)) {
-    const statusCode = err.statusCode || 400;
+  // 1. Lỗi đã được định nghĩa và bắt chủ động trong ứng dụng (AppException hoặc thông báo nghiệp vụ)
+  const isAppEx = err instanceof AppException || (err && err.statusCode && err.statusCode >= 400 && err.statusCode < 500);
+  const isOperationalError = err && typeof err.message === 'string' && (
+    err.message.startsWith('❌') ||
+    err.message.includes('[SECURITY BLOCK]') ||
+    err.message.includes('GIỚI HẠN') ||
+    err.message.includes('Không tìm thấy')
+  );
+
+  if (isAppEx || isOperationalError) {
+    const statusCode = err.statusCode || (err.message && err.message.includes('Không tìm thấy') ? 404 : 400);
     if (err.errors && typeof err.errors === 'object') {
       return sendJson(res, statusCode, ErrorResponse.validation(err.errors, err.message || 'Không hợp lệ'));
     }

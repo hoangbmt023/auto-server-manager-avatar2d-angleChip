@@ -4,6 +4,7 @@ const CrossProcessBus = require('../../infrastructure/ipc/CrossProcessBus');
 const StartBotAccountUseCase = require('../use-cases/bot/StartBotAccountUseCase');
 const StopBotAccountUseCase = require('../use-cases/bot/StopBotAccountUseCase');
 const { DateTimeUtil } = require('../../shared/utils/dateTime');
+const ProxyChecker = require('../../infrastructure/network/ProxyChecker');
 
 /**
  * MultiBotManager (Application Layer)
@@ -19,6 +20,7 @@ class MultiBotManager extends EventEmitter {
     this.proxyRepo = proxyRepo;
     this.settingRepo = settingRepo;
     this.sseEventBus = sseEventBus;
+    this.proxyVnApiClient = null;
 
     this.runningBots = new Map(); // Local worker Map: accountId -> SingleBotProcess
     this.processRegistry = new ProcessRegistry();
@@ -302,41 +304,88 @@ class MultiBotManager extends EventEmitter {
     return false;
   }
 
+  setProxyVnApiClient(client) {
+    this.proxyVnApiClient = client;
+  }
+
   async markProxyExpired(proxyId, reason, accountId = null) {
     if (!proxyId) return;
 
     let proxy = null;
+    let isActuallyExpired = false;
     if (this.proxyRepo) {
       try {
         proxy = await this.proxyRepo.findById(proxyId);
-        await this.proxyRepo.updateStatus(proxyId, false, true);
+        if (proxy && proxy.expiresAt) {
+          isActuallyExpired = new Date(proxy.expiresAt).getTime() <= Date.now();
+        } else if (proxy && proxy.isExpired) {
+          isActuallyExpired = true;
+        }
+
+        if (isActuallyExpired) {
+          await this.proxyRepo.updateStatus(proxyId, false, true);
+        } else if (proxy) {
+          // Proxy còn hạn dùng nhưng lỗi mạng: chỉ tăng failCount, KHÔNG gán cờ EXPIRED
+          proxy.failCount = (proxy.failCount || 0) + 1;
+          await this.proxyRepo.save(proxy);
+        }
       } catch (e) {
         console.error('Error updating expired proxy in MySQL:', e.message);
       }
     }
 
-    if (this.sseEventBus) {
-      this.sseEventBus.broadcast('bot-status-changed', {
-        type: 'proxy-expired',
-        proxyId,
-        reason
-      });
-      let username = '';
-      if (accountId && this.accountRepo) {
-        try {
-          const acc = await this.accountRepo.findById(accountId);
-          if (acc) username = acc.username;
-        } catch (e) {}
+    const proxyName = proxy ? proxy.name : proxyId;
+    const proxyHost = proxy ? `${proxy.host}:${proxy.port}` : '';
+
+    if (isActuallyExpired) {
+      if (this.sseEventBus) {
+        this.sseEventBus.broadcast('bot-status-changed', {
+          type: 'proxy-expired',
+          proxyId,
+          reason
+        });
+        let username = '';
+        if (accountId && this.accountRepo) {
+          try {
+            const acc = await this.accountRepo.findById(accountId);
+            if (acc) username = acc.username;
+          } catch (e) {}
+        }
+        this.sseEventBus.addLog({
+          timestamp: new Date().toLocaleTimeString('vi-VN', { hour12: false }),
+          type: 'error',
+          accountId: accountId,
+          username,
+          text: `🛑 [PROXY ALERT]: Proxy [${proxyName}] (${proxyHost}) ĐÃ HẾT HẠN THỰC SỰ (${reason})! Đã đánh dấu cờ hết hạn.`
+        });
       }
-      const proxyName = proxy ? proxy.name : proxyId;
-      const proxyHost = proxy ? `${proxy.host}:${proxy.port}` : '';
-      this.sseEventBus.addLog({
-        timestamp: new Date().toLocaleTimeString('vi-VN', { hour12: false }),
-        type: 'error',
-        accountId: accountId,
-        username,
-        text: `🛑 [PROXY ALERT]: Phát hiện Proxy [${proxyName}] (${proxyHost}) HẾT HẠN hoặc LỖI XÁC THỰC! Đã đánh dấu cờ hết hạn.`
-      });
+    } else {
+      // Vẫn còn hạn dùng -> Thử kích hoạt đổi IP tự động nếu có thể
+      let rotated = false;
+      if (this.proxyVnApiClient && proxy && proxy.externalId) {
+        try {
+          const rotRes = await ProxyChecker.rotateProxyWithCooldown({
+            proxy,
+            proxyVnApiClient: this.proxyVnApiClient,
+            proxyRepo: this.proxyRepo,
+            multiBotManager: this,
+            accountRepo: this.accountRepo
+          });
+          rotated = Boolean(rotRes && rotRes.rotated);
+        } catch (rotErr) {
+          console.warn(`[MultiBotManager] Lỗi xoay IP proxy [${proxyName}]:`, rotErr.message);
+        }
+      }
+
+      if (this.sseEventBus) {
+        this.sseEventBus.addLog({
+          timestamp: new Date().toLocaleTimeString('vi-VN', { hour12: false }),
+          type: 'warn',
+          accountId: accountId,
+          username: '',
+          text: `⚠️ [PROXY RECOVERY]: Proxy [${proxyName}] mất kết nối (${reason}) nhưng còn hạn dùng! ${rotated ? 'Đã tự động xoay IP mới thành công.' : 'Giữ nguyên trạng thái để thử lại, không hủy proxy.'}`
+        });
+      }
     }
   }
 

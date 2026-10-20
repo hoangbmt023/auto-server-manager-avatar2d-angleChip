@@ -104,8 +104,8 @@ class ProxyVnApiClient {
     }
 
     // Verify valid IP and Port returned
-    const parsedIp = String(resultObj.ip || resultObj.proxy || '').trim();
-    const parsedPort = parseInt(resultObj.port, 10);
+    const parsedIp = this._parseIp(resultObj);
+    const parsedPort = this._parsePort(resultObj, pType);
     const parsedId = String(resultObj.idproxy || resultObj.id || '').trim();
 
     if (!parsedIp || !parsedPort || isNaN(parsedPort)) {
@@ -124,6 +124,37 @@ class ProxyVnApiClient {
       category: cat,
       expiresAt
     };
+  }
+
+  _parsePort(resultObj, type = 'SOCKS5') {
+    if (!resultObj) return null;
+    const isSocks = String(type || '').toUpperCase().startsWith('SOCK');
+    const rawPort = isSocks
+      ? (resultObj.port_socks5 || resultObj.port || resultObj.port_http)
+      : (resultObj.port_http || resultObj.port || resultObj.port_socks5);
+
+    if (rawPort !== undefined && rawPort !== null && rawPort !== '') {
+      const p = parseInt(rawPort, 10);
+      if (!isNaN(p) && p > 0 && p <= 65535) return p;
+    }
+
+    const proxyStr = String(resultObj.ip || resultObj.proxy || '').trim();
+    if (proxyStr.includes(':')) {
+      const parts = proxyStr.split(':');
+      const p = parseInt(parts[1], 10);
+      if (!isNaN(p) && p > 0 && p <= 65535) return p;
+    }
+
+    return null;
+  }
+
+  _parseIp(resultObj) {
+    if (!resultObj) return '';
+    let ipStr = String(resultObj.ip || resultObj.proxy || '').trim();
+    if (ipStr.includes(':')) {
+      ipStr = ipStr.split(':')[0].trim();
+    }
+    return ipStr;
   }
 
   /**
@@ -261,8 +292,8 @@ class ProxyVnApiClient {
       throw new Error(`[Proxy.vn] ${msg}`);
     }
 
-    const parsedIp = String(resultObj.ip || resultObj.proxy || '').trim();
-    const parsedPort = parseInt(resultObj.port, 10);
+    const parsedIp = this._parseIp(resultObj);
+    const parsedPort = this._parsePort(resultObj, pType);
 
     if (!parsedIp || !parsedPort || isNaN(parsedPort)) {
       throw new Error(`[Proxy.vn] Đổi IP không thành công, không nhận được IP/Port mới: ${JSON.stringify(resultObj)}`);
@@ -298,9 +329,17 @@ class ProxyVnApiClient {
     const data = await this._fetchWithTimeout(url);
 
     if (Array.isArray(data)) {
-      return data.filter(item => item && item.status === 100);
+      return data.filter(item => item && item.status === 100).map(item => ({
+        ...item,
+        ip: this._parseIp(item),
+        port: this._parsePort(item, item.type || this.defaultType) || item.port
+      }));
     } else if (data && data.status === 100) {
-      return [data];
+      return [{
+        ...data,
+        ip: this._parseIp(data),
+        port: this._parsePort(data, data.type || this.defaultType) || data.port
+      }];
     }
     return [];
   }

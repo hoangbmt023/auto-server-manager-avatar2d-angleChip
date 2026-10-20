@@ -2676,5 +2676,157 @@ select.rms-rounds-select {
   font-weight: 500;
 }
 
+/* ==========================================================================
+   Plan Features Chips & Proxy Security Policy (OpenDesign)
+   ========================================================================== */
+.plan-feature-chips-container {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  grid-column: 1 / -1;
+  padding-top: 6px;
+  border-top: 1px dashed var(--glass-border-subtle);
+}
+
+.plan-feature-chips-label {
+  font-size: 0.72rem;
+  color: var(--text-tertiary);
+  font-weight: 500;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.plan-feature-chips-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.plan-feature-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 4px 9px;
+  border-radius: var(--radius-xs);
+  background: var(--glass-panel-bg);
+  border: 1px solid var(--glass-border-subtle);
+  font-size: 0.74rem;
+  font-weight: 500;
+  color: var(--text-tertiary);
+  cursor: pointer;
+  transition: all var(--transition-fast, 0.15s ease);
+  user-select: none;
+}
+
+.plan-feature-chip:hover {
+  border-color: var(--glass-border-highlight);
+  color: var(--text-primary);
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.plan-feature-chip.active {
+  background: rgba(48, 209, 88, 0.12);
+  border-color: rgba(48, 209, 88, 0.4);
+  color: var(--apple-green);
+  font-weight: 600;
+}
+
+.plan-feature-chip.active:hover {
+  background: rgba(48, 209, 88, 0.18);
+  border-color: var(--apple-green);
+}
+
+.proxy-security-card {
+  margin-top: 12px;
+  padding: 14px 16px;
+  border-radius: var(--radius-sm);
+  background: var(--glass-matrix-bg);
+  border: 1px solid var(--glass-border-subtle);
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.proxy-security-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.proxy-security-title {
+  font-size: 0.76rem;
+  font-weight: 700;
+  color: var(--text-primary);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.proxy-security-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 8px;
+  border-radius: var(--radius-xs);
+  background: rgba(48, 209, 88, 0.12);
+  border: 1px solid rgba(48, 209, 88, 0.3);
+  color: var(--apple-green);
+  font-size: 0.7rem;
+  font-weight: 600;
+}
+
+.proxy-security-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 8px;
+}
+
+.proxy-security-item {
+  padding: 8px 10px;
+  border-radius: var(--radius-xs);
+  background: var(--glass-panel-bg);
+  border: 1px solid var(--glass-border-subtle);
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.proxy-security-item-lbl {
+  font-size: 0.68rem;
+  color: var(--text-tertiary);
+}
+
+.proxy-security-item-val {
+  font-size: 0.76rem;
+  font-weight: 600;
+  color: var(--text-secondary);
+}
+
+.rent-plan-features-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin: 6px 0;
+}
+
+.rent-plan-feature-tag {
+  font-size: 0.68rem;
+  padding: 2px 6px;
+  border-radius: var(--radius-xs);
+  background: rgba(255, 255, 255, 0.06);
+  color: var(--text-secondary);
+  border: 1px solid var(--glass-border-subtle);
+  font-weight: 500;
+}
+
+.rent-plan-item.selected .rent-plan-feature-tag {
+  background: rgba(10, 132, 255, 0.15);
+  border-color: rgba(10, 132, 255, 0.35);
+  color: var(--apple-blue);
+}
+
 
 

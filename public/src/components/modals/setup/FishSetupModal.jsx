@@ -116,7 +116,7 @@ window.FishSetupModal = function FishSetupModal({
 
   return (
     <window.ModalBase
-      title={`Cài Đặt Auto Câu Cá: ${account.username}`}
+      title={`Cài Đặt Auto Câu cá: ${account.username}`}
       subtitle={`Máy chủ ${account.serverName || 'Hoàn Mỹ'} • Tùy chỉnh map câu, cần câu và bán cá`}
       icon="fish"
       iconColor="var(--apple-blue)"

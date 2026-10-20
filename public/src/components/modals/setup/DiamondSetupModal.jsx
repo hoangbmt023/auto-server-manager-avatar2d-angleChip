@@ -100,7 +100,7 @@ window.DiamondSetupModal = function DiamondSetupModal({
 
   return (
     <window.ModalBase
-      title={`Cài Đặt Auto Kim Cương: ${account.username}`}
+      title={`Cài Đặt Auto KC: ${account.username}`}
       subtitle={`Máy chủ ${account.serverName || 'Hoàn Mỹ'} • Tùy chỉnh đào khoáng, lọc quặng và về farm`}
       icon="diamond"
       iconColor="var(--apple-purple)"

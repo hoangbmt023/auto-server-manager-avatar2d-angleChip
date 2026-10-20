@@ -241,8 +241,21 @@ public class AvatarModAdapter {
                     Method getGvMethod = gvCls.getMethod(schema.loginSingletonMethod);
                     Object gvInst = getGvMethod.invoke(null);
                     if (gvInst != null) {
-                        setField(gvInst, "do", serverId, int.class);
-                        setField(gvInst, schema.loginServerIdField, serverId, int.class);
+                        if ("gX".equals(schema.loginExtraGvClass)) {
+                            // [BẢN CHIPMIX]: gX.do là index thành phố (phải = 0 vì AngelChip.if[0] len=1).
+                            // Server ID được chọn qua trường ep.class = serverId + 1 (1 = Hoàn Mỹ, 2 = Diệu Kỳ...).
+                            // Nếu gX.do = 1 sẽ gây lỗi "Index 1 out of bounds for length 1" tại bx.byte().
+                            setField(gvInst, "do", 0, int.class);
+                            setField(gvInst, "class", serverId + 1, int.class);
+                            try {
+                                Method selectServerM = gvCls.getMethod("do", int.class, boolean.class);
+                                selectServerM.invoke(gvInst, serverId + 1, false);
+                            } catch (Throwable ignored) {
+                            }
+                        } else {
+                            setField(gvInst, "do", serverId, int.class);
+                            setField(gvInst, schema.loginServerIdField, serverId, int.class);
+                        }
                     }
                 } catch (Throwable ignored) {
                 }

@@ -92,7 +92,7 @@ window.SellOreSetupModal = function SellOreSetupModal({
 
   return (
     <window.ModalBase
-      title={`Cài Đặt Auto Bán Đá: ${account.username}`}
+      title={`Cài Đặt Auto Bán đá: ${account.username}`}
       subtitle={`Máy chủ ${account.serverName || 'Hoàn Mỹ'} • Tùy chỉnh khu vực bán, thời gian & xử lý khoáng sản`}
       icon="hard-drive"
       iconColor="var(--apple-orange)"

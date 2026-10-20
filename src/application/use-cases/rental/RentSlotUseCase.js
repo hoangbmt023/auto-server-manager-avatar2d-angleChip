@@ -13,9 +13,7 @@ const AsyncMutex = require('../../../shared/utils/AsyncMutex');
  * - Financial Safety Guard: Deducts user balance FIRST; refunds 100% immediately if allocation/save fails.
  * - Enforces Zero Direct IP policy (100% bots require active proxy).
  * - Sequential execution via shared AsyncMutex to eliminate race conditions without deadlocks.
- * - Economically optimized renewal evacuation:
- *     + Emergency 7th slot: Mandatory evacuation to standard slot.
- *     + Standard slot on DRAINING proxy: Evacuates ONLY if existing free slots (< 6) exist, zero wasteful purchase.
+ * - Economically optimized renewal evacuation: Evacuates ONLY if existing free slots (< 6) exist for the same server in ACTIVE proxies, zero wasteful purchase.
  */
 class RentSlotUseCase {
   constructor(
@@ -256,53 +254,87 @@ class RentSlotUseCase {
     const balanceAfter = balanceBefore - finalPrice;
     await this.userRepo.updateBalance(userId, -finalPrice);
 
-    const tx = new Transaction({
-      userId,
-      type: 'RENEWAL',
-      amount: -finalPrice,
-      balanceBefore,
-      balanceAfter,
-      description: `Gia hạn bot ${planConfig.name} (${months} tháng) cho nick [${account.username}]`,
-      voucherCode: appliedVoucher ? appliedVoucher.code : null,
-      status: 'SUCCESS'
-    });
-    await this.transactionRepo.save(tx);
+    try {
+      // =======================================================================
+      // KIỂM TRA MẤT GHẾ: NẾU HẾT HẠN LÂU NGÀY ĐÃ BỊ GỠ PROXY HOẶC PROXY CŨ ĐÃ ĐẦY/CHẾT
+      // =======================================================================
+      let needsNewAllocation = false;
+      let currentProxy = account.proxyId ? await this.proxyRepo.findById(account.proxyId) : null;
 
-    if (appliedVoucher) {
-      await this.voucherRepo.incrementUsedCount(appliedVoucher.code);
+      if (!currentProxy || currentProxy.status === 'EXPIRED' || currentProxy.isExpired) {
+        needsNewAllocation = true;
+      } else {
+        const allAccounts = await this.accountRepo.findAll();
+        const otherLivingOnProxy = allAccounts.filter(a => a.proxyId === currentProxy.id && a.id !== account.id && !a.isRentalExpired());
+        const targetSId = parseInt(account.serverId, 10) === 1 ? 1 : 0;
+        const sameServerOnProxy = otherLivingOnProxy.filter(a => (parseInt(a.serverId, 10) === 1 ? 1 : 0) === targetSId).length;
+
+        if (otherLivingOnProxy.length >= 6 || sameServerOnProxy >= 3) {
+          needsNewAllocation = true;
+        }
+      }
+
+      if (needsNewAllocation) {
+        console.log(`🔀 [RentSlotUseCase] Nick [${account.username}] gia hạn khi slot cũ trên Proxy đã bị người khác chiếm hoặc Proxy hết hạn. Đang tự động cấp phát Proxy mới cho Server [${account.serverName || account.serverId}]...`);
+        const allocation = await this.allocationEngine.allocateResources(planKey, months, account.serverId);
+        account.proxyId = allocation.proxyId;
+        if (allocation.fileId) account.fileId = allocation.fileId;
+        console.log(`✅ [RentSlotUseCase] Đã cấp phát thành công Proxy mới [${allocation.proxyId}] cho nick [${account.username}].`);
+      } else {
+        // Nếu không cần cấp phát mới thì vẫn kiểm tra xem proxy cũ có sắp hết hạn (<= 2h) hoặc DRAINING để tận dụng slot trống miễn phí nếu có
+        await this._evacuateAccountIfNeeded(account, months);
+      }
+
+      const tx = new Transaction({
+        userId,
+        type: 'RENEWAL',
+        amount: -finalPrice,
+        balanceBefore,
+        balanceAfter,
+        description: `Gia hạn bot ${planConfig.name} (${months} tháng) cho nick [${account.username}]`,
+        voucherCode: appliedVoucher ? appliedVoucher.code : null,
+        status: 'SUCCESS'
+      });
+      await this.transactionRepo.save(tx);
+
+      if (appliedVoucher) {
+        await this.voucherRepo.incrementUsedCount(appliedVoucher.code);
+      }
+
+      // Extend expiration: if already expired, start from now; otherwise add to current expiration
+      const currentExpiry = account.rentalExpiresAt ? new Date(account.rentalExpiresAt).getTime() : Date.now();
+      const baseTime = currentExpiry > Date.now() ? currentExpiry : Date.now();
+      const newExpiresAt = new Date(baseTime + months * 30 * 24 * 60 * 60 * 1000);
+
+      account.rentalExpiresAt = newExpiresAt;
+      await this.accountRepo.save(account);
+
+      return {
+        account: account.toPublicJson(),
+        transaction: tx.toPublicJson(),
+        remainingBalance: balanceAfter
+      };
+    } catch (err) {
+      // Rollback tiền ví nếu cấp phát hoặc xử lý gia hạn thất bại
+      try {
+        await this.userRepo.updateBalance(userId, finalPrice);
+        console.log(`↩️ [RentSlotUseCase] ĐÃ HOÀN TRẢ LẠI ${finalPrice}đ CHO USER [${userId}] do lỗi gia hạn: ${err.message}`);
+      } catch (rbErr) {
+        console.error(`🚨 [RentSlotUseCase] Lỗi rollback tiền cho user [${userId}]:`, rbErr.message);
+      }
+      throw err;
     }
-
-    // Extend expiration: if already expired, start from now; otherwise add to current expiration
-    const currentExpiry = account.rentalExpiresAt ? new Date(account.rentalExpiresAt).getTime() : Date.now();
-    const baseTime = currentExpiry > Date.now() ? currentExpiry : Date.now();
-    const newExpiresAt = new Date(baseTime + months * 30 * 24 * 60 * 60 * 1000);
-
-    account.rentalExpiresAt = newExpiresAt;
-    await this.accountRepo.save(account);
-
-    // =========================================================================
-    // XỬ LÝ DI TẢN NICK SAU KHI GIA HẠN
-    // =========================================================================
-    await this._evacuateAccountIfNeeded(account, months);
-
-    return {
-      account: account.toPublicJson(),
-      transaction: tx.toPublicJson(),
-      remainingBalance: balanceAfter
-    };
   }
 
   /**
    * Evaluates evacuation after renewal:
-   * 1. Emergency 7th Slot: MANDATORY evacuation to standard slot (allocates/buys proxy if all are full).
-   * 2. Standard slot on DRAINING proxy: Evacuates ONLY if existing free slots (< 6) exist in ACTIVE proxies.
-   *    Never calls buyProxy (zero cost waste; lets bot run free until 2-hour final cycle).
+   * Evacuates to an ACTIVE proxy ONLY if existing free slots (< 6) exist for the same server.
+   * Never calls buyProxy (zero cost waste; lets bot run free until 2-hour final cycle).
    */
   async _evacuateAccountIfNeeded(account, durationMonths = 1) {
     if (!this.proxyRepo) return;
     try {
       const currentProxy = account.proxyId ? await this.proxyRepo.findById(account.proxyId) : null;
-      const isEmergency = Boolean(account.isEmergencySlot);
       const now = Date.now();
       const isExpiringSoon = currentProxy && currentProxy.expiresAt && (new Date(currentProxy.expiresAt).getTime() <= now + 2 * 3600 * 1000);
       const isDraining = currentProxy && currentProxy.status === 'DRAINING';
@@ -314,19 +346,22 @@ class RentSlotUseCase {
         const allProxies = await this.proxyRepo.findAll();
         const allAccounts = await this.accountRepo.findAll();
 
+        const targetServer = parseInt(account.serverId, 10) === 1 ? 1 : 0;
         const freeCandidate = allProxies.find(p => {
           if (p.id === account.proxyId) return false;
           if (p.status !== 'ACTIVE' || p.isExpired) return false;
           if (p.expiresAt && new Date(p.expiresAt).getTime() <= now + 24 * 3600 * 1000) return false;
           const currentBots = allAccounts.filter(a => a.proxyId === p.id);
-          return currentBots.length < 6;
+          if (currentBots.length >= 6) return false;
+          const countSameServer = currentBots.filter(a => (parseInt(a.serverId, 10) === 1 ? 1 : 0) === targetServer).length;
+          return countSameServer < 3;
         });
 
         if (freeCandidate) {
           console.log(`🚀 [RentSlotUseCase] Tận dụng slot trống miễn phí trên Proxy [${freeCandidate.id}], chuyển nick [${account.username}] từ Proxy DRAINING sang...`);
-          await this._moveAccountToProxy(account, freeCandidate, 'Chuyển sang slot trống miễn phí từ Proxy DRAINING');
+          await this._moveAccountToProxy(account, freeCandidate, 'Chuyển sang slot trống miễn phí từ Proxy DRAINING (Giữ nguyên Server)');
         } else {
-          console.log(`ℹ️ [RentSlotUseCase] Mọi Proxy ACTIVE khác đã kín 6/6. Giữ nguyên nick [${account.username}] trên Proxy [${account.proxyId}] để tiết kiệm 10.000đ mua mới.`);
+          console.log(`ℹ️ [RentSlotUseCase] Mọi Proxy ACTIVE khác đã kín 6/6 hoặc kín slot Server. Giữ nguyên nick [${account.username}] trên Proxy [${account.proxyId}] để tiết kiệm chi phí mua mới.`);
         }
       }
     } catch (e) {
@@ -338,18 +373,7 @@ class RentSlotUseCase {
     account.proxyId = targetProxy.id;
     account.isEmergencySlot = false;
 
-    // Check server balance on targetProxy
-    const allAccounts = await this.accountRepo.findAll();
-    const botsOnTarget = allAccounts.filter(a => a.proxyId === targetProxy.id);
-    const countHM = botsOnTarget.filter(a => parseInt(a.serverId, 10) === 0).length;
-    const countDK = botsOnTarget.filter(a => parseInt(a.serverId, 10) === 1).length;
-
-    if (parseInt(account.serverId, 10) === 0 && countHM >= 3) {
-      account.flipServer();
-    } else if (parseInt(account.serverId, 10) === 1 && countDK >= 3) {
-      account.flipServer();
-    }
-
+    // Giữ nguyên Server gốc của tài khoản, lưu DB
     await this.accountRepo.save(account);
 
     // Restart bot process if running

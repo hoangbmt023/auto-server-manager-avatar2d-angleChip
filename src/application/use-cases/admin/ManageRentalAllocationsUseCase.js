@@ -1,17 +1,19 @@
 const Voucher = require('../../../domain/entities/Voucher');
 const { BadRequestException } = require('../../../domain/errors');
 const config = require('../../../../config');
+const AsyncMutex = require('../../../shared/utils/AsyncMutex');
 
 /**
  * ManageRentalAllocationsUseCase (Application Layer)
  * Allows Admin to configure bot rental plans, resource allocation policies, and vouchers.
  */
 class ManageRentalAllocationsUseCase {
-  constructor(settingRepo, voucherRepo, fileRepo, proxyRepo) {
+  constructor(settingRepo, voucherRepo, fileRepo, proxyRepo, mutex = null) {
     this.settingRepo = settingRepo;
     this.voucherRepo = voucherRepo;
     this.fileRepo = fileRepo;
     this.proxyRepo = proxyRepo;
+    this.mutex = mutex || AsyncMutex.globalAllocationMutex || new AsyncMutex('manage-rental-allocations');
   }
 
   async getAllocationConfig() {
@@ -28,9 +30,30 @@ class ManageRentalAllocationsUseCase {
 
     const defaultRules = {
       plans: {
-        UPXU: { name: 'Auto Up Xu Nông Trại', priceMonth: 50000, modType: 'UPXU', defaultFileId: 'file_1', desc: 'Chăm farm, thu hoạch, giao đơn hàng, bán nông sản' },
-        FULL: { name: 'Full Chức Năng ChipMix', priceMonth: 90000, modType: 'CHIPMIX', defaultFileId: 'file_1', desc: 'Đầy đủ Farm + Câu cá + Đập đá + Bán quặng' },
-        FISH: { name: 'Auto Câu Cá Chuyên Nghiệp', priceMonth: 60000, modType: 'FISH', defaultFileId: 'file_1', desc: 'Auto câu các map, tự mua vé & bán cá thông minh' }
+        UPXU: {
+          name: 'Auto Up Xu Nông Trại',
+          priceMonth: 50000,
+          modType: 'UPXU',
+          defaultFileId: 'file_1',
+          desc: 'Gói cày xu cơ bản tiết kiệm chi phí cho tài khoản nông dân',
+          features: ['farm', 'upThue']
+        },
+        FULL: {
+          name: 'Auto Full chức năng',
+          priceMonth: 90000,
+          modType: 'CHIPMIX',
+          defaultFileId: 'file_1',
+          desc: 'Gói toàn năng hỗ trợ đầy đủ mọi hoạt động kiếm xu và ngọc tự động',
+          features: ['farm', 'fish', 'diamond', 'sellOre', 'upThue']
+        },
+        FISH: {
+          name: 'Auto Câu Cá Chuyên Nghiệp',
+          priceMonth: 60000,
+          modType: 'FISH',
+          defaultFileId: 'file_1',
+          desc: 'Gói chuyên biệt cho cần thủ, tối ưu hoá thời gian và lợi nhuận câu cá',
+          features: ['fish', 'upThue']
+        }
       },
       durationDiscounts: { 1: 0, 3: 10, 6: 20, 12: 30 },
       topupBonusTiers: [
@@ -49,7 +72,7 @@ class ManageRentalAllocationsUseCase {
         bankAccount: '',
         bankName: ''
       },
-      proxyStrategy: 'least_loaded',
+      proxyStrategy: 'dynamic_best_fit',
       serverBalanceStrategy: 'auto_balance'
     };
 
@@ -58,14 +81,26 @@ class ManageRentalAllocationsUseCase {
       topupDb = await this.settingRepo.get('topup_settings');
     } catch (e) {}
 
+    const plansMerged = { ...defaultRules.plans, ...(rules?.plans || {}) };
+    for (const [key, plan] of Object.entries(plansMerged)) {
+      if (!Array.isArray(plan.features)) {
+        if (key === 'FULL') plan.features = ['farm', 'fish', 'diamond', 'sellOre', 'upThue'];
+        else if (key === 'FISH') plan.features = ['fish', 'upThue'];
+        else plan.features = ['farm', 'upThue'];
+      }
+    }
+
     const mergedRules = {
       ...defaultRules,
       ...(rules || {}),
+      plans: plansMerged,
       durationDiscounts: rules?.durationDiscounts || defaultRules.durationDiscounts,
       topupBonusTiers: topupDb?.bonusTiers || rules?.topupBonusTiers || defaultRules.topupBonusTiers,
       topupPresets: topupDb?.presets || rules?.topupPresets || defaultRules.topupPresets,
       minTopupAmount: topupDb?.minAmount || rules?.minTopupAmount || defaultRules.minTopupAmount,
-      payosConfig: { ...defaultRules.payosConfig, ...(rules?.payosConfig || {}) }
+      payosConfig: { ...defaultRules.payosConfig, ...(rules?.payosConfig || {}) },
+      proxyStrategy: 'dynamic_best_fit',
+      serverBalanceStrategy: 'auto_balance'
     };
 
     return {
@@ -93,6 +128,15 @@ class ManageRentalAllocationsUseCase {
   }
 
   async updateAllocationRules(newRules) {
+    if (this.mutex) {
+      return this.mutex.runExclusive(async () => {
+        return this._updateAllocationRulesInternal(newRules);
+      });
+    }
+    return this._updateAllocationRulesInternal(newRules);
+  }
+
+  async _updateAllocationRulesInternal(newRules) {
     if (!newRules || typeof newRules !== 'object') {
       throw new BadRequestException('Dữ liệu cấu hình không hợp lệ!');
     }

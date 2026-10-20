@@ -21,6 +21,7 @@ window.AccountCard = function AccountCard({
   const isRunning = Boolean(account.isRunning);
   const serverName = account.serverName || (account.serverId === 0 ? 'Hoàn Mỹ' : 'Diệu Kỳ');
   const proxyObj = (proxies || []).find(p => p.id === account.proxyId);
+  const proxyDisplayName = (proxyObj && proxyObj.name) || account.proxyName || null;
 
   const file = (files || []).find(f => f.id === account.fileId) || activeFile;
   const modType = file?.modType || ((file?.gameJar && file.gameJar.toLowerCase().includes('fish')) ? 'fish' : 'upxu');
@@ -189,14 +190,14 @@ window.AccountCard = function AccountCard({
               <span>{serverName}</span>
               <span>•</span>
               <span style={{
-                color: proxyObj ? 'var(--apple-purple)' : 'var(--apple-blue)',
+                color: proxyDisplayName ? 'var(--apple-purple)' : 'var(--apple-blue)',
                 fontWeight: 600,
                 display: 'inline-flex',
                 alignItems: 'center',
                 gap: '3px'
               }}>
-                <window.Icon name={proxyObj ? 'shield' : 'globe'} size={11} />
-                {proxyObj ? `Tab ${proxyObj.name}` : 'Tab IP Mặc định'}
+                <window.Icon name={proxyDisplayName ? 'shield' : 'globe'} size={11} />
+                {proxyDisplayName ? `Tab ${proxyDisplayName}` : 'Tab IP Mặc định'}
               </span>
             </div>
           </div>

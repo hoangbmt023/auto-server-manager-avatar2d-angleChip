@@ -183,12 +183,10 @@ class ProxyController {
         defaultCategory,
         defaultType,
         defaultPeriod,
-        emergencySlotEnabled,
+        emergencySlotEnabled: false,
         maxSlotsPerIp: 6,
-        emergencySlotLimit: 7,
-        allocationStrategy: emergencySlotEnabled
-          ? 'Best-Fit Waterfall 6/6 (Tối đa 4 HM + 3 DK, Slot 7 khẩn cấp)'
-          : 'Best-Fit Waterfall 6/6 (Cố định 6 slot)'
+        emergencySlotLimit: 6,
+        allocationStrategy: 'Best-Fit 6/6 (Cố định 3 Hoàn Mỹ + 3 Diệu Kỳ)'
       };
       return sendJson(res, 200, ApiResponse.success(config, 'Lấy cấu hình hệ thống Proxy thành công!'));
     } catch (err) {

@@ -10,11 +10,12 @@ const BotIpcProtocol = require('./BotIpcProtocol');
  * Manages an individual Java process execution for a single Avatar account.
  */
 class SingleBotProcess extends EventEmitter {
-  constructor(account, fileProfile, globalConfig) {
+  constructor(account, fileProfile, globalConfig, proxy = null) {
     super();
     this.account = account;
     this.fileProfile = fileProfile;
     this.globalConfig = globalConfig;
+    this.proxy = proxy;
     this.child = null;
     this.startTime = null;
     this.restartAttempts = 0;
@@ -91,28 +92,44 @@ class SingleBotProcess extends EventEmitter {
     args.push(`-Davatar.server=${this.account.serverId !== undefined ? this.account.serverId : 0}`);
     args.push(`-Davatar.serverName=${this.account.serverName || (this.account.serverId === 0 ? 'Hoàn Mỹ' : 'Diệu Kỳ')}`);
 
-    if (this.account.targetCoins) args.push(`-Davatar.targetCoins=${this.account.targetCoins}`);
-    if (this.account.upDays) args.push(`-Davatar.upDays=${this.account.upDays}`);
+    // =========================================================================
+    // BẢO MẬT TẦNG 2: RUNTIME ENFORCEMENT - CHỈ NẠP THÔNG SỐ CỦA TÍNH NĂNG ĐƯỢC PHÉP
+    // =========================================================================
+    let allowedFeatures = null;
+    if (this.account.rentalPlan) {
+      if (this.account.rentalPlan === 'FULL') {
+        allowedFeatures = ['farm', 'fish', 'diamond', 'sellOre', 'upThue'];
+      } else if (this.account.rentalPlan === 'FISH') {
+        allowedFeatures = ['fish', 'upThue'];
+      } else {
+        allowedFeatures = ['farm', 'upThue'];
+      }
+    }
+
+    const hasFeature = (f) => !allowedFeatures || allowedFeatures.includes(f);
+
+    if (this.account.targetCoins && hasFeature('upThue')) args.push(`-Davatar.targetCoins=${this.account.targetCoins}`);
+    if (this.account.upDays && hasFeature('upThue')) args.push(`-Davatar.upDays=${this.account.upDays}`);
     if (this.account.pendingReset) {
       args.push('-Davatar.resetOnStart=true');
       this.account.pendingReset = false;
     }
-    if (this.account.farmSettings) {
+    if (this.account.farmSettings && hasFeature('farm')) {
       const jsonStr = JSON.stringify(this.account.farmSettings);
       const b64 = Buffer.from(jsonStr, 'utf8').toString('base64');
       args.push(`-Davatar.farmSettingsB64=${b64}`);
     }
-    if (this.account.diamondSettings) {
+    if (this.account.diamondSettings && hasFeature('diamond')) {
       const jsonStr = JSON.stringify(this.account.diamondSettings);
       const b64 = Buffer.from(jsonStr, 'utf8').toString('base64');
       args.push(`-Davatar.diamondSettingsB64=${b64}`);
     }
-    if (this.account.fishSettings) {
+    if (this.account.fishSettings && hasFeature('fish')) {
       const jsonStr = JSON.stringify(this.account.fishSettings);
       const b64 = Buffer.from(jsonStr, 'utf8').toString('base64');
       args.push(`-Davatar.fishSettingsB64=${b64}`);
     }
-    if (this.account.sellOreSettings) {
+    if (this.account.sellOreSettings && hasFeature('sellOre')) {
       const jsonStr = JSON.stringify(this.account.sellOreSettings);
       const b64 = Buffer.from(jsonStr, 'utf8').toString('base64');
       args.push(`-Davatar.sellOreSettingsB64=${b64}`);
@@ -121,9 +138,19 @@ class SingleBotProcess extends EventEmitter {
     const safeAppId = `avatar_${this.account.username || this.account.id}_${this.fileProfile ? this.fileProfile.id : 'def'}`;
     args.push(`-Davatar.appId=${safeAppId}`);
 
-    const autoToStart = (this.autoState && this.autoState.isRunning && this.autoState.autoType)
+    let autoToStart = (this.autoState && this.autoState.isRunning && this.autoState.autoType)
       ? this.autoState.autoType
       : (this.account && (this.account.lastAutoType || this.account.defaultAutoType));
+
+    // Chặn autoStartType nếu không thuộc tính năng cho phép của gói
+    if (autoToStart) {
+      const autoFeatureMap = { farm: 'farm', fish: 'fish', diamond: 'diamond', sell_ore: 'sellOre' };
+      const reqFeat = autoFeatureMap[autoToStart];
+      if (reqFeat && !hasFeature(reqFeat)) {
+        autoToStart = null;
+      }
+    }
+
     if (autoToStart) {
       args.push(`-Davatar.autoStartType=${autoToStart}`);
       if (!this.autoState || !this.autoState.isRunning) {
@@ -136,15 +163,28 @@ class SingleBotProcess extends EventEmitter {
       }
     }
 
-    // Proxy configuration (Account-specific Proxy from Proxy Pool, File Profile Proxy, or Global Proxy)
-    let proxy = null;
-    if (this.account.proxyId && Array.isArray(this.globalConfig.proxies)) {
+    // Proxy configuration (Directly injected Proxy, Account-specific Proxy, File Profile Proxy, or Global Proxy)
+    let proxy = this.proxy;
+    if (!proxy && this.account.proxyId && Array.isArray(this.globalConfig.proxies)) {
       proxy = this.globalConfig.proxies.find(p => p.id === this.account.proxyId) || null;
-    } else if (this.fileProfile && this.fileProfile.proxy && this.fileProfile.proxy.enabled && this.fileProfile.proxy.host) {
+    } else if (!proxy && this.fileProfile && this.fileProfile.proxy && this.fileProfile.proxy.enabled && this.fileProfile.proxy.host) {
       proxy = this.fileProfile.proxy;
-    } else if (this.globalConfig.proxy && this.globalConfig.proxy.enabled && this.globalConfig.proxy.host) {
+    } else if (!proxy && this.globalConfig.proxy && this.globalConfig.proxy.enabled && this.globalConfig.proxy.host) {
       proxy = this.globalConfig.proxy;
     }
+
+    // FAIL-CLOSED SECURITY GUARD:
+    // 1. Tài khoản thuê của khách hàng (có userId hoặc có hạn thuê rentalExpiresAt):
+    //    -> BẮT BUỘC phải có Proxy hợp lệ để bảo vệ 100% IP máy chủ.
+    // 2. Tài khoản quản trị nội bộ của Admin (không gắn userId / không có hạn thuê):
+    //    -> Cho phép chạy bằng IP Mặc định (Direct IP máy chủ) nếu Admin không gán Proxy.
+    const isCustomerRental = Boolean(this.account && (this.account.userId || this.account.rentalExpiresAt));
+    if (isCustomerRental && (!proxy || !proxy.host || !proxy.port)) {
+      const errText = `[SECURITY BLOCK] Không tìm thấy cấu hình Proxy hợp lệ cho tài khoản thuê [${this.account.username || this.account.id}]. Đã chặn đứng tiến trình bot để bảo vệ 100% IP máy chủ!`;
+      this.emitLog('error', `🚨 ${errText}`);
+      throw new Error(errText);
+    }
+    this.proxy = proxy;
 
     if (proxy && proxy.host && proxy.port) {
       const type = (proxy.type || 'socks').toLowerCase();
@@ -181,6 +221,8 @@ class SingleBotProcess extends EventEmitter {
       args.push(`-Davatar.proxyHost=${proxy.host}`);
       args.push(`-Davatar.proxyPort=${proxy.port}`);
       args.push(`-Davatar.proxyType=${type}`);
+    } else {
+      this.emitLog('info', `🌐 [${this.account.username}] Đang chạy bằng IP Mặc định (Direct IP của máy chủ).`);
     }
 
     // Emulator JAR & Classpath
@@ -228,11 +270,11 @@ class SingleBotProcess extends EventEmitter {
       this.restartTimer = null;
     }
 
-    const args = this.buildArgs(javaBin);
-    const serverName = this.account.serverName || (this.account.serverId === 0 ? 'Hoàn Mỹ' : 'Diệu Kỳ');
-    this.emitLog('system', `🚀 [${this.account.username}] Khởi chạy tiến trình bot trên Server [${serverName}]...`);
-
     try {
+      const args = this.buildArgs(javaBin);
+      const serverName = this.account.serverName || (this.account.serverId === 0 ? 'Hoàn Mỹ' : 'Diệu Kỳ');
+      this.emitLog('system', `🚀 [${this.account.username}] Khởi chạy tiến trình bot trên Server [${serverName}]...`);
+
       this.child = spawn(javaBin, args, {
         cwd: this.workspaceRoot,
         env: {
@@ -430,8 +472,8 @@ class SingleBotProcess extends EventEmitter {
   }
 
   triggerProxyHealthCheck(reason = '') {
-    if (!this.account.proxyId || this._isCheckingProxy || this.isManualStop) return;
-    const proxy = (this.globalConfig.proxies || []).find(p => p.id === this.account.proxyId);
+    if (this._isCheckingProxy || this.isManualStop) return;
+    const proxy = this.proxy || (this.globalConfig.proxies || []).find(p => p.id === this.account.proxyId);
     if (!proxy) return;
 
     this._isCheckingProxy = true;

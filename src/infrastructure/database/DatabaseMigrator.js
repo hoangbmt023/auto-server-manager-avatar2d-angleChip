@@ -307,9 +307,30 @@ class DatabaseMigrator {
       if (allocSetting.length === 0) {
         const defaultAllocationRules = {
           plans: {
-            UPXU: { name: 'Auto Up Xu Nông Trại', priceMonth: 50000, modType: 'UPXU', defaultFileId: 'file_1', desc: 'Chăm farm, thu hoạch, giao đơn hàng, bán nông sản' },
-            FULL: { name: 'Full Chức Năng ChipMix', priceMonth: 90000, modType: 'CHIPMIX', defaultFileId: 'file_1', desc: 'Đầy đủ Farm + Câu cá + Đập đá + Bán quặng' },
-            FISH: { name: 'Auto Câu Cá Chuyên Nghiệp', priceMonth: 60000, modType: 'FISH', defaultFileId: 'file_1', desc: 'Auto câu các map, tự mua vé & bán cá thông minh' }
+            UPXU: {
+              name: 'Auto Up Xu Nông Trại',
+              priceMonth: 50000,
+              modType: 'UPXU',
+              defaultFileId: 'file_1',
+              desc: 'Gói cày xu cơ bản tiết kiệm chi phí cho tài khoản nông dân',
+              features: ['farm', 'upThue']
+            },
+            FULL: {
+              name: 'Auto Full chức năng',
+              priceMonth: 90000,
+              modType: 'CHIPMIX',
+              defaultFileId: 'file_1',
+              desc: 'Gói toàn năng hỗ trợ đầy đủ mọi hoạt động kiếm xu và ngọc tự động',
+              features: ['farm', 'fish', 'diamond', 'sellOre', 'upThue']
+            },
+            FISH: {
+              name: 'Auto Câu Cá Chuyên Nghiệp',
+              priceMonth: 60000,
+              modType: 'FISH',
+              defaultFileId: 'file_1',
+              desc: 'Gói chuyên biệt cho cần thủ, tối ưu hoá thời gian và lợi nhuận câu cá',
+              features: ['fish', 'upThue']
+            }
           },
           durationDiscounts: {
             1: 0,
@@ -317,8 +338,8 @@ class DatabaseMigrator {
             6: 20,
             12: 30
           },
-          proxyStrategy: 'least_loaded', // 'least_loaded' | 'round_robin' | 'direct_first' | 'none'
-          serverBalanceStrategy: 'auto_balance' // 'auto_balance' | 'prefer_hoan_my' | 'prefer_dieu_ky'
+          proxyStrategy: 'dynamic_best_fit',
+          serverBalanceStrategy: 'auto_balance'
         };
         await pool.query(
           `INSERT INTO system_settings (setting_key, setting_value, description) VALUES (?, ?, ?)`,

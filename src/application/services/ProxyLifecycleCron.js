@@ -1,18 +1,20 @@
 const AsyncMutex = require('../../shared/utils/AsyncMutex');
 const { uuidv7 } = require('../../shared/utils/uuid');
+const Proxy = require('../../domain/entities/Proxy');
 
 /**
  * ProxyLifecycleCron (Application Layer - Domain Service)
- * Autonomous 4-Phase Proxy Lifecycle & Waterfall Migration Engine.
+ * Autonomous 3-Phase Proxy Lifecycle & Waterfall Migration Engine.
  *
  * Runs periodically (default: every 30 minutes) wrapped in an AsyncMutex:
- * - Phase 1: Release expired bot rental contracts, free slots, reset emergency slot limits.
- * - Phase 2: Offload Emergency 7th slots back to standard capacity when space opens.
- * - Phase 3: Synchronize ACTIVE / DRAINING status badges in MySQL.
- * - Phase 4: 2-Hour Final Decision:
- *     - Waterfall Migration with Auto-Flip (HM <-> DK)
- *     - Emergency 7th Slot on healthy proxies for lone bots (<= 72h) saving 10,000 VND
- *     - Auto-Renewal via proxy.vn only when economically justified (>= 2 bots or > 72h)
+ * - Phase 1: Release expired bot rental contracts and free slots.
+ * - Phase 2: Synchronize ACTIVE / DRAINING status badges in MySQL.
+ * - Phase 3: 2-Hour Final Decision:
+ *     - Waterfall Migration strictly preserving Server (HM stays HM, DK stays DK)
+ *     - Maximum strict limit: 6 bots/proxy (3 HM + 3 DK)
+ *     - If stuck bots remaining (even 1 bot) -> Auto-Renewal via proxy.vn
+ *     - If renewal fails on expired proxy -> Fallback auto-purchase new 30-day proxy
+ *     - If empty -> Mark EXPIRED and let proxy.vn auto-terminate (0 VND cost)
  */
 class ProxyLifecycleCron {
   constructor({ proxyRepo, accountRepo, multiBotManager, proxyVnApiClient = null, sseEventBus = null, dbPool = null, mutex = null }) {
@@ -89,6 +91,13 @@ class ProxyLifecycleCron {
             await this.multiBotManager.stopAccount(acc.id);
           } catch (e) {}
         }
+
+        // Gỡ bỏ proxyId để giải phóng hẳn ghế trống trên Proxy cho khách mới
+        if (acc.proxyId) {
+          console.log(`🧹 [ProxyLifecycleCron] Thu hồi slot trên Proxy [${acc.proxyId}] của nick hết hạn [${acc.username}] để giải phóng ghế.`);
+          acc.proxyId = null;
+          await this.accountRepo.save(acc);
+        }
       }
     }
   }
@@ -162,35 +171,26 @@ class ProxyLifecycleCron {
         return count < 6;
       });
 
-      // Thực hiện Dồn Phòng Thác Nước kèm Tự Động Lật Server (Auto-Flip HM <-> DK)
+      // Thực hiện Dồn Phòng Thác Nước - CỐ ĐỊNH SERVER (KHÔNG lật Server của nick đang chạy)
       for (const bot of [...livingBots]) {
         let migrated = false;
+        const botServer = parseInt(bot.serverId, 10) === 1 ? 1 : 0;
 
         for (const targetP of healthyTargetProxies) {
           const targetBots = allAccounts.filter(a => a.proxyId === targetP.id && !a.isRentalExpired());
           if (targetBots.length >= 6) continue;
 
-          const countHM = targetBots.filter(a => a.serverId === 0).length;
-          const countDK = targetBots.filter(a => a.serverId === 1).length;
+          const countSameServer = targetBots.filter(a => (parseInt(a.serverId, 10) === 1 ? 1 : 0) === botServer).length;
 
-          // Ưu tiên 1: Giữ nguyên Server (Soft Affinity)
-          if ((bot.serverId === 0 && countHM < 3) || (bot.serverId === 1 && countDK < 3)) {
-            await this._migrateBotToProxy(bot, targetP, 'Dồn phòng thác nước (Giữ nguyên Server)');
-            migrated = true;
-            break;
-          }
+          // Chỉ di tản nếu Proxy đích còn trống slot của ĐÚNG server hiện tại
+          if (countSameServer < 3) {
+            await this._migrateBotToProxy(bot, targetP, `Dồn phòng thác nước (Server ${botServer === 0 ? 'Hoàn Mỹ' : 'Diệu Kỳ'})`);
+            
+            // CẬP NHẬT ĐỘNG BỘ NHỚ RAM ĐỂ TRÁNH TRÀN QUOTA Ở CÁC VÒNG LẶP TIẾP THEO
+            bot.proxyId = targetP.id;
+            const inMem = allAccounts.find(a => a.id === bot.id);
+            if (inMem) inMem.proxyId = targetP.id;
 
-          // Ưu tiên 2: Tự động Lật Server (Auto-Flip HM <-> DK)
-          if (bot.serverId === 0 && countHM >= 3 && countDK < 3) {
-            const oldServer = bot.serverId;
-            bot.flipServer();
-            await this._migrateBotToProxy(bot, targetP, `Dồn phòng thác nước (Auto-Flip ${oldServer === 0 ? 'HM->DK' : 'DK->HM'})`);
-            migrated = true;
-            break;
-          } else if (bot.serverId === 1 && countDK >= 3 && countHM < 3) {
-            const oldServer = bot.serverId;
-            bot.flipServer();
-            await this._migrateBotToProxy(bot, targetP, `Dồn phòng thác nước (Auto-Flip ${oldServer === 0 ? 'HM->DK' : 'DK->HM'})`);
             migrated = true;
             break;
           }
@@ -213,6 +213,7 @@ class ProxyLifecycleCron {
       }
 
       // TRƯỜNG HỢP B: Vẫn còn nick kẹt lại -> Gia hạn Proxy thêm 30 ngày để duy trì bot của khách
+      let renewed = false;
       if (this.proxyVnApiClient && dyingProxy.externalId) {
         try {
           console.log(`💰 [ProxyLifecycleCron] Gia hạn Proxy [${dyingProxy.name}] (externalId: ${dyingProxy.externalId}) thêm 30 ngày vì còn ${stuckBots.length} nick cần duy trì.`);
@@ -229,8 +230,34 @@ class ProxyLifecycleCron {
             expiresAt: renewRes.expiresAt
           });
           console.log(`✅ [ProxyLifecycleCron] Gia hạn thành công Proxy [${dyingProxy.name}], hạn mới: ${renewRes.expiresAt.toISOString()}`);
+          renewed = true;
         } catch (renewErr) {
           console.error(`❌ [ProxyLifecycleCron] Lỗi khi gọi API gia hạn Proxy [${dyingProxy.id}]:`, renewErr.message);
+        }
+      }
+
+      // FALLBACK BỔ SUNG: Nếu gia hạn thất bại (ví hết tiền, hoặc quá hạn bị hủy ID trên proxy.vn)
+      // Tự động mua Proxy mới 30 ngày và di tản toàn bộ bot bị kẹt sang đó!
+      if (!renewed && this.proxyVnApiClient) {
+        console.warn(`🚨 [ProxyLifecycleCron] Gia hạn thất bại cho Proxy [${dyingProxy.name || dyingProxy.id}]. Đang kích hoạt Fallback mua Proxy mới thay thế...`);
+        try {
+          const newProxy = await this._autoPurchaseReplacementProxy(dyingProxy);
+          if (newProxy) {
+            for (const sBot of stuckBots) {
+              await this._migrateBotToProxy(sBot, newProxy, 'Di tản khẩn cấp sang Proxy mới thay thế do Proxy cũ quá hạn');
+              sBot.proxyId = newProxy.id;
+              const inMem = allAccounts.find(a => a.id === sBot.id);
+              if (inMem) inMem.proxyId = newProxy.id;
+            }
+            await this.proxyRepo.updateLifecycle(dyingProxy.id, {
+              status: 'EXPIRED',
+              isActive: false,
+              isExpired: true
+            });
+            console.log(`✅ [ProxyLifecycleCron] Đã di tản an toàn ${stuckBots.length} nick sang Proxy mới [${newProxy.host}:${newProxy.port}] và đánh dấu đóng Proxy cũ.`);
+          }
+        } catch (fbErr) {
+          console.error(`❌ [ProxyLifecycleCron] Lỗi Fallback mua proxy mới:`, fbErr.message);
         }
       }
     }
@@ -281,6 +308,40 @@ class ProxyLifecycleCron {
     } catch (e) {
       console.warn('Could not insert migration log:', e.message);
     }
+  }
+
+  async _autoPurchaseReplacementProxy(dyingProxy) {
+    if (!this.proxyVnApiClient) return null;
+    const category = dyingProxy.proxyCategory || 'DatacenterA';
+    const type = dyingProxy.type || 'SOCKS5';
+
+    const buyResult = await this.proxyVnApiClient.buyProxy({
+      category,
+      days: 30,
+      type
+    });
+
+    const newProxy = new Proxy({
+      externalId: buyResult.externalId,
+      provider: 'PROXY_VN',
+      proxyCategory: buyResult.category || category,
+      name: `ProxyVN_${buyResult.ip.replace(/\./g, '_')}`,
+      host: buyResult.ip,
+      port: buyResult.port,
+      username: buyResult.username,
+      password: buyResult.password,
+      type: buyResult.type,
+      tier: 'DYNAMIC',
+      status: 'ACTIVE',
+      maxSlots: 6,
+      expiresAt: buyResult.expiresAt,
+      isActive: true,
+      isExpired: false
+    });
+
+    await this.proxyRepo.save(newProxy);
+    console.log(`🛒 [ProxyLifecycleCron] Đã mua thành công Proxy thay thế [${newProxy.host}:${newProxy.port}] (ID: ${newProxy.externalId}).`);
+    return newProxy;
   }
 }
 

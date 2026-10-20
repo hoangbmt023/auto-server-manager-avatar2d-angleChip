@@ -115,7 +115,7 @@ window.RentalSetupModal = function RentalSetupModal({
 
   return (
     <window.ModalBase
-      title={`Cài Đặt Up Thuê: ${account.username}`}
+      title={`Cài Đặt Úp Thuê: ${account.username}`}
       subtitle={`Máy chủ ${account.serverName || 'Hoàn Mỹ'}`}
       icon="dollar-sign"
       iconColor="var(--apple-green)"

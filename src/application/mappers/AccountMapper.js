@@ -30,9 +30,9 @@ class AccountMapper {
     });
   }
 
-  static toResponseDto(entity, runtimeInfo = null) {
+  static toResponseDto(entity, runtimeInfo = null, proxyName = null) {
     if (!entity) return null;
-    return new AccountResponseDto(entity, runtimeInfo);
+    return new AccountResponseDto(entity, runtimeInfo, proxyName);
   }
 }
 
