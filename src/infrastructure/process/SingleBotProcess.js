@@ -147,9 +147,14 @@ class SingleBotProcess extends EventEmitter {
       proxy = this.globalConfig.proxy;
     }
 
-    // FAIL-CLOSED SECURITY GUARD: 100% Zero Direct IP Policy
-    if (!proxy || !proxy.host || !proxy.port) {
-      const errText = `[SECURITY BLOCK] Không tìm thấy cấu hình Proxy hợp lệ cho tài khoản [${this.account.username || this.account.id}]. Đã chặn đứng tiến trình bot để bảo vệ 100% IP máy chủ!`;
+    // FAIL-CLOSED SECURITY GUARD:
+    // 1. Tài khoản thuê của khách hàng (có userId hoặc có hạn thuê rentalExpiresAt):
+    //    -> BẮT BUỘC phải có Proxy hợp lệ để bảo vệ 100% IP máy chủ.
+    // 2. Tài khoản quản trị nội bộ của Admin (không gắn userId / không có hạn thuê):
+    //    -> Cho phép chạy bằng IP Mặc định (Direct IP máy chủ) nếu Admin không gán Proxy.
+    const isCustomerRental = Boolean(this.account && (this.account.userId || this.account.rentalExpiresAt));
+    if (isCustomerRental && (!proxy || !proxy.host || !proxy.port)) {
+      const errText = `[SECURITY BLOCK] Không tìm thấy cấu hình Proxy hợp lệ cho tài khoản thuê [${this.account.username || this.account.id}]. Đã chặn đứng tiến trình bot để bảo vệ 100% IP máy chủ!`;
       this.emitLog('error', `🚨 ${errText}`);
       throw new Error(errText);
     }
@@ -190,6 +195,8 @@ class SingleBotProcess extends EventEmitter {
       args.push(`-Davatar.proxyHost=${proxy.host}`);
       args.push(`-Davatar.proxyPort=${proxy.port}`);
       args.push(`-Davatar.proxyType=${type}`);
+    } else {
+      this.emitLog('info', `🌐 [${this.account.username}] Đang chạy bằng IP Mặc định (Direct IP của máy chủ).`);
     }
 
     // Emulator JAR & Classpath

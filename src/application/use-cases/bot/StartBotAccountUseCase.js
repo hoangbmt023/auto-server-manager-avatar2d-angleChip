@@ -45,6 +45,11 @@ class StartBotAccountUseCase {
     ServerLimitRule.validateCanRun(otherRunning, account, proxy, fileProfile?.maxAccounts || 6);
 
     // 5. Check proxy limits and liveness
+    const isCustomerRental = Boolean(account.userId || account.rentalExpiresAt);
+    if (isCustomerRental && (!account.proxyId || !proxy)) {
+      throw new Error(`[SECURITY BLOCK] Tài khoản thuê của khách [${account.username}] bắt buộc phải có Proxy khả dụng để bảo vệ IP máy chủ!`);
+    }
+
     if (account.proxyId && proxy) {
       if (proxy.isExpired) {
         throw new Error(`❌ Proxy [${proxy.name || proxy.host}] gán cho nick [${account.username}] ĐÃ BỊ ĐÁNH DẤU HẾT HẠN! Vui lòng đổi proxy khác.`);
