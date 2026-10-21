@@ -1703,19 +1703,24 @@ select.rms-rounds-select {
   justify-content: space-between;
   padding: 8px 12px;
   background: rgba(255, 255, 255, 0.03);
-  border-bottom: 1px solid var(--glass-border-subtle);
+  border: 1px solid var(--glass-border-subtle);
+  border-radius: var(--radius-sm);
+  margin-bottom: 12px;
   font-size: 0.78rem;
+  flex-wrap: wrap;
+  gap: 8px;
 }
 
 .account-logs-filter-group {
   display: flex;
   gap: 6px;
+  flex-wrap: wrap;
 }
 
 .account-logs-options-group {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 10px;
 }
 
 .account-logs-auto-refresh-label {
@@ -1734,11 +1739,11 @@ select.rms-rounds-select {
   font-size: 0.78rem;
   line-height: 1.6;
   background: #0d0d0e;
-  border-radius: 6px;
-  margin: 12px;
-  min-height: 260px;
-  max-height: 440px;
-  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: var(--radius-md);
+  margin: 0;
+  min-height: 320px;
+  max-height: 480px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
 }
 
 .account-logs-loading {

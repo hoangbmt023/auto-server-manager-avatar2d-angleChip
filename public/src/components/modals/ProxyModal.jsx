@@ -21,12 +21,10 @@ function ProxySystemConfigModal({
   const [defaultType, setDefaultType] = useProxyModalState(config?.defaultType || 'SOCKS5');
   const [defaultPeriod, setDefaultPeriod] = useProxyModalState(config?.defaultPeriod ? String(config.defaultPeriod) : '30');
   const [loading, setLoading] = useProxyModalState(false);
-  const [error, setError] = useProxyModalState('');
 
   const handleSubmit = async (e) => {
     if (e) e.preventDefault();
     setLoading(true);
-    setError('');
 
     try {
       if (window.ApiClient && typeof window.ApiClient.saveProxySystemConfig === 'function') {
@@ -47,11 +45,13 @@ function ProxySystemConfigModal({
           if (onSaved) onSaved();
           if (onClose) onClose();
         } else {
-          setError(res?.message || 'Không thể lưu cấu hình hệ thống!');
+          const notify = window.showAlert || alert;
+          notify(res?.message || 'Không thể lưu cấu hình hệ thống!', 'Lỗi Cấu Hình', 'error');
         }
       }
     } catch (err) {
-      setError(err.message || 'Lỗi khi lưu cấu hình Proxy hệ thống!');
+      const notify = window.showAlert || alert;
+      notify(err.message || 'Lỗi khi lưu cấu hình Proxy hệ thống!', 'Lỗi Hệ Thống', 'error');
     } finally {
       setLoading(false);
     }
@@ -78,7 +78,6 @@ function ProxySystemConfigModal({
         </div>
       }
     >
-      {error && <div className="alert alert-danger proxy-alert-box">{error}</div>}
 
       <form onSubmit={handleSubmit} className="proxy-form-stack">
         {/* Section 1: Kích Hoạt Tự Động Hóa */}
@@ -242,7 +241,7 @@ function ProxyFormModal({
   const [port, setPort] = useProxyModalState(proxy?.port ? String(proxy.port) : '');
   const [username, setUsername] = useProxyModalState(proxy?.username || '');
   const [password, setPassword] = useProxyModalState(proxy?.password || '');
-  const [error, setError] = useProxyModalState('');
+  const [showPassword, setShowPassword] = useProxyModalState(false);
   const [fieldErrors, setFieldErrors] = useProxyModalState({});
   const [loading, setLoading] = useProxyModalState(false);
 
@@ -274,7 +273,6 @@ function ProxyFormModal({
 
     setFieldErrors({});
     setLoading(true);
-    setError('');
     try {
       const res = await onSaveProxy({
         id: proxy ? proxy.id : undefined,
@@ -292,10 +290,12 @@ function ProxyFormModal({
       } else if (res && res.errors && typeof res.errors === 'object') {
         setFieldErrors(res.errors);
       } else if (res && res.message) {
-        setError(res.message);
+        const notify = window.showAlert || alert;
+        notify(res.message, 'Lỗi Lưu Proxy', 'error');
       }
     } catch (err) {
-      setError(err.message || 'Lỗi khi lưu proxy!');
+      const notify = window.showAlert || alert;
+      notify(err.message || 'Lỗi khi lưu proxy!', 'Lỗi Hệ Thống', 'error');
     } finally {
       setLoading(false);
     }
@@ -322,7 +322,6 @@ function ProxyFormModal({
         </div>
       }
     >
-      {error && <div className="alert alert-danger proxy-alert-box">{error}</div>}
 
       <form onSubmit={handleSubmit} className="proxy-form-stack">
         <div className="form-group">
@@ -434,16 +433,42 @@ function ProxyFormModal({
 
           <div className="form-group">
             <label>Mật khẩu (Password):</label>
-            <input
-              type="password"
-              className={`form-control ${fieldErrors.password ? 'input-error' : ''}`}
-              placeholder="Bỏ trống nếu không có"
-              value={password}
-              onChange={(e) => {
-                setPassword(e.target.value);
-                clearFieldError('password');
-              }}
-            />
+            <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
+              <input
+                type={showPassword ? 'text' : 'password'}
+                className={`form-control ${fieldErrors.password ? 'input-error' : ''}`}
+                style={{ paddingRight: '38px' }}
+                placeholder="Bỏ trống nếu không có"
+                value={password}
+                onChange={(e) => {
+                  setPassword(e.target.value);
+                  clearFieldError('password');
+                }}
+              />
+              <button
+                type="button"
+                onClick={() => setShowPassword(!showPassword)}
+                style={{
+                  position: 'absolute',
+                  right: '8px',
+                  top: '50%',
+                  transform: 'translateY(-50%)',
+                  background: 'transparent',
+                  border: 'none',
+                  color: showPassword ? 'var(--apple-blue)' : 'var(--text-tertiary)',
+                  cursor: 'pointer',
+                  padding: '4px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  outline: 'none'
+                }}
+                title={showPassword ? 'Ẩn mật khẩu' : 'Hiện mật khẩu'}
+                tabIndex={-1}
+              >
+                <window.Icon name={showPassword ? 'eye-off' : 'eye'} size={16} />
+              </button>
+            </div>
             {fieldErrors.password && (
               <div className="field-error-msg">
                 <window.Icon name="alert-circle" size={13} color="var(--apple-red)" />
