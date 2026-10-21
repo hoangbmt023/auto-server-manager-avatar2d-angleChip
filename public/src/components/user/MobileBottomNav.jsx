@@ -20,7 +20,7 @@ window.MobileBottomNav = function MobileBottomNav({
     {
       id: 'topup',
       label: 'Nạp Tiền',
-      icon: 'zap',
+      icon: 'wallet',
       size: 20
     },
     {
