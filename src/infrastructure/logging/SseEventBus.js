@@ -58,6 +58,16 @@ class SseEventBus extends EventEmitter {
     return this.ipcBus.getLogs();
   }
 
+  getAccountLogs(accountId, username = null) {
+    return this.ipcBus.getAccountLogs ? this.ipcBus.getAccountLogs(accountId, username) : [];
+  }
+
+  clearAccountLogs(accountId, username = null) {
+    if (this.ipcBus.clearAccountLogs) {
+      this.ipcBus.clearAccountLogs(accountId, username);
+    }
+  }
+
   clearLogs() {
     this.ipcBus.clearLogs();
     this.broadcastLocal('clear-logs', { success: true });

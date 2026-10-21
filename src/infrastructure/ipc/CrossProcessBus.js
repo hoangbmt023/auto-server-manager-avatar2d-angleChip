@@ -21,9 +21,10 @@ class CrossProcessBus extends EventEmitter {
     this.lastCommandOffset = 0;
     this.pollInterval = null;
     this.seenEventIds = new Set();
-    this.seenCommandIds = new Set();
     this.maxMemoryLogs = 500;
     this.localLogCache = [];
+    this.maxAccountLogs = 1000;
+    this.accountLogsMap = new Map();
 
     this.ensureDir();
     this.initOffsets();
@@ -141,9 +142,28 @@ class CrossProcessBus extends EventEmitter {
       text: (logEntry.text || '').trimEnd()
     };
 
+    // 1. Global system log cache (capped at maxMemoryLogs = 500)
     this.localLogCache.push(formatted);
     if (this.localLogCache.length > this.maxMemoryLogs) {
       this.localLogCache.shift();
+    }
+
+    // 2. Dedicated In-Memory Ring Buffer per Account (up to 1,000 logs)
+    const accKey = formatted.accountId ? String(formatted.accountId) : (formatted.username ? String(formatted.username) : null);
+    if (accKey) {
+      if (!this.accountLogsMap.has(accKey)) {
+        this.accountLogsMap.set(accKey, []);
+      }
+      const accLogs = this.accountLogsMap.get(accKey);
+      accLogs.push(formatted);
+      if (accLogs.length > this.maxAccountLogs) {
+        accLogs.shift();
+      }
+
+      // Sync by username if both are provided
+      if (formatted.username && formatted.accountId && String(formatted.username) !== String(formatted.accountId)) {
+        this.accountLogsMap.set(String(formatted.username), accLogs);
+      }
     }
 
     try {
@@ -162,8 +182,43 @@ class CrossProcessBus extends EventEmitter {
     return [...this.localLogCache];
   }
 
+  /**
+   * Retrieves up to 1,000 dedicated in-memory logs for an account
+   * @param {string} accountId
+   * @param {string} username
+   * @returns {Array<Object>}
+   */
+  getAccountLogs(accountId, username = null) {
+    if (accountId && this.accountLogsMap.has(String(accountId))) {
+      return [...this.accountLogsMap.get(String(accountId))];
+    }
+    if (username && this.accountLogsMap.has(String(username))) {
+      return [...this.accountLogsMap.get(String(username))];
+    }
+    // Fallback: search in localLogCache
+    return this.localLogCache.filter(log =>
+      (accountId && String(log.accountId) === String(accountId)) ||
+      (username && (log.username === username || log.text?.includes(`[${username}]`)))
+    );
+  }
+
+  /**
+   * Cleans up all in-memory logs for an account upon deletion
+   * @param {string} accountId
+   * @param {string} username
+   */
+  clearAccountLogs(accountId, username = null) {
+    if (accountId) {
+      this.accountLogsMap.delete(String(accountId));
+    }
+    if (username) {
+      this.accountLogsMap.delete(String(username));
+    }
+  }
+
   clearLogs() {
     this.localLogCache = [];
+    this.accountLogsMap.clear();
     try {
       if (fs.existsSync(this.logsFile)) {
         fs.writeFileSync(this.logsFile, '', 'utf8');

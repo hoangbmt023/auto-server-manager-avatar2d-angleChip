@@ -55,6 +55,83 @@ class RmsWriter {
   }
 
   /**
+   * Cleans up all .microemulator RMS directories associated with a deleted account
+   * @param {Object} account
+   */
+  static cleanAccountRmsDirs(account) {
+    if (!account) return;
+    const cleanUser = String(account.username || account.id).replace(/[^a-zA-Z0-9_-]/g, '_');
+    const baseDir = path.join(process.cwd(), '.microemulator');
+    if (!fs.existsSync(baseDir)) return;
+
+    try {
+      const entries = fs.readdirSync(baseDir, { withFileTypes: true });
+      const targetPrefix = `suite-avatar_${cleanUser}`;
+      for (const entry of entries) {
+        if (entry.isDirectory()) {
+          if (entry.name === targetPrefix || entry.name.startsWith(`${targetPrefix}_`)) {
+            const dirPath = path.join(baseDir, entry.name);
+            try {
+              fs.rmSync(dirPath, { recursive: true, force: true });
+              console.log(`[RmsCleaner] Đã xóa triệt để thư mục RMS: ${dirPath}`);
+            } catch (err) {
+              console.warn(`[RmsCleaner] Không thể xóa ${dirPath}:`, err.message);
+            }
+          }
+        }
+      }
+    } catch (e) {
+      console.warn(`[RmsCleaner] Lỗi dọn dẹp RMS cho ${account.username}:`, e.message);
+    }
+  }
+
+  /**
+   * Cleans up orphan RMS suites for accounts that no longer exist in the database
+   * @param {Array<Object>} existingAccounts
+   */
+  static cleanOrphanRmsDirs(existingAccounts = []) {
+    const baseDir = path.join(process.cwd(), '.microemulator');
+    if (!fs.existsSync(baseDir)) return;
+
+    const validUsernames = new Set(
+      (existingAccounts || []).map(a => String(a.username || a.id).replace(/[^a-zA-Z0-9_-]/g, '_').toLowerCase())
+    );
+
+    try {
+      const entries = fs.readdirSync(baseDir, { withFileTypes: true });
+      for (const entry of entries) {
+        if (entry.isDirectory() && entry.name.startsWith('suite-avatar_')) {
+          // Extract username part from suite-avatar_<username> or suite-avatar_<username>_<fileId>
+          const remainder = entry.name.replace(/^suite-avatar_/, '');
+          const parts = remainder.split('_');
+          const guessedUser = parts[0]?.toLowerCase();
+
+          // Don't delete suite-avatar_main or valid existing accounts
+          if (guessedUser === 'main') continue;
+
+          let isAlive = false;
+          for (const validUser of validUsernames) {
+            if (remainder.toLowerCase().startsWith(validUser)) {
+              isAlive = true;
+              break;
+            }
+          }
+
+          if (!isAlive) {
+            const orphanDir = path.join(baseDir, entry.name);
+            try {
+              fs.rmSync(orphanDir, { recursive: true, force: true });
+              console.log(`[RmsCleaner] Đã dọn dẹp thư mục mồ côi (Orphan RMS): ${orphanDir}`);
+            } catch (e) {}
+          }
+        }
+      }
+    } catch (err) {
+      console.warn('[RmsCleaner] Lỗi quét dọn thư mục mồ côi:', err.message);
+    }
+  }
+
+  /**
    * Writes Up Thue data (chip_<user>Data.rs, chip_Data.rs)
    * 28-byte payload: xuBanDau(int32), startedTs(int64), upDays(int32), targetCoins(int32), lastUpdateTs(int64)
    */
