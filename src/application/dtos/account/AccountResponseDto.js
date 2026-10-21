@@ -4,9 +4,10 @@
  * Password is NEVER exposed as plain text.
  */
 class AccountResponseDto {
-  constructor(account, runtimeInfo = null, proxyName = null) {
+  constructor(account, runtimeInfo = null, proxyName = null, proxyExpiresAt = null, allowedFeatures = null, rentalPlanName = null, rentedBy = null) {
     this.id = account.id;
     this.userId = account.userId || null;
+    this.rentedBy = rentedBy || account.rentedBy || null;
     this.username = account.username;
     this.password = account.password ? '******' : '';
     this.serverId = account.serverId;
@@ -14,6 +15,17 @@ class AccountResponseDto {
     this.fileId = account.fileId;
     this.proxyId = account.proxyId;
     this.proxyName = proxyName || account.proxyName || null;
+    this.proxyExpiresAt = proxyExpiresAt ? (proxyExpiresAt.toISOString ? proxyExpiresAt.toISOString() : proxyExpiresAt) : (account.proxyExpiresAt || null);
+
+    const isRented = Boolean(account.userId || account.rentalExpiresAt);
+    this.rentalPlan = isRented ? (account.rentalPlan || null) : null;
+    this.rentalPlanName = isRented ? (rentalPlanName || (account.rentalPlan === 'FULL' ? 'Gói Full' : (account.rentalPlan === 'FISH' ? 'Gói Câu Cá' : (account.rentalPlan === 'UPXU' ? 'Gói Up Xu' : (account.rentalPlan ? `Gói ${account.rentalPlan}` : null))))) : null;
+    this.rentalExpiresAt = account.rentalExpiresAt ? (account.rentalExpiresAt.toISOString ? account.rentalExpiresAt.toISOString() : account.rentalExpiresAt) : null;
+    this.allowedFeatures = isRented ? (allowedFeatures || (Array.isArray(account.allowedFeatures) ? account.allowedFeatures : (
+      account.rentalPlan === 'FULL'
+        ? ['farm', 'fish', 'diamond', 'sellOre', 'upThue']
+        : (account.rentalPlan === 'FISH' ? ['fish', 'upThue'] : (account.rentalPlan ? ['farm', 'upThue'] : null))
+    ))) : null;
     this.note = account.note;
     this.ipSlot = account.ipSlot;
     this.appId = account.appId;

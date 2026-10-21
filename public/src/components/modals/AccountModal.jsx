@@ -132,14 +132,19 @@ window.AccountModal = function AccountModal({
   proxies = [],
   activeFileId,
   defaultIpSlot = 1,
+  isUserView = false,
   onClose,
   onSaved
 }) {
   const isEditing = Boolean(account);
+  const currentUser = window.authService?.getCurrentUser ? window.authService.getCurrentUser() : null;
+  const isUser = isUserView || account?.isUserView || (currentUser && String(currentUser.role || '').toUpperCase() !== 'ADMIN');
+
   const [fileId, setFileId] = useAccModalState(account?.fileId || activeFileId || 'file_1');
   const [proxyId, setProxyId] = useAccModalState(account?.proxyId || '');
   const [username, setUsername] = useAccModalState(account?.username || '');
   const [password, setPassword] = useAccModalState('');
+  const [showPassword, setShowPassword] = useAccModalState(false);
   const [serverId, setServerId] = useAccModalState(account?.serverId !== undefined ? String(account.serverId) : '0');
   const [note, setNote] = useAccModalState(account?.note || '');
   const [ipSlot, setIpSlot] = useAccModalState(account?.ipSlot !== undefined ? String(account?.ipSlot) : String(defaultIpSlot || 1));
@@ -207,17 +212,19 @@ window.AccountModal = function AccountModal({
       feErrors.password = 'Vui lòng nhập mật khẩu tài khoản!';
     }
     const sId = parseInt(serverId, 10);
-    if (sId !== 0 && sId !== 1) {
+    if (!isUser && (sId !== 0 && sId !== 1)) {
       feErrors.serverId = 'Vui lòng chọn Server hợp lệ (0: Hoàn Mỹ, 1: Diệu Kỳ)!';
     }
     const slotNum = parseInt(ipSlot, 10);
-    if (isNaN(slotNum) || slotNum < 1) {
+    if (!isUser && (isNaN(slotNum) || slotNum < 1)) {
       feErrors.ipSlot = 'Vị trí IP Slot phải là số nguyên >= 1!';
     }
 
-    const chosenProxy = proxies.find(p => p.id === proxyId);
-    if (chosenProxy && chosenProxy.isExpired) {
-      feErrors.proxyId = `Proxy [${chosenProxy.name}] đã hết hạn! Vui lòng chọn proxy khác.`;
+    if (!isUser) {
+      const chosenProxy = proxies.find(p => p.id === proxyId);
+      if (chosenProxy && chosenProxy.isExpired) {
+        feErrors.proxyId = `Proxy [${chosenProxy.name}] đã hết hạn! Vui lòng chọn proxy khác.`;
+      }
     }
 
     if (Object.keys(feErrors).length > 0) {
@@ -229,13 +236,13 @@ window.AccountModal = function AccountModal({
 
     const payload = {
       id: account?.id || undefined,
-      fileId,
-      proxyId: proxyId || null,
+      fileId: isUser ? (account?.fileId || fileId) : fileId,
+      proxyId: isUser ? (account?.proxyId !== undefined ? account.proxyId : proxyId) : (proxyId || null),
       username: username.trim(),
       password,
-      serverId: sId,
-      serverName: sId === 0 ? 'Hoàn Mỹ' : 'Diệu Kỳ',
-      ipSlot: slotNum || 1,
+      serverId: isUser ? (account?.serverId !== undefined ? account.serverId : sId) : sId,
+      serverName: (isUser ? (account?.serverId === 1 ? 'Diệu Kỳ' : 'Hoàn Mỹ') : (sId === 0 ? 'Hoàn Mỹ' : 'Diệu Kỳ')),
+      ipSlot: isUser ? (account?.ipSlot || slotNum || 1) : (slotNum || 1),
       note: note.trim()
     };
 
@@ -259,7 +266,7 @@ window.AccountModal = function AccountModal({
   return (
     <window.ModalBase
       title={isEditing ? `Chỉnh Sửa: ${account.username}` : 'Thêm Tài Khoản Mới'}
-      subtitle="Gán File hồ sơ, Server và Proxy mạng"
+      subtitle={isUser ? 'Cập nhật mật khẩu hoặc ghi chú tài khoản game' : 'Gán File hồ sơ, Server và Proxy mạng'}
       icon={isEditing ? 'edit' : 'plus'}
       iconColor="var(--apple-blue)"
       size="md"
@@ -274,8 +281,8 @@ window.AccountModal = function AccountModal({
       }
     >
       <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '18px' }}>
-        {/* Expired Proxy Warning */}
-        {(() => {
+        {/* Expired Proxy Warning (Admin only) */}
+        {!isUser && (() => {
           const currentSelectedProxy = proxies.find(p => p.id === proxyId);
           if (!currentSelectedProxy || !currentSelectedProxy.isExpired) return null;
           return (
@@ -292,52 +299,56 @@ window.AccountModal = function AccountModal({
           );
         })()}
 
-        <div className="form-row">
-          <div className="form-group">
-            <label style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-              <window.Icon name="folder" size={14} color="var(--apple-blue)" />
-              <span>Thuộc File / Profile:</span>
-            </label>
-            <CustomSelect
-              value={fileId}
-              onChange={(val) => {
-                setFileId(val);
-                clearFieldError('fileId');
-              }}
-              options={fileOptions}
-              placeholder="Chọn File / Profile..."
-            />
-            {fieldErrors.fileId && (
-              <div className="field-error-msg">
-                <window.Icon name="alert-circle" size={13} color="var(--apple-red)" />
-                <span>{fieldErrors.fileId}</span>
-              </div>
-            )}
-          </div>
+        {/* 1. File & Proxy Selector (Admin only - Hidden for regular users) */}
+        {!isUser && (
+          <div className="form-row">
+            <div className="form-group">
+              <label style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                <window.Icon name="folder" size={14} color="var(--apple-blue)" />
+                <span>Thuộc File / Profile:</span>
+              </label>
+              <CustomSelect
+                value={fileId}
+                onChange={(val) => {
+                  setFileId(val);
+                  clearFieldError('fileId');
+                }}
+                options={fileOptions}
+                placeholder="Chọn File / Profile..."
+              />
+              {fieldErrors.fileId && (
+                <div className="field-error-msg">
+                  <window.Icon name="alert-circle" size={13} color="var(--apple-red)" />
+                  <span>{fieldErrors.fileId}</span>
+                </div>
+              )}
+            </div>
 
-          <div className="form-group">
-            <label style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-              <window.Icon name="globe" size={14} color="var(--apple-purple)" />
-              <span>Tab IP / Proxy Mạng (Tối đa 6 nick/IP):</span>
-            </label>
-            <CustomSelect
-              value={proxyId}
-              onChange={(val) => {
-                setProxyId(val);
-                clearFieldError('proxyId');
-              }}
-              options={proxyOptions}
-              placeholder="Chọn Tab IP / Proxy..."
-            />
-            {fieldErrors.proxyId && (
-              <div className="field-error-msg">
-                <window.Icon name="alert-circle" size={13} color="var(--apple-red)" />
-                <span>{fieldErrors.proxyId}</span>
-              </div>
-            )}
+            <div className="form-group">
+              <label style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                <window.Icon name="globe" size={14} color="var(--apple-purple)" />
+                <span>Tab IP / Proxy Mạng (Tối đa 6 nick/IP):</span>
+              </label>
+              <CustomSelect
+                value={proxyId}
+                onChange={(val) => {
+                  setProxyId(val);
+                  clearFieldError('proxyId');
+                }}
+                options={proxyOptions}
+                placeholder="Chọn Tab IP / Proxy..."
+              />
+              {fieldErrors.proxyId && (
+                <div className="field-error-msg">
+                  <window.Icon name="alert-circle" size={13} color="var(--apple-red)" />
+                  <span>{fieldErrors.proxyId}</span>
+                </div>
+              )}
+            </div>
           </div>
-        </div>
+        )}
 
+        {/* 2. Username & Password */}
         <div className="form-row">
           <div className="form-group">
             <label style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
@@ -366,16 +377,42 @@ window.AccountModal = function AccountModal({
               <window.Icon name="shield" size={14} color="var(--apple-blue)" />
               <span>Mật khẩu (Password) {!isEditing && <span style={{ color: 'var(--apple-red)' }}>*</span>}:</span>
             </label>
-            <input
-              type="password"
-              className={`form-control ${fieldErrors.password ? 'input-error' : ''}`}
-              placeholder={isEditing ? '(Giữ nguyên nếu không đổi)' : 'Nhập mật khẩu'}
-              value={password}
-              onChange={e => {
-                setPassword(e.target.value);
-                clearFieldError('password');
-              }}
-            />
+            <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
+              <input
+                type={showPassword ? 'text' : 'password'}
+                className={`form-control ${fieldErrors.password ? 'input-error' : ''}`}
+                style={{ paddingRight: '38px' }}
+                placeholder={isEditing ? '(Giữ nguyên nếu không đổi)' : 'Nhập mật khẩu'}
+                value={password}
+                onChange={e => {
+                  setPassword(e.target.value);
+                  clearFieldError('password');
+                }}
+              />
+              <button
+                type="button"
+                onClick={() => setShowPassword(!showPassword)}
+                style={{
+                  position: 'absolute',
+                  right: '8px',
+                  top: '50%',
+                  transform: 'translateY(-50%)',
+                  background: 'transparent',
+                  border: 'none',
+                  color: showPassword ? 'var(--apple-blue)' : 'var(--text-tertiary)',
+                  cursor: 'pointer',
+                  padding: '4px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  outline: 'none'
+                }}
+                title={showPassword ? 'Ẩn mật khẩu' : 'Hiện mật khẩu'}
+                tabIndex={-1}
+              >
+                <window.Icon name={showPassword ? 'eye-off' : 'eye'} size={16} />
+              </button>
+            </div>
             {fieldErrors.password && (
               <div className="field-error-msg">
                 <window.Icon name="alert-circle" size={13} color="var(--apple-red)" />
@@ -385,52 +422,80 @@ window.AccountModal = function AccountModal({
           </div>
         </div>
 
-        <div className="form-row">
-          <div className="form-group">
-            <label style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-              <window.Icon name="server" size={14} color="var(--apple-blue)" />
-              <span>Server Game:</span>
-            </label>
-            <CustomSelect
-              value={serverId}
-              onChange={(val) => {
-                setServerId(val);
-                clearFieldError('serverId');
-              }}
-              options={serverOptions}
-              placeholder="Chọn Server..."
-            />
-            {fieldErrors.serverId && (
-              <div className="field-error-msg">
-                <window.Icon name="alert-circle" size={13} color="var(--apple-red)" />
-                <span>{fieldErrors.serverId}</span>
-              </div>
-            )}
-          </div>
+        {/* 3. Server & Note (Server is Admin only - Hidden for regular users) */}
+        {!isUser ? (
+          <div className="form-row">
+            <div className="form-group">
+              <label style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                <window.Icon name="server" size={14} color="var(--apple-blue)" />
+                <span>Server Game:</span>
+              </label>
+              <CustomSelect
+                value={serverId}
+                onChange={(val) => {
+                  setServerId(val);
+                  clearFieldError('serverId');
+                }}
+                options={serverOptions}
+                placeholder="Chọn Server..."
+              />
+              {fieldErrors.serverId && (
+                <div className="field-error-msg">
+                  <window.Icon name="alert-circle" size={13} color="var(--apple-red)" />
+                  <span>{fieldErrors.serverId}</span>
+                </div>
+              )}
+            </div>
 
-          <div className="form-group">
-            <label style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-              <window.Icon name="edit" size={14} color="var(--apple-blue)" />
-              <span>Ghi chú mô tả:</span>
-            </label>
-            <input
-              type="text"
-              className={`form-control ${fieldErrors.note ? 'input-error' : ''}`}
-              placeholder="VD: Nick câu cá farm chính"
-              value={note}
-              onChange={e => {
-                setNote(e.target.value);
-                clearFieldError('note');
-              }}
-            />
-            {fieldErrors.note && (
-              <div className="field-error-msg">
-                <window.Icon name="alert-circle" size={13} color="var(--apple-red)" />
-                <span>{fieldErrors.note}</span>
-              </div>
-            )}
+            <div className="form-group">
+              <label style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                <window.Icon name="edit" size={14} color="var(--apple-blue)" />
+                <span>Ghi chú mô tả:</span>
+              </label>
+              <input
+                type="text"
+                className={`form-control ${fieldErrors.note ? 'input-error' : ''}`}
+                placeholder="VD: Nick câu cá farm chính"
+                value={note}
+                onChange={e => {
+                  setNote(e.target.value);
+                  clearFieldError('note');
+                }}
+              />
+              {fieldErrors.note && (
+                <div className="field-error-msg">
+                  <window.Icon name="alert-circle" size={13} color="var(--apple-red)" />
+                  <span>{fieldErrors.note}</span>
+                </div>
+              )}
+            </div>
           </div>
-        </div>
+        ) : (
+          <div className="form-row">
+            <div className="form-group" style={{ width: '100%' }}>
+              <label style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                <window.Icon name="edit" size={14} color="var(--apple-blue)" />
+                <span>Ghi chú mô tả nick:</span>
+              </label>
+              <input
+                type="text"
+                className={`form-control ${fieldErrors.note ? 'input-error' : ''}`}
+                placeholder="VD: Nick nông trại 1"
+                value={note}
+                onChange={e => {
+                  setNote(e.target.value);
+                  clearFieldError('note');
+                }}
+              />
+              {fieldErrors.note && (
+                <div className="field-error-msg">
+                  <window.Icon name="alert-circle" size={13} color="var(--apple-red)" />
+                  <span>{fieldErrors.note}</span>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
       </form>
     </window.ModalBase>
   );

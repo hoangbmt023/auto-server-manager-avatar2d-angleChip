@@ -95,8 +95,8 @@ class SingleBotProcess extends EventEmitter {
     // =========================================================================
     // BẢO MẬT TẦNG 2: RUNTIME ENFORCEMENT - CHỈ NẠP THÔNG SỐ CỦA TÍNH NĂNG ĐƯỢC PHÉP
     // =========================================================================
-    let allowedFeatures = null;
-    if (this.account.rentalPlan) {
+    let allowedFeatures = this.account.allowedFeatures || null;
+    if (!allowedFeatures && this.account.rentalPlan) {
       if (this.account.rentalPlan === 'FULL') {
         allowedFeatures = ['farm', 'fish', 'diamond', 'sellOre', 'upThue'];
       } else if (this.account.rentalPlan === 'FISH') {
@@ -138,9 +138,14 @@ class SingleBotProcess extends EventEmitter {
     const safeAppId = `avatar_${this.account.username || this.account.id}_${this.fileProfile ? this.fileProfile.id : 'def'}`;
     args.push(`-Davatar.appId=${safeAppId}`);
 
-    let autoToStart = (this.autoState && this.autoState.isRunning && this.autoState.autoType)
-      ? this.autoState.autoType
-      : (this.account && (this.account.lastAutoType || this.account.defaultAutoType));
+    // CHỈ khôi phục auto nếu auto ĐANG THỰC SỰ CHẠY và CHƯA HOÀN THÀNH
+    let autoToStart = null;
+    const isCompletedOrFinished = (this.autoState && (this.autoState.status === 'finished' || this.autoState.finished)) ||
+      (this.accountState && (this.accountState.state === 'target_reached' || this.accountState.isCompleted));
+
+    if (!isCompletedOrFinished && this.autoState && this.autoState.isRunning && this.autoState.autoType) {
+      autoToStart = this.autoState.autoType;
+    }
 
     // Chặn autoStartType nếu không thuộc tính năng cho phép của gói
     if (autoToStart) {
@@ -369,6 +374,17 @@ class SingleBotProcess extends EventEmitter {
 
       if (parsed.isTargetReached) {
         this.isManualStop = true;
+        if (this.account) {
+          this.account.lastAutoType = null;
+        }
+        this.autoState = {
+          isRunning: false,
+          autoType: null,
+          subTask: null,
+          status: 'finished',
+          message: 'Đã hoàn thành mục tiêu!'
+        };
+        this.emit('auto-status', { accountId: this.account.id, autoState: this.autoState });
         this.accountState = {
           state: 'target_reached',
           message: parsed.accountStatusUpdate && parsed.accountStatusUpdate.message ? parsed.accountStatusUpdate.message : 'Đã đạt yêu cầu up xu theo cài đặt!',
@@ -386,6 +402,11 @@ class SingleBotProcess extends EventEmitter {
           ...this.autoState,
           ...parsed.autoStatusUpdate
         };
+        if (!this.autoState.isRunning || this.autoState.status === 'finished' || this.autoState.finished) {
+          if (this.account) {
+            this.account.lastAutoType = null;
+          }
+        }
         this.emit('auto-status', { accountId: this.account.id, autoState: this.autoState });
 
         if (!this.autoState.isRunning && (this.autoState.status === 'finished' || this.autoState.finished)) {
@@ -593,6 +614,40 @@ class SingleBotProcess extends EventEmitter {
         }
 
         if (action === 'start') {
+          // BẢO MẬT TẬNG TIẾN TRÌNH (DEFENSE IN DEPTH): Chặn can thiệp tính năng ngoài gói thuê
+          if (this.account.rentalPlan) {
+            let allowed = this.account.allowedFeatures;
+            if (!allowed || !Array.isArray(allowed)) {
+              if (this.account.rentalPlan === 'FULL') allowed = ['farm', 'fish', 'diamond', 'sellOre', 'upThue'];
+              else if (this.account.rentalPlan === 'FISH') allowed = ['fish', 'upThue'];
+              else allowed = ['farm', 'upThue'];
+            }
+            const featMap = {
+              farm: 'farm',
+              diamond: 'diamond', kc: 'diamond',
+              fish: 'fish', cau_ca: 'fish', cc: 'fish',
+              sell_ore: 'sellOre', banda: 'sellOre', stone: 'sellOre', bd: 'sellOre'
+            };
+
+            if (autoType === 'all') {
+              if (!allowed.includes('farm') || !allowed.includes('fish') || !allowed.includes('diamond')) {
+                this.emitLog('error', `🛑 [${this.account.username}] Bị chặn: Gói [${this.account.rentalPlan}] không hỗ trợ chạy All Auto!`);
+                return false;
+              }
+            } else if (autoType === 'event' || autoType === 'sk') {
+              if (!allowed.includes('diamond') && this.account.rentalPlan !== 'FULL') {
+                this.emitLog('error', `🛑 [${this.account.username}] Bị chặn: Gói [${this.account.rentalPlan}] không hỗ trợ Auto Sự Kiện!`);
+                return false;
+              }
+            } else {
+              const needed = featMap[autoType];
+              if (needed && !allowed.includes(needed)) {
+                this.emitLog('error', `🛑 [${this.account.username}] Bị chặn: Gói [${this.account.rentalPlan}] không có tính năng [${this.getFriendlyName(autoType)}]!`);
+                return false;
+              }
+            }
+          }
+
           // Kiểm tra xem có phải bật Subtask (Farm / Bán Đá) khi Auto lớn (KC / Câu Cá) đang chạy không
           const isParentRunning = this.autoState && this.autoState.isRunning && (this.autoState.autoType === 'diamond' || this.autoState.autoType === 'kc' || this.autoState.autoType === 'fish');
           const isTargetSubTask = (autoType === 'farm' || autoType === 'sell_ore' || autoType === 'banda' || autoType === 'stone' || autoType === 'bd');

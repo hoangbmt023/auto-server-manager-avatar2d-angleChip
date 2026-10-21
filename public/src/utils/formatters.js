@@ -190,8 +190,85 @@
     formatDateTime,
     formatRelativeTime,
     formatExpiration,
+    formatCountdown,
     formatVoucherDiscount
   };
+
+  /**
+   * Format real-time expiration countdown (days, hours, minutes, seconds)
+   * @param {Date|string|number} dateInput
+   * @param {number} currentNowMs - Optional current timestamp in ms (for real-time re-renders)
+   * @returns {{ text: string, shortText: string, isExpired: boolean, isUrgent: boolean, isWarning: boolean, days: number, hours: number, minutes: number, seconds: number, diffMs: number }}
+   */
+  function formatCountdown(dateInput, currentNowMs = null) {
+    if (!dateInput) return { text: 'Không thời hạn', shortText: 'Vĩnh viễn', isExpired: false, isUrgent: false, isWarning: false, days: 0, hours: 0, minutes: 0, seconds: 0, diffMs: 0 };
+    const d = new Date(dateInput);
+    if (isNaN(d.getTime())) return { text: 'Không hợp lệ', shortText: 'Lỗi hạn', isExpired: true, isUrgent: true, isWarning: false, days: 0, hours: 0, minutes: 0, seconds: 0, diffMs: 0 };
+    
+    const now = typeof currentNowMs === 'number' ? currentNowMs : Date.now();
+    const diffMs = d.getTime() - now;
+    
+    if (diffMs <= 0) {
+      return {
+        text: 'Đã hết hạn',
+        shortText: 'Hết hạn',
+        compactText: 'Hết hạn',
+        isExpired: true,
+        isUrgent: true,
+        isWarning: false,
+        days: 0,
+        hours: 0,
+        minutes: 0,
+        seconds: 0,
+        diffMs: 0
+      };
+    }
+
+    const totalSeconds = Math.floor(diffMs / 1000);
+    const days = Math.floor(totalSeconds / 86400);
+    const hours = Math.floor((totalSeconds % 86400) / 3600);
+    const minutes = Math.floor((totalSeconds % 3600) / 60);
+    const seconds = totalSeconds % 60;
+
+    let text = '';
+    let shortText = '';
+    let compactText = '';
+
+    if (days >= 1) {
+      text = `Còn ${days} ngày ${hours}h ${minutes}p`;
+      shortText = `${days}d ${hours}h ${minutes}p`;
+      compactText = `${days}d ${hours}h`;
+    } else if (hours >= 1) {
+      text = `Còn ${hours}h ${minutes}p ${seconds}s`;
+      shortText = `${hours}h ${minutes}p ${seconds}s`;
+      compactText = `${hours}h ${minutes}m`;
+    } else if (minutes >= 1) {
+      text = `Còn ${minutes}p ${seconds}s`;
+      shortText = `${minutes}p ${seconds}s`;
+      compactText = `${minutes}m ${seconds}s`;
+    } else {
+      text = `Còn ${seconds}s`;
+      shortText = `${seconds}s`;
+      compactText = `${seconds}s`;
+    }
+
+    const isUrgent = diffMs < 24 * 3600 * 1000; // < 1 ngày
+    const isWarning = !isUrgent && diffMs < 3 * 24 * 3600 * 1000; // < 3 ngày
+
+    return {
+      text,
+      shortText,
+      compactText,
+      isExpired: false,
+      isUrgent,
+      isWarning,
+      days,
+      hours,
+      minutes,
+      seconds,
+      diffMs
+    };
+  }
 
   // Expose both as namespace and root helpers on window
   window.formatters = formatters;
@@ -202,6 +279,7 @@
   window.formatDateTime = formatDateTime;
   window.formatRelativeTime = formatRelativeTime;
   window.formatExpiration = formatExpiration;
+  window.formatCountdown = formatCountdown;
   window.formatVoucherDiscount = formatVoucherDiscount;
 
 })(typeof window !== 'undefined' ? window : global);

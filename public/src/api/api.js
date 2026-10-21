@@ -106,6 +106,7 @@
     switchAccountServer: (id, s) => window.accountService.switchAccountServer(id, s),
     updateAccountSetup: (id, p) => window.accountService.updateAccountSetup(id, p),
     resetAccountData: (id) => window.accountService.resetAccountData(id),
+    getAccountLogs: (id) => window.accountService.getAccountLogs(id),
 
     // Bot execution methods
     startAccount: (id) => window.accountService.startAccount(id),

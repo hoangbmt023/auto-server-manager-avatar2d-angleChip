@@ -13,6 +13,7 @@ const { useState: useFarmState } = React;
 window.FarmSetupModal = function FarmSetupModal({
   account,
   allAccounts = [],
+  accounts = [],
   onClose,
   onAccountUpdated
 }) {
@@ -46,8 +47,28 @@ window.FarmSetupModal = function FarmSetupModal({
     ...(account.farmSettings || {})
   });
 
-  const otherAccounts = (allAccounts || []).filter(a => a && a.id !== account.id);
+  const currentUser = window.ApiClient?.getCurrentUser ? window.ApiClient.getCurrentUser() : null;
+  const isAdmin = currentUser && String(currentUser.role || '').toLowerCase() === 'admin';
+
+  const accountList = (allAccounts && allAccounts.length > 0) ? allAccounts : (accounts || []);
+  const otherAccounts = accountList
+    .filter(a => a && a.id !== account.id)
+    .filter(a => {
+      if (isAdmin && !account.isUserView) return true;
+      if (account.userId && a.userId) return a.userId === account.userId;
+      return true;
+    });
   const [copyFromId, setCopyFromId] = useFarmState(otherAccounts.length > 0 ? otherAccounts[0].id : '');
+
+  React.useEffect(() => {
+    if (otherAccounts.length > 0) {
+      if (!copyFromId || !otherAccounts.some(a => a.id === copyFromId)) {
+        setCopyFromId(otherAccounts[0].id);
+      }
+    } else {
+      setCopyFromId('');
+    }
+  }, [allAccounts, accounts, account.id]);
 
   const [catalogTarget, setCatalogTarget] = useFarmState(null); // { field, label, category }
   const [isSubmitting, setIsSubmitting] = useFarmState(false);

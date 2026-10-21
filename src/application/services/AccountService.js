@@ -10,26 +10,65 @@ const { NotFoundException, BadRequestException } = require('../../domain/errors'
  * Single-table operations (1 table) -> Bypasses transaction to maximize performance.
  */
 class AccountService {
-  constructor(accountRepo, fileRepo, proxyRepo, settingRepo, multiBotManager) {
+  constructor(accountRepo, fileRepo, proxyRepo, settingRepo, multiBotManager, userRepo = null) {
     this.accountRepo = accountRepo;
     this.fileRepo = fileRepo;
     this.proxyRepo = proxyRepo;
     this.settingRepo = settingRepo;
     this.multiBotManager = multiBotManager;
+    this.userRepo = userRepo;
+  }
+
+  async _getRentalPlanRules() {
+    if (!this.settingRepo) return {};
+    try {
+      const rules = await this.settingRepo.get('rental_allocation_rules');
+      return rules?.plans || {};
+    } catch (e) {
+      return {};
+    }
+  }
+
+  _resolvePlanInfo(rentalPlan, plans = {}) {
+    if (!rentalPlan) return { allowedFeatures: null, rentalPlanName: null };
+    const plan = plans[rentalPlan];
+    let allowedFeatures = null;
+    let rentalPlanName = plan?.name || null;
+    if (plan && Array.isArray(plan.features)) {
+      allowedFeatures = plan.features;
+    } else if (rentalPlan === 'FULL') {
+      allowedFeatures = ['farm', 'fish', 'diamond', 'sellOre', 'upThue'];
+    } else if (rentalPlan === 'FISH') {
+      allowedFeatures = ['fish', 'upThue'];
+    } else {
+      allowedFeatures = ['farm', 'upThue'];
+    }
+    return { allowedFeatures, rentalPlanName };
   }
 
   async getAccounts(fileId = null) {
     const accounts = await this.accountRepo.findAll();
     const proxies = this.proxyRepo ? await this.proxyRepo.findAll() : [];
-    const proxyMap = new Map((proxies || []).map(p => [p.id, p.name]));
+    const proxyMap = new Map((proxies || []).map(p => [p.id, p]));
     const runningStatuses = this.multiBotManager ? this.multiBotManager.getAllStatuses() : { instances: {} };
+    const plans = await this._getRentalPlanRules();
+
+    let userMap = new Map();
+    if (this.userRepo) {
+      try {
+        const users = await this.userRepo.findAll();
+        userMap = new Map((users || []).map(u => [u.id, u.email || u.phone || u.id]));
+      } catch (e) {}
+    }
 
     const filtered = fileId ? accounts.filter(a => a.fileId === fileId) : accounts;
 
     return filtered.map(acc => {
       const runningInfo = runningStatuses.instances[acc.id] || null;
-      const proxyName = acc.proxyId ? (proxyMap.get(acc.proxyId) || null) : null;
-      return AccountMapper.toResponseDto(acc, runningInfo, proxyName);
+      const proxyObj = acc.proxyId ? (proxyMap.get(acc.proxyId) || null) : null;
+      const { allowedFeatures, rentalPlanName } = this._resolvePlanInfo(acc.rentalPlan, plans);
+      const rentedBy = acc.userId ? (userMap.get(acc.userId) || acc.userId) : null;
+      return AccountMapper.toResponseDto(acc, runningInfo, proxyObj, allowedFeatures, rentalPlanName, rentedBy);
     });
   }
 
@@ -41,7 +80,18 @@ class AccountService {
     const proxy = (account.proxyId && this.proxyRepo) ? await this.proxyRepo.findById(account.proxyId) : null;
     const runningStatuses = this.multiBotManager ? this.multiBotManager.getAllStatuses() : { instances: {} };
     const runningInfo = runningStatuses.instances[account.id] || null;
-    return AccountMapper.toResponseDto(account, runningInfo, proxy ? proxy.name : null);
+    const plans = await this._getRentalPlanRules();
+    const { allowedFeatures, rentalPlanName } = this._resolvePlanInfo(account.rentalPlan, plans);
+
+    let rentedBy = null;
+    if (account.userId && this.userRepo) {
+      try {
+        const user = await this.userRepo.findById(account.userId);
+        if (user) rentedBy = user.email || user.phone || user.id;
+      } catch (e) {}
+    }
+
+    return AccountMapper.toResponseDto(account, runningInfo, proxy, allowedFeatures, rentalPlanName, rentedBy);
   }
 
   async getAccount(id) {
@@ -51,7 +101,7 @@ class AccountService {
   async saveAccount(data) {
     // 1. Validation & Mapping
     const existing = data.id ? await this.accountRepo.findById(data.id) : null;
-    const account = AccountMapper.toEntityFromSaveDto(data, existing ? existing.password : null);
+    const account = AccountMapper.toEntityFromSaveDto(data, existing);
     account.validate();
 
     const activeFileId = await this.fileRepo.getActiveFileId();
@@ -95,10 +145,26 @@ class AccountService {
       }, 1200);
     }
 
-    return AccountMapper.toResponseDto(saved);
+    const plans = await this._getRentalPlanRules();
+    const { allowedFeatures, rentalPlanName } = this._resolvePlanInfo(saved.rentalPlan, plans);
+    let rentedBy = null;
+    if (saved.userId && this.userRepo) {
+      try {
+        const u = await this.userRepo.findById(saved.userId);
+        if (u) rentedBy = u.email || u.phone || u.id;
+      } catch (e) {}
+    }
+    return AccountMapper.toResponseDto(saved, null, null, allowedFeatures, rentalPlanName, rentedBy);
   }
 
   async deleteAccount(accountId) {
+    let targetAccount = null;
+    if (this.accountRepo) {
+      try {
+        targetAccount = await this.accountRepo.findById(accountId);
+      } catch (e) {}
+    }
+
     // Stop bot if running
     if (this.multiBotManager) {
       this.multiBotManager.stopAccount(accountId);
@@ -112,6 +178,11 @@ class AccountService {
     if (activeAccId === accountId) {
       const remaining = await this.accountRepo.findAll();
       await this.settingRepo.set('activeAccountId', remaining.length > 0 ? remaining[0].id : null);
+    }
+
+    // Clean up MicroEmulator RMS suites on disk
+    if (targetAccount) {
+      RmsWriter.cleanAccountRmsDirs(targetAccount);
     }
 
     return deleted;
@@ -291,7 +362,9 @@ class AccountService {
       }
     }
 
-    return AccountMapper.toResponseDto(targetAcc);
+    const plans = await this._getRentalPlanRules();
+    const { allowedFeatures, rentalPlanName } = this._resolvePlanInfo(targetAcc.rentalPlan, plans);
+    return AccountMapper.toResponseDto(targetAcc, null, null, allowedFeatures, rentalPlanName);
   }
 
   async resetData(accountId) {

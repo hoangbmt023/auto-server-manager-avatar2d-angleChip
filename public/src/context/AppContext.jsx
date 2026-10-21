@@ -35,23 +35,104 @@ window.AppProvider = function AppProvider({ children }) {
   // Check session via HttpOnly Cookie refresh on mount
   useEffect(() => {
     let isMounted = true;
+    let textSwapTimer = null;
+
     async function initAuth() {
+      const startTime = Date.now();
+      const MIN_LOADING_TIME = 1600;
+
+      // Chuyển sang câu thứ 2 sớm hơn (sau 250ms khi React bắt đầu),
+      // vì câu thứ nhất đã hiển thị suốt thời gian tải HTML + Scripts của index.html (~1 giây)
+      textSwapTimer = setTimeout(() => {
+        if (!isMounted) return;
+        const textEl = document.getElementById('app-loader-text');
+        if (textEl) {
+          textEl.classList.add('fade-swap');
+          setTimeout(() => {
+            if (!isMounted) return;
+            textEl.textContent = 'Mong rằng đó là trải nghiệm tuyệt vời...';
+            textEl.classList.remove('fade-swap');
+          }, 200);
+        }
+      }, 250);
+
+      const finalizeLoading = async () => {
+        const elapsed = Date.now() - startTime;
+        if (elapsed < MIN_LOADING_TIME) {
+          await new Promise(resolve => setTimeout(resolve, MIN_LOADING_TIME - elapsed));
+        }
+      };
+
       try {
         if (window.authService) {
           const refRes = await window.authService.refresh();
           if (refRes && refRes.success && refRes.data && refRes.data.accessToken) {
             const meRes = await window.authService.getMe();
             if (isMounted && meRes && meRes.success && meRes.data) {
-              setCurrentUser(meRes.data);
+              const userData = meRes.data;
+              const isAdmin = String(userData.role || '').toLowerCase() === 'admin';
+
+              setCurrentUser(userData);
               setIsAuthenticated(true);
-              window.ApiClient.setCurrentUser(meRes.data);
+              window.ApiClient.setCurrentUser(userData);
+
+              // Pre-fetch critical data in parallel so the page is 100% loaded before reveal
+              const preTasks = [
+                window.ApiClient.getAccounts().then(res => {
+                  if (res && res.success) setAccounts(res.accounts || []);
+                }).catch(() => { }),
+                window.ApiClient.getStatus().then(res => {
+                  if (res && res.success) {
+                    setStatus(res);
+                    setActiveFileId(prev => (prev ? prev : (res.activeFileId || 'file_1')));
+                  }
+                }).catch(() => { })
+              ];
+
+              if (window.billingService) {
+                preTasks.push(
+                  window.billingService.getBalance().then(res => {
+                    if (res && res.data && typeof res.data.balance === 'number') {
+                      window.__initialBalance = res.data.balance;
+                    }
+                  }).catch(() => { }),
+                  window.billingService.getPolicy().then(res => {
+                    if (res && res.data) {
+                      window.__initialPolicy = res.data;
+                    }
+                  }).catch(() => { })
+                );
+              }
+
+              if (isAdmin) {
+                preTasks.push(
+                  window.ApiClient.getFiles().then(res => {
+                    if (res && res.success) setFiles(res.files || []);
+                  }).catch(() => { }),
+                  window.ApiClient.getProxies().then(res => {
+                    if (res && res.success) setProxies(res.proxies || []);
+                  }).catch(() => { }),
+                  window.ApiClient.getLogs().then(res => {
+                    if (res && res.success) setLogs(res.logs || []);
+                  }).catch(() => { }),
+                  window.ApiClient.getAvailableJars().then(res => {
+                    if (res && res.success) setAvailableJars(res.jars || []);
+                  }).catch(() => { })
+                );
+              }
+
+              await Promise.all(preTasks);
+
+              await finalizeLoading();
+              if (!isMounted) return;
               setIsAuthLoading(false);
               return;
             }
           }
         }
-      } catch (err) {}
+      } catch (err) { }
 
+      await finalizeLoading();
       if (isMounted) {
         setIsAuthenticated(false);
         setCurrentUser(null);
@@ -73,6 +154,7 @@ window.AppProvider = function AppProvider({ children }) {
     window.addEventListener('auth:unauthorized', handleUnauthorized);
     return () => {
       isMounted = false;
+      if (textSwapTimer) clearTimeout(textSwapTimer);
       window.removeEventListener('auth:unauthorized', handleUnauthorized);
     };
   }, []);
@@ -89,7 +171,7 @@ window.AppProvider = function AppProvider({ children }) {
   const logoutUser = useCallback(async () => {
     try {
       if (window.authService) await window.authService.logout();
-    } catch (e) {}
+    } catch (e) { }
     setCurrentUser(null);
     setIsAuthenticated(false);
     window.ApiClient.setCurrentUser(null);
@@ -113,7 +195,7 @@ window.AppProvider = function AppProvider({ children }) {
         setStatus(data);
         setActiveFileId(prev => (prev ? prev : (data.activeFileId || 'file_1')));
       }
-    } catch (e) {}
+    } catch (e) { }
   }, []);
 
   const fetchFiles = useCallback(async () => {
@@ -123,7 +205,7 @@ window.AppProvider = function AppProvider({ children }) {
         setFiles(data.files || []);
         setActiveFileId(prev => (prev ? prev : (data.activeFileId || (data.files && data.files[0] ? data.files[0].id : 'file_1'))));
       }
-    } catch (e) {}
+    } catch (e) { }
   }, []);
 
   const fetchProxies = useCallback(async () => {
@@ -132,7 +214,7 @@ window.AppProvider = function AppProvider({ children }) {
       if (data.success) {
         setProxies(data.proxies || []);
       }
-    } catch (e) {}
+    } catch (e) { }
   }, []);
 
   const fetchAccounts = useCallback(async () => {
@@ -141,21 +223,21 @@ window.AppProvider = function AppProvider({ children }) {
       if (data.success) {
         setAccounts(data.accounts || []);
       }
-    } catch (e) {}
+    } catch (e) { }
   }, []);
 
   const fetchJars = useCallback(async () => {
     try {
       const data = await window.ApiClient.getAvailableJars();
       if (data.success) setAvailableJars(data.jars || []);
-    } catch (e) {}
+    } catch (e) { }
   }, []);
 
   const fetchLogs = useCallback(async () => {
     try {
       const data = await window.ApiClient.getLogs();
       if (data.success) setLogs(data.logs || []);
-    } catch (e) {}
+    } catch (e) { }
   }, []);
 
   // SSE Stream & Synchronization
@@ -164,14 +246,14 @@ window.AppProvider = function AppProvider({ children }) {
 
     const isAdmin = currentUser && String(currentUser.role || '').toLowerCase() === 'admin';
 
-    fetchStatus();
-    fetchAccounts();
+    if (!status) fetchStatus();
+    if (!accounts || accounts.length === 0) fetchAccounts();
 
     if (isAdmin) {
-      fetchFiles();
-      fetchProxies();
+      if (!files || files.length === 0) fetchFiles();
+      if (!proxies || proxies.length === 0) fetchProxies();
+      if (!availableJars || availableJars.length === 0) fetchJars();
       fetchLogs();
-      fetchJars();
     }
 
     const connectSSE = () => {
@@ -183,7 +265,7 @@ window.AppProvider = function AppProvider({ children }) {
         try {
           const log = JSON.parse(e.data);
           setLogs(prev => [...prev.slice(-999), log]);
-        } catch (err) {}
+        } catch (err) { }
       });
 
       es.addEventListener('bot-status-changed', () => {
@@ -213,7 +295,7 @@ window.AppProvider = function AppProvider({ children }) {
               return acc;
             }));
           }
-        } catch (err) {}
+        } catch (err) { }
       });
 
       es.addEventListener('bot-account-status', (e) => {
@@ -227,7 +309,7 @@ window.AppProvider = function AppProvider({ children }) {
               return acc;
             }));
           }
-        } catch (err) {}
+        } catch (err) { }
       });
 
       es.addEventListener('bot-auto-status', (e) => {
@@ -241,7 +323,7 @@ window.AppProvider = function AppProvider({ children }) {
               return acc;
             }));
           }
-        } catch (err) {}
+        } catch (err) { }
       });
 
       es.addEventListener('clear-logs', () => {
@@ -262,7 +344,7 @@ window.AppProvider = function AppProvider({ children }) {
               fetchStatus();
             }, 2000);
           }
-        } catch (err) {}
+        } catch (err) { }
       });
 
       es.onerror = () => {
@@ -483,7 +565,7 @@ window.AppProvider = function AppProvider({ children }) {
 
   const handleSwitchFile = (id) => {
     setActiveFileId(id);
-    window.ApiClient.switchFile(id).catch(() => {});
+    window.ApiClient.switchFile(id).catch(() => { });
   };
 
   const handleDeleteFile = async (id, name) => {
@@ -542,7 +624,7 @@ window.AppProvider = function AppProvider({ children }) {
     try {
       await window.ApiClient.clearLogs();
       setLogs([]);
-    } catch (err) {}
+    } catch (err) { }
   };
 
   const handleDownloadLogs = () => {

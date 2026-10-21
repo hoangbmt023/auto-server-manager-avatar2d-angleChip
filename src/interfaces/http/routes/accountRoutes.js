@@ -27,8 +27,10 @@ module.exports = function createAccountRoutes(accountController) {
     return accountController.deleteAccount(req, res, sendJson, parseJsonBody);
   });
 
-  router.post('/api/accounts/:id/switch-server', (req, res, { sendJson, parseJsonBody }) => {
-    return accountController.switchServer(req, res, sendJson, parseJsonBody);
+  router.post('/api/accounts/:id/switch-server', (req, res, helpers) => {
+    const { requireRole } = require('../middlewares/roleMiddleware');
+    if (!requireRole('ADMIN')(req, res, helpers)) return;
+    return accountController.switchServer(req, res, helpers.sendJson, helpers.parseJsonBody);
   });
 
   router.put('/api/accounts/:id/setup', (req, res, { sendJson, parseJsonBody }) => {
@@ -52,8 +54,10 @@ module.exports = function createAccountRoutes(accountController) {
     return accountController.deleteAccount(req, res, sendJson, parseJsonBody);
   });
 
-  router.post('/api/accounts/switch-server', (req, res, { sendJson, parseJsonBody }) => {
-    return accountController.switchServer(req, res, sendJson, parseJsonBody);
+  router.post('/api/accounts/switch-server', (req, res, helpers) => {
+    const { requireRole } = require('../middlewares/roleMiddleware');
+    if (!requireRole('ADMIN')(req, res, helpers)) return;
+    return accountController.switchServer(req, res, helpers.sendJson, helpers.parseJsonBody);
   });
 
   router.post('/api/accounts/setup', (req, res, { sendJson, parseJsonBody }) => {

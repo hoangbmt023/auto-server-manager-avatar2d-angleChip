@@ -87,6 +87,7 @@ window.DashboardPage = function DashboardPage() {
   const [searchOpen, setSearchOpen] = React.useState(false);
   const [ipDropdownOpen, setIpDropdownOpen] = React.useState(false);
   const [rmsModal, setRmsModal] = React.useState({ open: false, account: null });
+  const [selectedLogAccount, setSelectedLogAccount] = React.useState(null);
   const searchWrapperRef = React.useRef(null);
   const ipDropdownRef = React.useRef(null);
 
@@ -547,6 +548,7 @@ window.DashboardPage = function DashboardPage() {
               onOpenSetup={openSetupModal}
               onTriggerAuto={handleTriggerAuto}
               onInspectRms={handleInspectRms}
+              onOpenLogs={(acc) => setSelectedLogAccount(acc)}
             />
           </div>
         </section>
@@ -629,6 +631,14 @@ window.DashboardPage = function DashboardPage() {
           isOpen={rmsModal.open}
           account={accounts.find(a => a.id === rmsModal.account?.id) || rmsModal.account}
           onClose={() => setRmsModal({ open: false, account: null })}
+        />
+      )}
+
+      {selectedLogAccount && window.AccountLogsModal && (
+        <window.AccountLogsModal
+          account={selectedLogAccount}
+          isAdmin={true}
+          onClose={() => setSelectedLogAccount(null)}
         />
       )}
     </div>

@@ -27,7 +27,6 @@ function FileFormModal({
   const [maxAccounts, setMaxAccounts] = useFileModalState(file?.maxAccounts || 6);
   const [uploadStatus, setUploadStatus] = useFileModalState('');
   const [loading, setLoading] = useFileModalState(false);
-  const [error, setError] = useFileModalState('');
   const [fieldErrors, setFieldErrors] = useFileModalState({});
 
   const clearFieldError = (f) => {
@@ -99,7 +98,6 @@ function FileFormModal({
     };
 
     setLoading(true);
-    setError('');
     try {
       const data = await window.ApiClient.saveFile(payload);
       if (data.success) {
@@ -110,11 +108,13 @@ function FileFormModal({
         if (data.errors && typeof data.errors === 'object') {
           setFieldErrors(data.errors);
         } else {
-          setError(data.message || 'Lỗi lưu File');
+          const notifyAlert = window.showAlert || alert;
+          notifyAlert(data.message || 'Lỗi lưu File', 'Lỗi Lưu File', 'error');
         }
       }
     } catch (err) {
-      setError('Lỗi: ' + err.message);
+      const notifyAlert = window.showAlert || alert;
+      notifyAlert('Lỗi: ' + err.message, 'Lỗi Hệ Thống', 'error');
     } finally {
       setLoading(false);
     }
@@ -143,7 +143,6 @@ function FileFormModal({
         </div>
       }
     >
-      {error && <div className="alert alert-danger" style={{ marginBottom: '14px' }}>{error}</div>}
 
       <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
         <div className="form-group">

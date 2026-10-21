@@ -46,8 +46,12 @@ module.exports = function createAuthRoutes(authController) {
     return authController.me(req, res, sendJson);
   });
 
-  router.get('/api/users', (req, res, { sendJson }) => {
-    return authController.getUsers(req, res, sendJson);
+  const { requireRole } = require('../middlewares/roleMiddleware');
+  const adminOnly = requireRole('ADMIN');
+
+  router.get('/api/users', (req, res, helpers) => {
+    if (!adminOnly(req, res, helpers)) return;
+    return authController.getUsers(req, res, helpers.sendJson);
   });
 
   return router;

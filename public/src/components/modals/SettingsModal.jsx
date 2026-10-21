@@ -26,6 +26,7 @@ window.SettingsModal = function SettingsModal({ config, theme = 'dark', setTheme
   const [autoRestart, setAutoRestart] = useSettingsModalState(Boolean(config?.autoRestart));
   const [autoStart, setAutoStart] = useSettingsModalState(Boolean(config?.autoStart));
   const [password, setPassword] = useSettingsModalState('');
+  const [showPassword, setShowPassword] = useSettingsModalState(false);
   const [selectedTheme, setSelectedTheme] = useSettingsModalState(theme || 'dark');
   const [fieldErrors, setFieldErrors] = useSettingsModalState({});
 
@@ -468,16 +469,42 @@ window.SettingsModal = function SettingsModal({ config, theme = 'dark', setTheme
               <window.Icon name="shield" size={14} color="var(--apple-blue)" />
               <span>Mật khẩu đăng nhập Web (Để trống nếu không đặt mật khẩu):</span>
             </label>
-            <input
-              type="password"
-              className={`form-control ${fieldErrors.password ? 'input-error' : ''}`}
-              placeholder="Nhập mật khẩu mới bảo vệ web"
-              value={password}
-              onChange={e => {
-                setPassword(e.target.value);
-                clearFieldError('password');
-              }}
-            />
+            <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
+              <input
+                type={showPassword ? 'text' : 'password'}
+                className={`form-control ${fieldErrors.password ? 'input-error' : ''}`}
+                style={{ paddingRight: '38px' }}
+                placeholder="Nhập mật khẩu mới bảo vệ web"
+                value={password}
+                onChange={e => {
+                  setPassword(e.target.value);
+                  clearFieldError('password');
+                }}
+              />
+              <button
+                type="button"
+                onClick={() => setShowPassword(!showPassword)}
+                style={{
+                  position: 'absolute',
+                  right: '8px',
+                  top: '50%',
+                  transform: 'translateY(-50%)',
+                  background: 'transparent',
+                  border: 'none',
+                  color: showPassword ? 'var(--apple-blue)' : 'var(--text-tertiary)',
+                  cursor: 'pointer',
+                  padding: '4px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  outline: 'none'
+                }}
+                title={showPassword ? 'Ẩn mật khẩu' : 'Hiện mật khẩu'}
+                tabIndex={-1}
+              >
+                <window.Icon name={showPassword ? 'eye-off' : 'eye'} size={16} />
+              </button>
+            </div>
           </div>
         </form>
       )}
@@ -495,7 +522,10 @@ window.SettingsModal = function SettingsModal({ config, theme = 'dark', setTheme
             <>
               {/* 1. Plans & Pricing per Month */}
               <div className="farm-section-card">
-                <span className="sidebar-section-lbl" style={{ marginBottom: '8px' }}>BẢNG GIÁ VÀ FILE PHÂN BỔ MẶC ĐỊNH</span>
+                <span className="sidebar-section-lbl" style={{ marginBottom: '4px' }}>BẢNG GIÁ VÀ FILE PHÂN BỔ MẶC ĐỊNH</span>
+                <p style={{ fontSize: '0.74rem', color: 'var(--text-tertiary)', margin: '0 0 10px 0' }}>
+                  Admin toàn quyền quản trị: Bạn chọn file bot nào thì khi user thuê gói đó hệ thống sẽ tự động gán tài khoản vào chính xác file bot bạn đã chỉ định.
+                </p>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
                   {Object.entries(allocationRules.plans || {}).map(([key, plan]) => {
                     const currentFeats = plan.features || (key === 'FULL' ? ['farm', 'fish', 'diamond', 'sellOre', 'upThue'] : (key === 'FISH' ? ['fish', 'upThue'] : ['farm', 'upThue']));
@@ -523,17 +553,22 @@ window.SettingsModal = function SettingsModal({ config, theme = 'dark', setTheme
                           />
                         </div>
                         <div>
-                          <label style={{ fontSize: '0.72rem', color: 'var(--text-tertiary)' }}>File Bot Ưu Tiên:</label>
+                          <label style={{ fontSize: '0.72rem', color: 'var(--text-tertiary)' }}>File Bot Chỉ Định (Phân Bổ):</label>
                           <select
                             className="form-control"
                             value={plan.defaultFileId || 'file_1'}
                             onChange={(e) => {
                               const val = e.target.value;
+                              const chosenFile = availableFiles.find(f => f.id === val);
                               setAllocationRules(prev => ({
                                 ...prev,
                                 plans: {
                                   ...prev.plans,
-                                  [key]: { ...prev.plans[key], defaultFileId: val }
+                                  [key]: {
+                                    ...prev.plans[key],
+                                    defaultFileId: val,
+                                    modType: chosenFile?.modType || prev.plans[key]?.modType
+                                  }
                                 }
                               }));
                             }}

@@ -12,8 +12,11 @@ window.RentSlotModal = function RentSlotModal({
   onClose,
   onRented,
   currentBalance = 0,
-  onOpenTopup
+  onOpenTopup,
+  accountToRenew = null
 }) {
+  const isRenewMode = Boolean(accountToRenew);
+
   const [plans, setPlans] = React.useState({
     UPXU: { name: 'Auto Up Xu Nông Trại', priceMonth: 50000, desc: 'Gói cày xu cơ bản tiết kiệm chi phí cho tài khoản nông dân' },
     FULL: { name: 'Auto Full chức năng', priceMonth: 90000, desc: 'Gói toàn năng hỗ trợ đầy đủ mọi hoạt động kiếm xu và ngọc tự động' },
@@ -21,9 +24,10 @@ window.RentSlotModal = function RentSlotModal({
   });
   const [durationDiscounts, setDurationDiscounts] = React.useState({ 1: 0, 3: 10, 6: 20, 12: 30 });
 
-  const [username, setUsername] = React.useState('');
+  const [username, setUsername] = React.useState(accountToRenew?.username || '');
   const [password, setPassword] = React.useState('');
-  const [selectedPlan, setSelectedPlan] = React.useState('UPXU');
+  const [showPassword, setShowPassword] = React.useState(false);
+  const [selectedPlan, setSelectedPlan] = React.useState(accountToRenew?.rentalPlan || 'UPXU');
   const [selectedMonths, setSelectedMonths] = React.useState(1);
   const [voucherCode, setVoucherCode] = React.useState('');
   const [appliedVoucher, setAppliedVoucher] = React.useState(null);
@@ -31,7 +35,16 @@ window.RentSlotModal = function RentSlotModal({
   const [note, setNote] = React.useState('');
   const [loading, setLoading] = React.useState(false);
   const [checkingVoucher, setCheckingVoucher] = React.useState(false);
-  const [error, setError] = React.useState('');
+  const [fieldErrors, setFieldErrors] = React.useState({});
+
+  const clearFieldError = (field) => {
+    setFieldErrors(prev => {
+      if (!prev[field]) return prev;
+      const copy = { ...prev };
+      delete copy[field];
+      return copy;
+    });
+  };
 
   const { formatMoney } = window.formatters;
 
@@ -84,57 +97,133 @@ window.RentSlotModal = function RentSlotModal({
     try {
       if (window.billingService) {
         const res = await window.billingService.checkVoucher(voucherCode.trim(), amountAfterDuration);
-        if (res && res.data && res.data.isValid) {
+        if (res && res.success && res.data && res.data.isValid) {
           setAppliedVoucher(res.data);
           setVoucherError('');
         } else {
           setAppliedVoucher(null);
-          setVoucherError('Mã voucher không hợp lệ!');
+          const errorMsg = res?.message || res?.data?.message || 'Mã voucher không hợp lệ hoặc đã hết hạn!';
+          setVoucherError(errorMsg);
         }
       }
     } catch (err) {
       setAppliedVoucher(null);
-      setVoucherError(err.message || 'Mã giảm giá không hợp lệ hoặc đã hết hạn!');
+      const errorMsg = err?.response?.data?.message || err?.message || 'Mã voucher không hợp lệ hoặc đã hết hạn!';
+      setVoucherError(errorMsg);
     } finally {
       setCheckingVoucher(false);
     }
   };
 
-  // Handle Checkout
+  // Handle Checkout / Renew (with double-click protection)
   const handleSubmit = async (e) => {
     e.preventDefault();
-    if (!username.trim()) {
-      setError('Vui lòng nhập tên tài khoản game!');
+
+    // 1. Validate ngay tại tầng Frontend: trường bắt buộc
+    const feErrors = {};
+    if (!isRenewMode && !username.trim()) {
+      feErrors.username = 'Tên tài khoản không được để trống!';
+    }
+
+    if (Object.keys(feErrors).length > 0) {
+      setFieldErrors(feErrors);
       return;
     }
+    setFieldErrors({});
+
+    // 2. Kiểm tra số dư ví khả dụng (nếu không đủ -> hiện Popup hệ thống)
     if (!isBalanceSufficient) {
-      setError('Số dư ví không đủ để thanh toán. Vui lòng nạp thêm tiền!');
+      const shortage = finalPrice - currentBalance;
+      const shortageMsg = `Số dư ví không đủ để thanh toán (Còn thiếu ${formatMoney(shortage)} đ). Bạn có muốn chuyển sang trang Nạp Tiền ngay không?`;
+      if (typeof window.showDialog === 'function') {
+        window.showDialog({
+          mode: 'confirm',
+          type: 'warning',
+          title: 'Số Dư Ví Không Đủ',
+          message: shortageMsg,
+          confirmText: 'Nạp Tiền Ngay',
+          cancelText: 'Đóng',
+          onConfirm: () => {
+            onClose();
+            if (typeof onOpenTopup === 'function') onOpenTopup();
+          }
+        });
+      } else if (typeof window.showAlert === 'function') {
+        window.showAlert(shortageMsg, 'Số Dư Ví Không Đủ', 'warning');
+      } else {
+        alert(shortageMsg);
+      }
       return;
     }
 
     setLoading(true);
-    setError('');
 
     try {
       if (window.rentalService) {
-        const res = await window.rentalService.checkout({
-          username: username.trim(),
-          password: password || '',
-          plan: selectedPlan,
-          durationMonths: selectedMonths,
-          voucherCode: appliedVoucher ? appliedVoucher.code : null,
-          note: note.trim()
-        });
+        let res;
+        if (isRenewMode) {
+          res = await window.rentalService.renew(accountToRenew.id, {
+            durationMonths: selectedMonths,
+            voucherCode: appliedVoucher ? appliedVoucher.code : null
+          });
+        } else {
+          res = await window.rentalService.checkout({
+            username: username.trim(),
+            password: password || '',
+            plan: selectedPlan,
+            durationMonths: selectedMonths,
+            voucherCode: appliedVoucher ? appliedVoucher.code : null,
+            note: note.trim()
+          });
+        }
 
         if (res && res.success) {
-          if (onRented) onRented(res.data);
+          if (onRented) onRented(res.data, isRenewMode);
           onClose();
         } else {
-          setError(res?.message || 'Có lỗi xảy ra khi thuê bot!');
+          // 3. Nếu Backend chặn và trả về field-level errors (Map errors)
+          if (res && res.errors && typeof res.errors === 'object' && Object.keys(res.errors).length > 0) {
+            setFieldErrors(res.errors);
+          } else {
+            // Không có field-level error -> Hiện Popup hệ thống đã viết sẵn
+            const msg = res?.message || (isRenewMode ? 'Có lỗi xảy ra khi gia hạn bot!' : 'Có lỗi xảy ra khi thuê bot!');
+            if (typeof window.showAlert === 'function') {
+              window.showAlert(msg, isRenewMode ? 'Lỗi Gia Hạn Bot' : 'Lỗi Thuê Bot', 'error');
+            } else if (typeof window.showDialog === 'function') {
+              window.showDialog({
+                mode: 'alert',
+                type: 'error',
+                title: isRenewMode ? 'Lỗi Gia Hạn Bot' : 'Lỗi Thuê Bot',
+                message: msg,
+                confirmText: 'Đã Hiểu'
+              });
+            } else {
+              alert(msg);
+            }
+          }
         }
       }
     } catch (err) {
-      setError(err.message || 'Có lỗi xảy ra khi thuê bot!');
+      const resData = err?.response?.data || err?.data;
+      if (resData && resData.errors && typeof resData.errors === 'object' && Object.keys(resData.errors).length > 0) {
+        setFieldErrors(resData.errors);
+      } else {
+        // Không có field error -> Hiện Popup hệ thống
+        const errorMsg = resData?.message || err?.message || (isRenewMode ? 'Có lỗi xảy ra khi gia hạn bot!' : 'Có lỗi xảy ra khi thuê bot!');
+        if (typeof window.showAlert === 'function') {
+          window.showAlert(errorMsg, isRenewMode ? 'Lỗi Gia Hạn Bot' : 'Lỗi Thuê Bot', 'error');
+        } else if (typeof window.showDialog === 'function') {
+          window.showDialog({
+            mode: 'alert',
+            type: 'error',
+            title: isRenewMode ? 'Lỗi Gia Hạn Bot' : 'Lỗi Thuê Bot',
+            message: errorMsg,
+            confirmText: 'Đã Hiểu'
+          });
+        } else {
+          alert(errorMsg);
+        }
+      }
     } finally {
       setLoading(false);
     }
@@ -150,47 +239,96 @@ window.RentSlotModal = function RentSlotModal({
 
   return (
     <window.ModalBase
-      title="Thuê Slot Bot Tự Động"
-      subtitle="Hệ thống tự động phân bổ tài nguyên tối ưu cho tài khoản"
-      icon="zap"
-      iconColor="var(--apple-blue)"
+      title={isRenewMode ? "Gia Hạn Tài Khoản Bot" : "Thuê Slot Bot Tự Động"}
+      subtitle={isRenewMode ? `Gia hạn thời gian chạy cho nick [${accountToRenew.username}]` : "Hệ thống tự động phân bổ tài nguyên tối ưu cho tài khoản"}
+      icon={isRenewMode ? "clock" : "zap"}
+      iconColor={isRenewMode ? "var(--apple-gold)" : "var(--apple-blue)"}
       size="md"
       onClose={onClose}
     >
-      {error && (
-        <div className="alert-badge-danger rent-alert-danger">
-          {error}
-        </div>
-      )}
+      <form onSubmit={handleSubmit} className="rent-form">
+        {/* 1. Account Info: Banner in Renewal mode, input fields in Rent mode */}
+        {isRenewMode ? (
+          <div className="rent-renew-banner">
+            <div className="rent-renew-account-info">
+              <div className="rent-renew-avatar-box">
+                <window.Icon name="user" size={20} />
+              </div>
+              <div className="rent-renew-account-details">
+                <div className="rent-renew-username">
+                  {accountToRenew.username}
+                </div>
+                <div className="rent-renew-server">
+                  {accountToRenew.serverName ? `Máy chủ: ${accountToRenew.serverName}` : 'Máy chủ: Hoàn Mỹ'}
+                </div>
+              </div>
+            </div>
 
-        <form onSubmit={handleSubmit} className="rent-form">
-          {/* 1. Game Account Credentials */}
+            <div className="rent-renew-plan-info">
+              <div className="rent-renew-row">
+                <span className="rent-renew-row-lbl">Gói cước:</span>
+                <span className={`rent-renew-plan-badge badge-plan-${(selectedPlan || '').toLowerCase()}`}>
+                  <window.Icon name={selectedPlan === 'FULL' ? 'zap' : (selectedPlan === 'FISH' ? 'fish' : 'sprout')} size={13} />
+                  {currentPlanConfig.name || selectedPlan}
+                </span>
+              </div>
+              <div className="rent-renew-row">
+                <span className="rent-renew-row-lbl">Đơn giá:</span>
+                <div className="rent-renew-price-tag">
+                  <strong className="rent-renew-price-val">{formatMoney(baseMonthly)} đ</strong>
+                  <span className="rent-renew-price-period">/tháng (cố định)</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        ) : (
           <div className="rent-grid-2col">
             <div className="form-group">
               <label className="rent-field-label">Tên Tài Khoản Avatar *</label>
               <input
                 type="text"
-                className="form-control"
+                className={`form-control ${fieldErrors.username ? 'input-error' : ''}`}
                 placeholder="Nhập tên đăng nhập game"
                 value={username}
-                onChange={(e) => setUsername(e.target.value)}
-                required
+                onChange={(e) => {
+                  setUsername(e.target.value);
+                  clearFieldError('username');
+                }}
                 autoFocus
               />
+              {fieldErrors.username && (
+                <div className="field-error-msg">
+                  <window.Icon name="alert-circle" size={13} color="var(--apple-red)" />
+                  <span>{fieldErrors.username}</span>
+                </div>
+              )}
             </div>
             <div className="form-group">
               <label className="rent-field-label">Mật Khẩu Game</label>
-              <input
-                type="password"
-                className="form-control"
-                placeholder="Mật khẩu game (tùy chọn)"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-              />
+              <div className="password-input-wrapper">
+                <input
+                  type={showPassword ? 'text' : 'password'}
+                  className="form-control password-input-field"
+                  placeholder="Mật khẩu game (tùy chọn)"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword(!showPassword)}
+                  className={`password-toggle-btn ${showPassword ? 'active' : ''}`}
+                  title={showPassword ? 'Ẩn mật khẩu' : 'Hiện mật khẩu'}
+                  tabIndex={-1}
+                >
+                  <window.Icon name={showPassword ? 'eye-off' : 'eye'} size={16} />
+                </button>
+              </div>
             </div>
           </div>
+        )}
 
-          {/* 2. Choose Bot Version (Plan) */}
+        {/* 2. Choose Bot Version (Plan) - Only shown in new rent mode */}
+        {!isRenewMode && (
           <div className="form-group">
             <label className="rent-field-label">
               Chọn Phiên Bản Bot
@@ -231,6 +369,7 @@ window.RentSlotModal = function RentSlotModal({
               })}
             </div>
           </div>
+        )}
 
           {/* 3. Choose Duration (Months) */}
           <div className="form-group">
@@ -269,7 +408,10 @@ window.RentSlotModal = function RentSlotModal({
                 className="form-control rent-voucher-input"
                 placeholder="Nhập mã voucher (ví dụ: CHAOBANMOI)"
                 value={voucherCode}
-                onChange={(e) => setVoucherCode(e.target.value.toUpperCase())}
+                onChange={(e) => {
+                  setVoucherCode(e.target.value.toUpperCase());
+                  if (voucherError) setVoucherError('');
+                }}
               />
               <button
                 type="button"
@@ -287,7 +429,7 @@ window.RentSlotModal = function RentSlotModal({
             )}
             {voucherError && (
               <span className="rent-voucher-error">
-                {voucherError}
+                <window.Icon name="alert-circle" size={12} /> {voucherError}
               </span>
             )}
           </div>
@@ -323,9 +465,13 @@ window.RentSlotModal = function RentSlotModal({
             </div>
 
             <div className="rent-summary-balance-row">
-              <span>Số dư hiện tại: <strong>{formatMoney(currentBalance)} đ</strong></span>
-              <span>
-                Số dư sau thuê: <strong className={isBalanceSufficient ? 'rent-summary-val-green' : 'rent-summary-val-red'}>
+              <span className="rent-balance-col">
+                <span>Số dư hiện tại:</span>
+                <strong className="rent-balance-highlight">{formatMoney(currentBalance)} đ</strong>
+              </span>
+              <span className="rent-balance-col">
+                <span>{isRenewMode ? 'Số dư sau gia hạn:' : 'Số dư sau thuê:'}</span>
+                <strong className={isBalanceSufficient ? 'rent-summary-val-green' : 'rent-summary-val-red'}>
                   {formatMoney(remainingBalanceAfter)} đ
                 </strong>
               </span>
@@ -357,9 +503,11 @@ window.RentSlotModal = function RentSlotModal({
             <button
               type="submit"
               className="btn btn-primary rent-submit-btn"
-              disabled={loading || !isBalanceSufficient || !username.trim()}
+              disabled={loading}
             >
-              {loading ? 'Đang Xử Lý...' : 'Xác Nhận Thuê Nick'}
+              {loading
+                ? (isRenewMode ? 'Đang Xử Lý Gia Hạn...' : 'Đang Xử Lý...')
+                : (isRenewMode ? 'Xác Nhận Gia Hạn' : 'Xác Nhận Thuê Nick')}
             </button>
           </div>
         </form>

@@ -11,7 +11,33 @@
 
 @media (max-width: 900px) {
   .accounts-split-layout {
-    grid-template-columns: 1fr;
+    display: flex !important;
+    flex-direction: column !important;
+    gap: 14px !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    box-sizing: border-box !important;
+  }
+
+  .accounts-sidebar-pane {
+    width: 100% !important;
+    max-width: 100% !important;
+    margin: 0 !important;
+    padding: 16px 14px !important;
+    box-sizing: border-box !important;
+  }
+
+  .accounts-main-pane {
+    display: flex !important;
+    flex-direction: column !important;
+    gap: 14px !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    box-sizing: border-box !important;
   }
 }
 
@@ -1022,4 +1048,308 @@
   .ip-dropdown-menu {
     max-height: 320px;
   }
+}
+
+/* ==========================================================================
+   ACTIONS & CARD REFINEMENTS (ZERO-INLINE-STYLES RULE)
+   ========================================================================== */
+
+.btn-renew-action {
+  background: linear-gradient(135deg, #ff9f0a, #ff3b30);
+  color: #fff;
+  border: none;
+  font-weight: 700;
+  gap: 4px;
+  box-shadow: 0 2px 8px rgba(255, 69, 58, 0.35);
+}
+
+.btn-renew-action:hover {
+  background: linear-gradient(135deg, #ffb340, #ff453a);
+  color: #fff;
+}
+
+.dropdown-item-renew {
+  color: var(--apple-gold);
+}
+
+.dropdown-item-danger {
+  color: var(--apple-red);
+}
+
+.dropdown-divider-glass {
+  height: 1px;
+  background: var(--glass-border-subtle);
+  margin: 4px 0;
+}
+
+.dropdown-header-glass {
+  padding: 6px 10px;
+  font-size: 0.7rem;
+  color: var(--text-tertiary);
+  border-bottom: 1px solid var(--glass-border-subtle);
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.acc-action-dropdown-rel {
+  position: relative;
+}
+
+.acc-action-dropdown-grow {
+  position: relative;
+  flex: 1;
+}
+
+.btn-auto-trigger {
+  width: 100%;
+  gap: 4px;
+}
+
+.btn-settings-trigger {
+  gap: 3px;
+}
+
+/* AccountCard Meta & Details (Zero-Inline-Styles) */
+.acc-user-info-text {
+  min-width: 0;
+  flex: 1;
+}
+
+.acc-username-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
+}
+
+.acc-username-wrapper {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+}
+
+.acc-username {
+  text-overflow: ellipsis;
+  overflow: hidden;
+  white-space: nowrap;
+}
+
+.acc-expiry-badge {
+  padding: 2px 8px;
+  border-radius: 999px;
+  font-size: 0.67rem;
+  font-weight: 600;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  white-space: nowrap;
+  flex-shrink: 0;
+  transition: all 0.2s ease;
+  border: 1px solid transparent;
+}
+
+.acc-expiry-clickable {
+  cursor: pointer;
+}
+
+.acc-expiry-badge-expired {
+  background: rgba(255, 69, 58, 0.15);
+  color: var(--apple-red);
+  border-color: rgba(255, 69, 58, 0.3);
+}
+
+.acc-expiry-badge-urgent {
+  background: rgba(255, 69, 58, 0.12);
+  color: var(--apple-red);
+  border-color: rgba(255, 69, 58, 0.3);
+}
+
+.acc-expiry-badge-warning {
+  background: rgba(255, 214, 10, 0.12);
+  color: var(--apple-gold);
+  border-color: rgba(255, 214, 10, 0.3);
+}
+
+.acc-expiry-badge-valid {
+  background: rgba(48, 209, 88, 0.12);
+  color: var(--apple-green);
+  border-color: rgba(48, 209, 88, 0.25);
+}
+
+.acc-expiry-renew-tag {
+  font-size: 0.62rem;
+  font-weight: 700;
+  text-decoration: underline;
+}
+
+.acc-badges-row {
+  display: flex;
+  gap: 4px;
+  margin-top: 3px;
+  flex-wrap: wrap;
+}
+
+.acc-badge-teal {
+  background: rgba(100, 210, 255, 0.12);
+  color: var(--apple-teal);
+  border-radius: 999px;
+  font-weight: 600;
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+}
+
+.acc-badge-gold {
+  background: rgba(255, 214, 10, 0.12);
+  color: var(--apple-gold);
+  border-radius: 999px;
+  font-weight: 600;
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+}
+
+.acc-meta-row {
+  font-size: 0.72rem;
+  color: var(--text-tertiary);
+  margin-top: 3px;
+  display: flex;
+  gap: 6px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.acc-meta-tag {
+  font-weight: 600;
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+}
+
+.acc-meta-tag.tag-blue {
+  color: var(--apple-blue);
+}
+
+.acc-meta-tag.tag-purple {
+  color: var(--apple-purple);
+}
+
+.acc-meta-tag.tag-teal {
+  color: var(--apple-teal);
+}
+
+.acc-meta-tag.tag-green {
+  color: var(--apple-green);
+}
+
+.acc-rented-by {
+  font-size: 0.70rem;
+  color: var(--text-secondary);
+  margin-top: 3px;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-weight: 500;
+}
+
+/* AccountsGrid Server Groups & Empty State */
+.accounts-grid-empty {
+  padding: 48px 24px;
+  text-align: center;
+  background: var(--glass-matrix-bg);
+  border-radius: var(--radius-lg);
+  border: 1px dashed var(--glass-border-subtle);
+  backdrop-filter: var(--blur-base);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+}
+
+.accounts-grid-empty-icon {
+  width: 48px;
+  height: 48px;
+  margin: 0 auto;
+}
+
+.accounts-grid-empty-title {
+  font-size: 0.98rem;
+  color: var(--text-primary);
+  font-weight: 600;
+  margin: 0;
+}
+
+.accounts-grid-empty-desc {
+  font-size: 0.82rem;
+  color: var(--text-secondary);
+  max-width: 460px;
+  margin: 0;
+}
+
+.server-group-title-wrap {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.server-group-title {
+  font-size: 0.92rem;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.server-group-title.title-dk {
+  color: var(--apple-purple);
+}
+
+.server-group-count {
+  font-size: 0.76rem;
+  color: var(--text-tertiary);
+}
+
+.server-group-actions {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.server-group-online-badge {
+  padding: 3px 10px;
+  border-radius: 999px;
+  font-size: 0.72rem;
+  font-weight: 600;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  border: 1px solid;
+}
+
+.server-group-online-badge.badge-danger {
+  background: rgba(255, 69, 58, 0.12);
+  color: var(--apple-red);
+  border-color: rgba(255, 69, 58, 0.3);
+}
+
+.server-group-online-badge.badge-success {
+  background: rgba(48, 209, 88, 0.12);
+  color: var(--apple-green);
+  border-color: rgba(48, 209, 88, 0.3);
+}
+
+.server-group-online-badge.badge-neutral {
+  background: var(--glass-bg);
+  color: var(--text-tertiary);
+  border-color: var(--glass-border-subtle);
+}
+
+.server-group-empty-notice {
+  padding: 16px 20px;
+  color: var(--text-tertiary);
+  font-size: 0.82rem;
+  background: var(--glass-matrix-bg);
+  border-radius: var(--radius-sm);
+  font-style: italic;
 }

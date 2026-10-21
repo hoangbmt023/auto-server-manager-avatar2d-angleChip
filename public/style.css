@@ -646,6 +646,31 @@ input[type="password"]::-ms-clear {
   color: var(--text-tertiary);
 }
 
+#app-global-loader {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  width: 100vw;
+  height: 100vh;
+  z-index: 999999;
+  background: var(--liquid-bg);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-direction: column;
+  gap: 16px;
+  color: var(--text-tertiary);
+  transition: opacity 0.35s cubic-bezier(0.16, 1, 0.3, 1), visibility 0.35s ease;
+}
+
+#app-global-loader.fade-out {
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+}
+
 .app-loading-spinner {
   width: 44px;
   height: 44px;
@@ -657,10 +682,16 @@ input[type="password"]::-ms-clear {
 }
 
 .app-loading-text {
-  font-size: 0.84rem;
-  letter-spacing: 0.04em;
+  font-size: 0.86rem;
+  letter-spacing: 0.03em;
   font-weight: 500;
   color: var(--text-secondary);
+  transition: opacity 0.25s cubic-bezier(0.16, 1, 0.3, 1), transform 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.app-loading-text.fade-swap {
+  opacity: 0;
+  transform: translateY(4px);
 }
 
 /* 2. Access Denied / 404 Screen */

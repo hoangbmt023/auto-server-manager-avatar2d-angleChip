@@ -1,6 +1,6 @@
 const ApiResponse = require('../../../application/dtos/common/ApiResponse');
 const { sendErrorResponse } = require('../helpers/errorHandler');
-const { TooManyRequestsException } = require('../../../domain/errors');
+const { TooManyRequestsException, UnauthorizedException } = require('../../../domain/errors');
 const { defaultRateLimiter } = require('../../../infrastructure/security/RateLimiter');
 
 /**
@@ -20,6 +20,9 @@ class BillingController {
   async getBalance(req, res, sendJson) {
     try {
       const userId = req.user?.sub;
+      if (!userId) {
+        throw new UnauthorizedException('Vui lòng đăng nhập để xem số dư!');
+      }
       const user = await this.userRepo.findById(userId);
       return sendJson(res, 200, ApiResponse.success({
         balance: user?.balance || 0
@@ -32,6 +35,9 @@ class BillingController {
   async getTransactions(req, res, sendJson) {
     try {
       const userId = req.user?.sub;
+      if (!userId) {
+        throw new UnauthorizedException('Vui lòng đăng nhập để xem lịch sử giao dịch!');
+      }
       const query = req.query || {};
       const page = Math.max(1, parseInt(query.page || '1', 10));
       const limit = Math.max(1, Math.min(100, parseInt(query.limit || '15', 10)));
@@ -72,7 +78,11 @@ class BillingController {
 
   async createPayOsOrder(req, res, sendJson, parseJsonBody) {
     try {
-      const userId = req.user?.sub || req.socket.remoteAddress || 'guest';
+      const userId = req.user?.sub;
+      if (!userId) {
+        throw new UnauthorizedException('Vui lòng đăng nhập để tạo đơn nạp tiền!');
+      }
+
       const rateKey = `create-order:${userId}`;
       const rateResult = defaultRateLimiter.consume(rateKey, 6, 60000); // 6 lần/phút
       if (!rateResult.isAllowed) {
@@ -81,7 +91,7 @@ class BillingController {
 
       const body = await parseJsonBody(req);
       const result = await this.billingUseCase.createPayOsOrder({
-        userId: req.user?.sub,
+        userId,
         amount: body.amount
       });
       return sendJson(res, 200, ApiResponse.success(result, 'Tạo mã thanh toán payOS thành công!'));
@@ -92,7 +102,11 @@ class BillingController {
 
   async verifyPayOsOrder(req, res, sendJson, params) {
     try {
-      const userId = req.user?.sub || req.socket.remoteAddress || 'guest';
+      const userId = req.user?.sub;
+      if (!userId) {
+        throw new UnauthorizedException('Vui lòng đăng nhập!');
+      }
+
       const rateKey = `verify-order:${userId}`;
       const rateResult = defaultRateLimiter.consume(rateKey, 20, 60000); // 20 lần/phút
       if (!rateResult.isAllowed) {
@@ -102,7 +116,7 @@ class BillingController {
       const orderCode = params?.orderCode;
       const result = await this.billingUseCase.verifyAndCompletePayOsOrder({
         orderCode,
-        userId: req.user?.sub
+        userId
       });
       return sendJson(res, 200, ApiResponse.success(result, 'Kiểm tra trạng thái đơn payOS thành công!'));
     } catch (err) {
@@ -112,10 +126,15 @@ class BillingController {
 
   async cancelPayOsOrder(req, res, sendJson, params) {
     try {
+      const userId = req.user?.sub;
+      if (!userId) {
+        throw new UnauthorizedException('Vui lòng đăng nhập!');
+      }
+
       const orderCode = params?.orderCode;
       const result = await this.billingUseCase.cancelPayOsOrder({
         orderCode,
-        userId: req.user?.sub
+        userId
       });
       return sendJson(res, 200, ApiResponse.success(result, 'Hủy đơn hàng thành công!'));
     } catch (err) {
@@ -135,7 +154,11 @@ class BillingController {
 
   async checkVoucher(req, res, sendJson, parseJsonBody) {
     try {
-      const userId = req.user?.sub || req.socket.remoteAddress || 'guest';
+      const userId = req.user?.sub;
+      if (!userId) {
+        throw new UnauthorizedException('Vui lòng đăng nhập để kiểm tra mã giảm giá!');
+      }
+
       const rateKey = `check-voucher:${userId}`;
       const rateResult = defaultRateLimiter.consume(rateKey, 10, 60000); // 10 lần/phút
       if (!rateResult.isAllowed) {
@@ -146,7 +169,7 @@ class BillingController {
       const result = await this.billingUseCase.checkVoucher({
         code: body.code,
         orderAmount: body.orderAmount,
-        userId: req.user?.sub || body.userId
+        userId
       });
       return sendJson(res, 200, ApiResponse.success(result, 'Áp dụng mã giảm giá thành công!'));
     } catch (err) {

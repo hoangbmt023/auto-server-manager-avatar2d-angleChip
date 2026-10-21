@@ -3,7 +3,16 @@
  * Dedicated Client / Customer Portal for Avatar bot renting:
  * - Tab 1: "Quản lý" (Account management, assigned files, city online stats, username search, countdown badges)
  * - Tab 2: "Nạp tiền" (VietQR deposit, test deposit, combined transaction history)
+/**
+ * Rental Plan Categories for User Dashboard Sidebar
  */
+const USER_PLAN_TABS = [
+  { id: 'ALL', name: 'Tất Cả Gói', subtitle: 'Toàn Bộ Tài Khoản', icon: 'layers', badgeColor: 'var(--apple-blue)', badgeBg: 'rgba(10, 132, 255, 0.12)' },
+  { id: 'UPXU', name: 'Gói Up Xu', subtitle: 'Farm & Up Xu Tự Động', icon: 'sprout', badgeColor: 'var(--apple-green)', badgeBg: 'rgba(52, 211, 153, 0.12)' },
+  { id: 'FULL', name: 'Gói Full', subtitle: 'Full Tính Năng Cao Cấp', icon: 'zap', badgeColor: 'var(--apple-purple)', badgeBg: 'rgba(191, 90, 242, 0.12)' },
+  { id: 'FISH', name: 'Gói Câu Cá', subtitle: 'Auto Câu Cá Chuyên Nghiệp', icon: 'fish', badgeColor: 'var(--apple-teal)', badgeBg: 'rgba(100, 210, 255, 0.12)' }
+];
+
 window.UserDashboardPage = function UserDashboardPage() {
   const {
     currentUser,
@@ -17,13 +26,15 @@ window.UserDashboardPage = function UserDashboardPage() {
     handleStartAccount,
     handleStopAccount,
     handleDeleteAccount,
-    handleTriggerAuto,
-    openSetupModal,
-    setupModal,
-    closeSetupModal,
-    handleSaveSetup
+    handleTriggerAuto
   } = window.useApp();
-  const { showDialog, showAlert } = window.useModals ? window.useModals() : {};
+  const {
+    showDialog,
+    showAlert,
+    setupModal,
+    openSetupModal,
+    closeSetupModal
+  } = window.useModals ? window.useModals() : {};
 
   const getInitialTab = () => {
     try {
@@ -68,16 +79,18 @@ window.UserDashboardPage = function UserDashboardPage() {
     window.addEventListener('resize', handleResize);
     return () => window.removeEventListener('resize', handleResize);
   }, [activeTab, handleSelectTab]);
-  const [balance, setBalance] = React.useState(0);
+  const [balance, setBalance] = React.useState(() => window.__initialBalance ?? 0);
   const [searchQuery, setSearchQuery] = React.useState('');
+  const [activePlanFilter, setActivePlanFilter] = React.useState('ALL');
   const [rentModalOpen, setRentModalOpen] = React.useState(false);
+  const [renewAccount, setRenewAccount] = React.useState(null);
   const [historyModalOpen, setHistoryModalOpen] = React.useState(false);
   const [editingAccount, setEditingAccount] = React.useState(null);
   const [selectedLogAccount, setSelectedLogAccount] = React.useState(null);
 
   // Top-up and payOS state
   const [topupAmount, setTopupAmount] = React.useState(100000);
-  const [policy, setPolicy] = React.useState({ bonusTiers: [], payos: { enabled: false } });
+  const [policy, setPolicy] = React.useState(() => window.__initialPolicy ?? { bonusTiers: [], payos: { enabled: false } });
   const [payosOrder, setPayosOrder] = React.useState(null);
   const [payosLoading, setPayosLoading] = React.useState(false);
   const [recentTransactions, setRecentTransactions] = React.useState([]);
@@ -118,19 +131,22 @@ window.UserDashboardPage = function UserDashboardPage() {
   }, []);
 
   React.useEffect(() => {
-    refreshBalance();
-    fetchAccounts();
-
-    async function loadPolicy() {
-      try {
-        if (window.billingService) {
-          const res = await window.billingService.getPolicy();
-          if (res && res.data) setPolicy(res.data);
-        }
-      } catch (e) {}
+    if (window.__initialBalance === undefined) {
+      refreshBalance();
     }
-    loadPolicy();
-  }, [refreshBalance, fetchAccounts]);
+
+    if (window.__initialPolicy === undefined) {
+      async function loadPolicy() {
+        try {
+          if (window.billingService) {
+            const res = await window.billingService.getPolicy();
+            if (res && res.data) setPolicy(res.data);
+          }
+        } catch (e) {}
+      }
+      loadPolicy();
+    }
+  }, [refreshBalance]);
 
 
 
@@ -348,12 +364,20 @@ window.UserDashboardPage = function UserDashboardPage() {
   const assignedFileIds = Array.from(new Set(userAccounts.map(a => a.fileId).filter(Boolean)));
   const assignedFiles = (files || []).filter(f => assignedFileIds.includes(f.id));
 
-  // Search filter: ONLY search by account username
+  // Search & Plan filter
   const displayedAccounts = userAccounts.filter(a => {
+    // 1. Plan filter
+    if (activePlanFilter !== 'ALL') {
+      const plan = a.rentalPlan || 'UPXU';
+      if (plan !== activePlanFilter) return false;
+    }
+    // 2. Search filter: ONLY search by account username
     if (!searchQuery.trim()) return true;
     const q = searchQuery.toLowerCase().trim();
     return (a.username || '').toLowerCase().includes(q);
   });
+
+  const activePlanConfig = USER_PLAN_TABS.find(p => p.id === activePlanFilter) || USER_PLAN_TABS[0];
 
   return (
     <div className="app-container user-dashboard-wrapper">
@@ -399,35 +423,67 @@ window.UserDashboardPage = function UserDashboardPage() {
                 </button>
               </div>
 
-              {/* Assigned File Profiles for this user */}
-              <div className="sidebar-file-list-wrap user-file-list-wrap">
-                <span className="sidebar-section-lbl">FILE ĐƯỢC CẤP CHO NICK</span>
-                <div className="user-file-list-items">
-                  {assignedFiles.length === 0 ? (
-                    <div className="user-file-empty">
-                      Chưa có file nào được cấp (Hãy thuê nick đầu tiên)
-                    </div>
-                  ) : (
-                    assignedFiles.map(f => {
-                      const count = userAccounts.filter(a => a.fileId === f.id).length;
+              {/* Rental Packages Filter Tabs (Divides accounts by rented package, mirroring Admin FileTabsBar layout) */}
+              <div className="sidebar-file-list-wrap user-plan-list-wrap">
+                <span className="sidebar-section-lbl">GÓI DỊCH VỤ THUÊ</span>
+                <div className="file-selector-bar">
+                  <div className="file-tabs-container">
+                    {USER_PLAN_TABS.map(plan => {
+                      const isActive = activePlanFilter === plan.id;
+                      const planAccounts = plan.id === 'ALL'
+                        ? userAccounts
+                        : userAccounts.filter(a => (a.rentalPlan || 'UPXU') === plan.id);
+                      const count = planAccounts.length;
+                      const hmOnline = planAccounts.filter(a => (a.serverId === 0 || !a.serverId) && a.isRunning).length;
+                      const dkOnline = planAccounts.filter(a => a.serverId === 1 && a.isRunning).length;
+                      const totalOnline = planAccounts.filter(a => a.isRunning).length;
+
                       return (
-                        <div key={f.id} className="user-file-item">
-                          <div className="user-file-item-left">
-                            <window.Icon name="folder" size={14} color="var(--apple-blue)" />
-                            <div>
-                              <strong className="user-file-title">{f.name}</strong>
-                              <div className="user-file-subtitle">
-                                {f.modType === 'chipmix' ? 'Bản ChipMix Full' : f.modType === 'fish' ? 'Auto Câu Cá' : 'Auto Nông Trại'}
-                              </div>
+                        <button
+                          key={plan.id}
+                          type="button"
+                          className={`file-tab-btn ${isActive ? 'active-file-tab' : ''}`}
+                          onClick={() => setActivePlanFilter(plan.id)}
+                        >
+                          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%' }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                              <window.Icon name={plan.icon} size={15} color={isActive ? 'var(--apple-blue)' : 'var(--text-secondary)'} />
+                              <strong style={{ fontSize: '0.86rem', fontWeight: 600 }}>{plan.name}</strong>
+                            </div>
+                            <span style={{ fontSize: '0.72rem', color: 'var(--text-tertiary)' }}>({count} nick)</span>
+                          </div>
+
+                          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%', marginTop: '2px' }}>
+                            <span style={{
+                              padding: '2px 7px',
+                              borderRadius: '999px',
+                              fontSize: '0.66rem',
+                              fontWeight: 600,
+                              background: plan.badgeBg,
+                              color: plan.badgeColor,
+                              display: 'inline-flex',
+                              alignItems: 'center',
+                              gap: '4px'
+                            }}>
+                              <window.Icon name={plan.icon} size={11} />
+                              {plan.subtitle}
+                            </span>
+
+                            <div style={{ fontSize: '0.7rem', color: 'var(--text-tertiary)', display: 'flex', gap: '6px', alignItems: 'center' }}>
+                              <span>HM: {hmOnline}</span>
+                              <span>•</span>
+                              <span>DK: {dkOnline}</span>
+                              {totalOnline > 0 && (
+                                <span style={{ color: 'var(--apple-green)', fontWeight: 700, marginLeft: '2px' }}>
+                                  • {totalOnline} On
+                                </span>
+                              )}
                             </div>
                           </div>
-                          <span className="user-file-badge">
-                            {count} nick
-                          </span>
-                        </div>
+                        </button>
                       );
-                    })
-                  )}
+                    })}
+                  </div>
                 </div>
               </div>
 
@@ -477,11 +533,19 @@ window.UserDashboardPage = function UserDashboardPage() {
               <div className="main-pane-header user-pane-header-flex">
                 <div className="user-pane-header-left">
                   <div className="sidebar-icon-box user-icon-box-success">
-                    <window.Icon name="activity" size={18} />
+                    <window.Icon name={activePlanConfig.icon || 'activity'} size={18} />
                   </div>
                   <div>
-                    <h3 className="user-content-heading">Danh Sách Tài Khoản Đang Thuê ({userAccounts.length})</h3>
-                    <span className="sidebar-sub">Quản lý trạng thái, tự động và thời hạn từng nick</span>
+                    <h3 className="user-content-heading">
+                      {activePlanFilter === 'ALL'
+                        ? `Danh Sách Tài Khoản Đang Thuê (${displayedAccounts.length})`
+                        : `Danh Sách ${activePlanConfig.name} (${displayedAccounts.length})`}
+                    </h3>
+                    <span className="sidebar-sub">
+                      {activePlanFilter === 'ALL'
+                        ? 'Quản lý trạng thái, tự động và thời hạn từng nick'
+                        : `${activePlanConfig.subtitle} • ${displayedAccounts.filter(a => a.isRunning).length} đang Online`}
+                    </span>
                   </div>
                 </div>
 
@@ -516,7 +580,11 @@ window.UserDashboardPage = function UserDashboardPage() {
                     <window.Icon name="users" size={26} />
                   </div>
                   <h4 className="user-accounts-empty-title">
-                    {searchQuery ? `Không tìm thấy nick nào khớp "${searchQuery}"` : 'Bạn chưa có tài khoản bot nào'}
+                    {searchQuery
+                      ? `Không tìm thấy nick nào khớp "${searchQuery}"`
+                      : activePlanFilter !== 'ALL'
+                      ? `Chưa có tài khoản nào thuộc ${activePlanConfig.name}`
+                      : 'Bạn chưa có tài khoản bot nào'}
                   </h4>
                   <p className="user-accounts-empty-desc">
                     Hãy bấm nút <strong>Thuê Tài Khoản Mới</strong> để tạo bot tự động chạy không giới hạn ngay bây giờ!
@@ -544,6 +612,7 @@ window.UserDashboardPage = function UserDashboardPage() {
                       onOpenSetup={openSetupModal}
                       onTriggerAuto={handleTriggerAuto}
                       onOpenLogs={(account) => setSelectedLogAccount(account)}
+                      onRenewAccount={(account) => setRenewAccount(account)}
                     />
                   ))}
                 </div>
@@ -814,14 +883,29 @@ window.UserDashboardPage = function UserDashboardPage() {
       </main>
 
       {/* 3. Modals Layer */}
-      {rentModalOpen && (
+      {(rentModalOpen || renewAccount) && (
         <window.RentSlotModal
           currentBalance={balance}
-          onClose={() => setRentModalOpen(false)}
-          onRented={() => {
+          accountToRenew={renewAccount}
+          onClose={() => {
+            setRentModalOpen(false);
+            setRenewAccount(null);
+          }}
+          onRented={(result, isRenew) => {
             refreshBalance();
             fetchRecentTransactions();
             fetchAccounts();
+            if (isRenew && showDialog) {
+              const newExp = result?.account?.rentalExpiresAt
+                ? (window.formatDateTime ? window.formatDateTime(result.account.rentalExpiresAt) : new Date(result.account.rentalExpiresAt).toLocaleString('vi-VN'))
+                : '';
+              showDialog({
+                mode: 'alert',
+                type: 'success',
+                title: 'Gia Hạn Thành Công!',
+                message: `Tài khoản bot [${renewAccount?.username || result?.account?.username}] đã được gia hạn thành công! Hạn sử dụng mới: ${newExp}`
+              });
+            }
           }}
           onOpenTopup={() => handleSelectTab('topup')}
         />
@@ -845,6 +929,7 @@ window.UserDashboardPage = function UserDashboardPage() {
           files={files}
           proxies={proxies}
           activeFileId={editingAccount.fileId}
+          isUserView={true}
           onClose={() => setEditingAccount(null)}
           onSaved={() => {
             setEditingAccount(null);
@@ -856,9 +941,11 @@ window.UserDashboardPage = function UserDashboardPage() {
       {/* Bot Setup Modals (Farm, Diamond, Fish, Sell Ore) */}
       {setupModal?.open && window.AccountSetupModal && (
         <window.AccountSetupModal
-          setupModal={setupModal}
+          account={userAccounts.find(a => a.id === setupModal.account?.id) || setupModal.account}
+          allAccounts={userAccounts}
+          initialFeature={setupModal.activeTab}
           onClose={closeSetupModal}
-          onSave={handleSaveSetup}
+          onAccountUpdated={fetchAccounts}
         />
       )}
 
@@ -866,6 +953,7 @@ window.UserDashboardPage = function UserDashboardPage() {
       {selectedLogAccount && window.AccountLogsModal && (
         <window.AccountLogsModal
           account={selectedLogAccount}
+          isAdmin={false}
           onClose={() => setSelectedLogAccount(null)}
         />
       )}
