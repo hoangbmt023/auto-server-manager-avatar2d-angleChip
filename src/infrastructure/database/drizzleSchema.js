@@ -106,7 +106,7 @@ const accounts = mysqlTable('accounts', {
   upDays: int('up_days').notNull().default(0),
   pendingReset: boolean('pending_reset').notNull().default(false),
   rentalExpiresAt: datetime('rental_expires_at'),
-  rentalPlan: varchar('rental_plan', { length: 50 }).notNull().default('UPXU'),
+  rentalPlan: varchar('rental_plan', { length: 50 }),
   farmSettings: json('farm_settings'),
   diamondSettings: json('diamond_settings'),
   fishSettings: json('fish_settings'),

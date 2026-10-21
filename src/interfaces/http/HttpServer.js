@@ -115,7 +115,8 @@ class HttpServer {
       this.fileRepo,
       this.proxyRepo,
       this.settingRepo,
-      this.multiBotManager
+      this.multiBotManager,
+      this.userRepo
     );
     this.fileProfileService = new FileProfileService(
       this.fileRepo,

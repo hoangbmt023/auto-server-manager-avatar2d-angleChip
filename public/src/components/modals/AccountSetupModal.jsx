@@ -9,16 +9,18 @@
 window.AccountSetupModal = function AccountSetupModal({
   account,
   allAccounts = [],
-  initialFeature = 'upThue',
+  accounts = [],
+  initialFeature = null,
   setupModal = null,
   onClose,
   onAccountUpdated,
   onSave
 }) {
   const effectiveAcc = account || setupModal?.account;
-  const feature = initialFeature || setupModal?.activeTab || 'upThue';
+  const feature = setupModal?.activeTab || initialFeature || 'farm';
   const handleClose = onClose;
   const handleUpdated = onAccountUpdated || onSave;
+  const accountList = (allAccounts && allAccounts.length > 0) ? allAccounts : (accounts || []);
 
   if (!effectiveAcc) return null;
 
@@ -47,33 +49,31 @@ window.AccountSetupModal = function AccountSetupModal({
 
   if (!isAllowed) {
     return (
-      <div className="modal-backdrop show">
-        <div className="modal-dialog modal-dialog-centered">
-          <div className="modal-content glass-card">
-            <div className="modal-header">
-              <div className="modal-title-with-icon">
-                <window.Icon name="lock" size={16} color="var(--apple-gold)" />
-                <span className="modal-title">Tính Năng Chưa Kích Hoạt</span>
-              </div>
-              <button type="button" className="close-btn" onClick={handleClose}>
-                <window.Icon name="x" size={16} />
-              </button>
-            </div>
-            <div className="modal-body text-center" style={{ padding: '24px 16px' }}>
-              <div style={{ marginBottom: '12px' }}>
-                <window.Icon name="shield" size={40} color="var(--apple-gold)" />
-              </div>
-              <h5 style={{ color: 'var(--text-primary)', marginBottom: '8px' }}>Gói [{effectiveAcc.rentalPlan}] Chưa Hỗ Trợ</h5>
-              <p style={{ color: 'var(--text-secondary)', fontSize: '0.84rem', margin: '0 0 16px 0', lineHeight: 1.5 }}>
-                Tính năng này không nằm trong danh sách chức năng của gói bạn đang thuê. Vui lòng gia hạn hoặc nâng cấp gói dịch vụ để mở khóa đầy đủ tính năng!
-              </p>
-              <button type="button" className="btn btn-primary" onClick={handleClose}>
-                Đã Hiểu
-              </button>
-            </div>
+      <window.ModalBase
+        title="Tính Năng Chưa Kích Hoạt"
+        subtitle={`Gói [${effectiveAcc.rentalPlan}] Chưa Hỗ Trợ`}
+        icon="lock"
+        iconColor="var(--apple-gold)"
+        size="sm"
+        onClose={handleClose}
+        footer={
+          <div style={{ display: 'flex', justifyContent: 'flex-end', width: '100%' }}>
+            <button type="button" className="btn btn-primary" onClick={handleClose}>
+              Đã Hiểu
+            </button>
           </div>
+        }
+      >
+        <div style={{ textAlign: 'center', padding: '16px 8px' }}>
+          <div style={{ marginBottom: '14px' }}>
+            <window.Icon name="shield" size={44} color="var(--apple-gold)" />
+          </div>
+          <p style={{ color: 'var(--text-secondary)', fontSize: '0.86rem', margin: '0 0 8px 0', lineHeight: 1.6 }}>
+            Tính năng này không nằm trong danh sách chức năng của gói bạn đang thuê.
+            Vui lòng gia hạn hoặc nâng cấp gói dịch vụ để mở khóa đầy đủ tính năng!
+          </p>
         </div>
-      </div>
+      </window.ModalBase>
     );
   }
 
@@ -81,7 +81,8 @@ window.AccountSetupModal = function AccountSetupModal({
     return (
       <window.RentalSetupModal
         account={effectiveAcc}
-        allAccounts={allAccounts}
+        allAccounts={accountList}
+        accounts={accountList}
         onClose={handleClose}
         onAccountUpdated={handleUpdated}
       />
@@ -92,7 +93,8 @@ window.AccountSetupModal = function AccountSetupModal({
     return (
       <window.FarmSetupModal
         account={effectiveAcc}
-        allAccounts={allAccounts}
+        allAccounts={accountList}
+        accounts={accountList}
         onClose={handleClose}
         onAccountUpdated={handleUpdated}
       />
@@ -103,6 +105,8 @@ window.AccountSetupModal = function AccountSetupModal({
     return (
       <window.FishSetupModal
         account={effectiveAcc}
+        allAccounts={accountList}
+        accounts={accountList}
         onClose={handleClose}
         onAccountUpdated={handleUpdated}
       />
@@ -113,7 +117,8 @@ window.AccountSetupModal = function AccountSetupModal({
     return (
       <window.DiamondSetupModal
         account={effectiveAcc}
-        accounts={allAccounts}
+        allAccounts={accountList}
+        accounts={accountList}
         onClose={handleClose}
         onAccountUpdated={handleUpdated}
       />
@@ -124,7 +129,8 @@ window.AccountSetupModal = function AccountSetupModal({
     return (
       <window.SellOreSetupModal
         account={effectiveAcc}
-        allAccounts={allAccounts}
+        allAccounts={accountList}
+        accounts={accountList}
         onClose={handleClose}
         onAccountUpdated={handleUpdated}
       />

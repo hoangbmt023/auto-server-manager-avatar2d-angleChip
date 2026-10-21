@@ -16,7 +16,8 @@ window.AccountCard = function AccountCard({
   onOpenSetup,
   onTriggerAuto,
   onInspectRms,
-  onOpenLogs
+  onOpenLogs,
+  onRenewAccount
 }) {
   const isRunning = Boolean(account.isRunning);
   const serverName = account.serverName || (account.serverId === 0 ? 'Hoàn Mỹ' : 'Diệu Kỳ');
@@ -76,50 +77,22 @@ window.AccountCard = function AccountCard({
     statusLabel = 'Online';
   }
 
-  // Rental Expiration Countdown Calculation
-  const rentalExpiresAt = account.rentalExpiresAt ? new Date(account.rentalExpiresAt) : null;
-  let remainingText = null;
-  let remainingBadgeStyle = {};
-  const isRentalExpired = Boolean(rentalExpiresAt && rentalExpiresAt.getTime() < Date.now());
+  // Real-time Expiration Countdown Tick (1 second interval)
+  const [now, setNow] = React.useState(() => Date.now());
+  React.useEffect(() => {
+    const timer = setInterval(() => {
+      setNow(Date.now());
+    }, 1000);
+    return () => clearInterval(timer);
+  }, []);
 
-  if (rentalExpiresAt) {
-    const diffMs = rentalExpiresAt.getTime() - Date.now();
-    if (diffMs <= 0) {
-      remainingText = 'Đã hết hạn';
-      remainingBadgeStyle = {
-        background: 'rgba(255, 69, 58, 0.15)',
-        color: 'var(--apple-red)',
-        border: '1px solid rgba(255, 69, 58, 0.3)'
-      };
-    } else {
-      const days = Math.floor(diffMs / (1000 * 60 * 60 * 24));
-      const hours = Math.floor((diffMs % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
-      const minutes = Math.floor((diffMs % (1000 * 60 * 60)) / (1000 * 60));
-
-      if (days > 3) {
-        remainingText = `Còn ${days} ngày ${hours}h`;
-        remainingBadgeStyle = {
-          background: 'rgba(48, 209, 88, 0.12)',
-          color: 'var(--apple-green)',
-          border: '1px solid rgba(48, 209, 88, 0.25)'
-        };
-      } else if (days > 0) {
-        remainingText = `Còn ${days} ngày ${hours}h`;
-        remainingBadgeStyle = {
-          background: 'rgba(255, 214, 10, 0.12)',
-          color: 'var(--apple-gold)',
-          border: '1px solid rgba(255, 214, 10, 0.3)'
-        };
-      } else {
-        remainingText = hours > 0 ? `Còn ${hours}h ${minutes}p` : `Còn ${minutes} phút`;
-        remainingBadgeStyle = {
-          background: 'rgba(255, 69, 58, 0.12)',
-          color: 'var(--apple-red)',
-          border: '1px solid rgba(255, 69, 58, 0.3)'
-        };
-      }
-    }
-  }
+  const proxyExpiresAt = (proxyObj && proxyObj.expiresAt) || account.proxyExpiresAt || null;
+  const isRentedAccount = Boolean(account.rentalPlan || account.userId);
+  const expiryDate = (isRentedAccount && account.rentalExpiresAt) ? account.rentalExpiresAt : (proxyExpiresAt || account.rentalExpiresAt || null);
+  const countdown = (window.formatCountdown || window.formatters?.formatCountdown)
+    ? (window.formatCountdown || window.formatters?.formatCountdown)(expiryDate, now)
+    : null;
+  const isRentalExpired = Boolean(account.rentalExpiresAt && new Date(account.rentalExpiresAt).getTime() < now);
 
   return (
     <div
@@ -142,64 +115,87 @@ window.AccountCard = function AccountCard({
               size={54}
             />
           </div>
-          <div style={{ minWidth: 0, flex: 1 }}>
-            <div className="acc-username-row" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '6px' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '6px', minWidth: 0 }}>
-                <span className="acc-username" style={{ textOverflow: 'ellipsis', overflow: 'hidden', whiteSpace: 'nowrap' }}>
+          <div className="acc-user-info-text">
+            <div className="acc-username-row">
+              <div className="acc-username-wrapper">
+                <span className="acc-username">
                   {account.username}
                 </span>
                 <span className={`status-dot ${statusType}`} title={statusLabel}></span>
               </div>
 
-              {/* Rental Countdown Badge */}
-              {remainingText && (
+              {/* Real-time Expiration Countdown Badge (Proxy / Thuê) */}
+              {countdown && expiryDate && (
                 <span
-                  style={{
-                    padding: '2px 8px',
-                    borderRadius: '999px',
-                    fontSize: '0.68rem',
-                    fontWeight: 600,
-                    display: 'inline-flex',
-                    alignItems: 'center',
-                    gap: '4px',
-                    whiteSpace: 'nowrap',
-                    ...remainingBadgeStyle
+                  onClick={() => {
+                    if (onRenewAccount && isRentedAccount) {
+                      onRenewAccount(account);
+                    }
                   }}
-                  title={`Hạn thuê đến: ${formatDateTime(rentalExpiresAt)}`}
+                  className={`acc-expiry-badge ${
+                    countdown.isExpired
+                      ? 'acc-expiry-badge-expired'
+                      : (countdown.isUrgent ? 'acc-expiry-badge-urgent' : (countdown.isWarning ? 'acc-expiry-badge-warning' : 'acc-expiry-badge-valid'))
+                  } ${onRenewAccount && isRentedAccount ? 'acc-expiry-clickable' : ''}`}
+                  title={`Hạn ${isRentedAccount ? 'Thuê Bot' : (proxyExpiresAt ? 'Proxy' : 'Thuê')}: ${window.formatDateTime ? window.formatDateTime(expiryDate) : new Date(expiryDate).toLocaleString('vi-VN')} (${countdown.text})${isRentedAccount ? ' • Bấm để gia hạn ngay' : ''}`}
                 >
-                  <window.Icon name="activity" size={10} />
-                  {remainingText}
+                  <window.Icon name={countdown.isExpired ? 'refreshCw' : (isRentedAccount ? 'clock' : (proxyExpiresAt ? 'shield' : 'clock'))} size={11} />
+                  <span>{countdown.compactText || countdown.shortText}</span>
+                  {Boolean(onRenewAccount && isRentedAccount && (countdown.isExpired || countdown.isUrgent)) && (
+                    <span className="acc-expiry-renew-tag">
+                      {countdown.isExpired ? 'Gia hạn' : '+Hạn'}
+                    </span>
+                  )}
                 </span>
               )}
             </div>
 
-            <div className="acc-badges-row" style={{ display: 'flex', gap: '4px', marginTop: '3px', flexWrap: 'wrap' }}>
+            <div className="acc-badges-row">
               {gold > 0 && (
-                <span className="btn-xs" style={{ background: 'rgba(100, 210, 255, 0.12)', color: 'var(--apple-teal)', borderRadius: '999px', fontWeight: 600, display: 'inline-flex', alignItems: 'center', gap: '3px' }}>
+                <span className="btn-xs acc-badge-teal">
                   <window.Icon name="gem" size={11} color="var(--apple-teal)" /> {formatNumber(gold)} L
                 </span>
               )}
               {lockedGold > 0 && (
-                <span className="btn-xs" style={{ background: 'rgba(255, 214, 10, 0.12)', color: 'var(--apple-gold)', borderRadius: '999px', fontWeight: 600, display: 'inline-flex', alignItems: 'center', gap: '3px' }}>
+                <span className="btn-xs acc-badge-gold">
                   <window.Icon name="shield" size={11} color="var(--apple-gold)" /> {formatNumber(lockedGold)} LK
                 </span>
               )}
             </div>
 
-            <div style={{ fontSize: '0.72rem', color: 'var(--text-tertiary)', marginTop: '3px', display: 'flex', gap: '6px', alignItems: 'center', flexWrap: 'wrap' }}>
+            <div className="acc-meta-row">
               <span>{serverName}</span>
               <span>•</span>
-              <span style={{
-                color: proxyDisplayName ? 'var(--apple-purple)' : 'var(--apple-blue)',
-                fontWeight: 600,
-                display: 'inline-flex',
-                alignItems: 'center',
-                gap: '3px'
-              }}>
+              <span className={`acc-meta-tag ${proxyDisplayName ? 'tag-purple' : 'tag-blue'}`}>
                 <window.Icon name={proxyDisplayName ? 'shield' : 'globe'} size={11} />
                 {proxyDisplayName ? `Tab ${proxyDisplayName}` : 'Tab IP Mặc định'}
               </span>
+
+              {/* Package Name behind Proxy: matches previous 2 items (no border, no br) */}
+              {account.rentalPlan && (
+                <>
+                  <span>•</span>
+                  <span
+                    className={`acc-meta-tag ${
+                      account.rentalPlan === 'FULL'
+                        ? 'tag-purple'
+                        : (account.rentalPlan === 'FISH' ? 'tag-teal' : 'tag-green')
+                    }`}
+                  >
+                    <window.Icon name={account.rentalPlan === 'FULL' ? 'zap' : account.rentalPlan === 'FISH' ? 'fish' : 'sprout'} size={11} />
+                    {account.rentalPlan === 'FULL' ? 'Gói Full' : (account.rentalPlan === 'FISH' ? 'Gói Câu Cá' : (account.rentalPlan === 'UPXU' ? 'Gói Up Xu' : (account.rentalPlanName || `Gói ${account.rentalPlan}`)))}
+                  </span>
+                </>
+              )}
             </div>
+
+            {/* Rented By User Info (Shown if account is rented) */}
+            {account.rentedBy && (
+              <div className="acc-rented-by">
+                <window.Icon name="user" size={11} color="var(--apple-blue)" />
+                <span>{account.rentedBy}</span>
+              </div>
+            )}
           </div>
         </div>
       </div>
@@ -228,6 +224,7 @@ window.AccountCard = function AccountCard({
         onTriggerAuto={onTriggerAuto}
         onInspectRms={onInspectRms}
         onOpenLogs={onOpenLogs}
+        onRenewAccount={onRenewAccount}
       />
     </div>
   );

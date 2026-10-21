@@ -27,7 +27,7 @@ class Account {
     ipSlot = 1,
     isEmergencySlot = false,
     rentalExpiresAt = null,
-    rentalPlan = 'UPXU'
+    rentalPlan = null
   }) {
     this.id = id || uuidv7();
     this.userId = userId || null;
@@ -45,7 +45,7 @@ class Account {
     this.upDays = parseInt(upDays || 0, 10);
     this.pendingReset = Boolean(pendingReset);
     this.rentalExpiresAt = rentalExpiresAt ? new Date(rentalExpiresAt) : null;
-    this.rentalPlan = String(rentalPlan || 'UPXU').toUpperCase();
+    this.rentalPlan = rentalPlan ? String(rentalPlan).toUpperCase() : null;
     this.farmSettings = farmSettings || {
       mode: 0,
       animal: 3,

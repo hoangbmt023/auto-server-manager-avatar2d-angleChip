@@ -11,7 +11,7 @@ function AppLoadingScreen() {
   return (
     <div className="app-loading-screen">
       <div className="app-loading-spinner" />
-      <span className="app-loading-text">Đang kết nối phiên bảo mật...</span>
+      <span className="app-loading-text">Hãy tận hưởng dịch vụ của chúng tôi...</span>
     </div>
   );
 }
@@ -61,8 +61,25 @@ function App() {
     return () => window.removeEventListener('hashchange', handleHashChange);
   }, []);
 
+  // Smoothly dismiss the single persistent global pre-loader once initial data is ready
+  React.useEffect(() => {
+    if (!isAuthLoading) {
+      const loader = document.getElementById('app-global-loader');
+      if (loader) {
+        loader.classList.add('fade-out');
+        const timer = setTimeout(() => {
+          if (loader.parentNode) loader.parentNode.removeChild(loader);
+        }, 400);
+        return () => clearTimeout(timer);
+      }
+    }
+  }, [isAuthLoading]);
+
   // 1. Loading State
   if (isAuthLoading) {
+    if (typeof document !== 'undefined' && document.getElementById('app-global-loader')) {
+      return null;
+    }
     return <AppLoadingScreen />;
   }
 

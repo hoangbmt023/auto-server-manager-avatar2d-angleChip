@@ -2,6 +2,7 @@ const SingleBotProcess = require('../../../infrastructure/process/SingleBotProce
 const JavaDetector = require('../../../infrastructure/process/JavaDetector');
 const ServerLimitRule = require('../../../domain/rules/ServerLimitRule');
 const ProxyChecker = require('../../../infrastructure/network/ProxyChecker');
+const ProcessRegistry = require('../../../infrastructure/process/ProcessRegistry');
 const { BadRequestException, NotFoundException } = require('../../../domain/errors');
 
 /**
@@ -18,38 +19,52 @@ class StartBotAccountUseCase {
     this.proxyRepo = proxyRepo;
     this.settingRepo = settingRepo;
     this.sseEventBus = sseEventBus;
+    this.startingLocks = new Set();
   }
 
   async execute(accountId) {
-    // 1. Fetch Account directly from MySQL
-    const account = await this.accountRepo.findById(accountId);
-    if (!account) {
-      throw new NotFoundException(`Không tìm thấy tài khoản với ID [${accountId}]!`);
+    if (this.startingLocks.has(accountId)) {
+      return { success: true, message: `Tài khoản đang trong tiến trình khởi chạy, xin chờ...` };
     }
-
-    // 2. Fetch File Profile directly from MySQL
-    const fileId = account.fileId || (await this.fileRepo.getActiveFileId()) || 'file_1';
-    const fileProfile = await this.fileRepo.findById(fileId);
-    if (!fileProfile) {
-      throw new NotFoundException(`Không tìm thấy cấu hình File/Profile cho tài khoản này!`);
-    }
-
-    // 3. Cross-worker check: if already running in local RAM or on OS, return idempotent success
     if (this.multiBotManager.isAccountRunning(accountId)) {
-      return { success: true, message: `Tài khoản [${account.username}] đang chạy rồi.` };
+      return { success: true, message: `Tài khoản đang chạy rồi.` };
     }
+    this.startingLocks.add(accountId);
 
-    // 4. Check server / file limits
-    const allRunning = await this.multiBotManager.getRunningAccounts();
-    const otherRunning = allRunning.filter(a => a.id !== accountId);
-    const proxy = account.proxyId ? await this.proxyRepo.findById(account.proxyId) : null;
-    ServerLimitRule.validateCanRun(otherRunning, account, proxy, fileProfile?.maxAccounts || 6);
+    try {
+      // 1. Fetch Account directly from MySQL
+      const account = await this.accountRepo.findById(accountId);
+      if (!account) {
+        throw new NotFoundException(`Không tìm thấy tài khoản với ID [${accountId}]!`);
+      }
 
-    // 5. Check proxy limits and liveness
-    const isCustomerRental = Boolean(account.userId || account.rentalExpiresAt);
-    if (isCustomerRental && (!account.proxyId || !proxy)) {
-      throw new BadRequestException(`[SECURITY BLOCK] Tài khoản thuê của khách [${account.username}] bắt buộc phải có Proxy khả dụng để bảo vệ IP máy chủ!`);
-    }
+      // 2. Fetch File Profile directly from MySQL
+      const fileId = account.fileId || (await this.fileRepo.getActiveFileId()) || 'file_1';
+      const fileProfile = await this.fileRepo.findById(fileId);
+      if (!fileProfile) {
+        throw new NotFoundException(`Không tìm thấy cấu hình File/Profile cho tài khoản này!`);
+      }
+
+      // 3. Cross-worker check: if already running in local RAM or on OS, return idempotent success
+      if (this.multiBotManager.isAccountRunning(accountId)) {
+        return { success: true, message: `Tài khoản [${account.username}] đang chạy rồi.` };
+      }
+
+      // 4. Check server / file limits
+      const allRunning = await this.multiBotManager.getRunningAccounts();
+      const otherRunning = allRunning.filter(a => a.id !== accountId);
+      const proxy = account.proxyId ? await this.proxyRepo.findById(account.proxyId) : null;
+      ServerLimitRule.validateCanRun(otherRunning, account, proxy, fileProfile?.maxAccounts || 6);
+
+      // 5. Check rental expiration & proxy requirements
+      if (account.isRentalExpired()) {
+        throw new BadRequestException(`Tài khoản bot [${account.username}] đã hết hạn thuê! Vui lòng gia hạn để tiếp tục chạy.`);
+      }
+
+      const isCustomerRental = Boolean(account.userId || account.rentalExpiresAt);
+      if (isCustomerRental && (!account.proxyId || !proxy)) {
+        throw new BadRequestException(`[SECURITY BLOCK] Tài khoản thuê của khách [${account.username}] bắt buộc phải có Proxy khả dụng để bảo vệ IP máy chủ!`);
+      }
 
     if (account.proxyId && proxy) {
       if (proxy.isExpired) {
@@ -73,6 +88,17 @@ class StartBotAccountUseCase {
     const javaBin = JavaDetector.findJavaExecutable(config.javaPath);
     if (!javaBin) {
       throw new Error('Không tìm thấy Java runtime. Vui lòng cài đặt Java hoặc Portable JRE!');
+    }
+
+    // Attach dynamic allowedFeatures based on rentalPlan
+    if (account.rentalPlan && !account.allowedFeatures) {
+      try {
+        const rules = await this.settingRepo.get('rental_allocation_rules');
+        const plan = rules?.plans?.[account.rentalPlan];
+        if (plan && Array.isArray(plan.features)) {
+          account.allowedFeatures = plan.features;
+        }
+      } catch (e) {}
     }
 
     // 8. Instantiate SingleBotProcess with injected Proxy entity
@@ -115,36 +141,52 @@ class StartBotAccountUseCase {
       });
     });
 
-    const started = botProcess.start(javaBin);
-    if (started && botProcess.child && botProcess.child.pid) {
-      this.multiBotManager.runningBots.set(accountId, botProcess);
+      // Double check before spawning in case a process was already attached
+      if (this.multiBotManager.isAccountRunning(accountId)) {
+        return { success: true, message: `Tài khoản [${account.username}] đang chạy rồi.` };
+      }
 
-      // Register with Shared Process Registry on disk
-      this.multiBotManager.processRegistry.register(accountId, {
-        username: account.username,
-        serverId: account.serverId !== undefined ? account.serverId : 0,
-        serverName: account.serverName || '',
-        fileId: fileId,
-        pid: botProcess.child.pid,
-        startTime: botProcess.startTime || Date.now(),
-        stats: botProcess.playerStats,
-        accountState: botProcess.accountState,
-        autoState: botProcess.autoState
-      });
+      // Terminate any stale zombie process registered for this account before spawning a new one
+      const activeBots = this.multiBotManager.processRegistry.getActiveBots();
+      if (activeBots[accountId] && activeBots[accountId].pid && ProcessRegistry.isPidAlive(activeBots[accountId].pid)) {
+        try {
+          ProcessRegistry.killPid(activeBots[accountId].pid, true);
+        } catch (e) {}
+      }
 
-      await this.multiBotManager.persistRunningState();
-      const runningCount = (await this.multiBotManager.getRunningAccounts()).length;
-      this.sseEventBus.broadcast('bot-status-changed', {
-        accountId,
-        running: true,
-        runningCount
-      });
+      const started = botProcess.start(javaBin);
+      if (started && botProcess.child && botProcess.child.pid) {
+        this.multiBotManager.runningBots.set(accountId, botProcess);
+
+        // Register with Shared Process Registry on disk
+        this.multiBotManager.processRegistry.register(accountId, {
+          username: account.username,
+          serverId: account.serverId !== undefined ? account.serverId : 0,
+          serverName: account.serverName || '',
+          fileId: fileId,
+          pid: botProcess.child.pid,
+          startTime: botProcess.startTime || Date.now(),
+          stats: botProcess.playerStats,
+          accountState: botProcess.accountState,
+          autoState: botProcess.autoState
+        });
+
+        await this.multiBotManager.persistRunningState();
+        const runningCount = (await this.multiBotManager.getRunningAccounts()).length;
+        this.sseEventBus.broadcast('bot-status-changed', {
+          accountId,
+          running: true,
+          runningCount
+        });
+      }
+
+      return {
+        success: started,
+        message: started ? `Đã bắt đầu treo tài khoản [${account.username}]!` : 'Không thể khởi chạy bot.'
+      };
+    } finally {
+      this.startingLocks.delete(accountId);
     }
-
-    return {
-      success: started,
-      message: started ? `Đã bắt đầu treo tài khoản [${account.username}]!` : 'Không thể khởi chạy bot.'
-    };
   }
 }
 

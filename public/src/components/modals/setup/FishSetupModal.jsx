@@ -31,9 +31,28 @@ window.FishSetupModal = function FishSetupModal({
     ...(account.fishSettings || {})
   });
 
+  const currentUser = window.ApiClient?.getCurrentUser ? window.ApiClient.getCurrentUser() : null;
+  const isAdmin = currentUser && String(currentUser.role || '').toLowerCase() === 'admin';
+
   const accountList = (allAccounts && allAccounts.length > 0) ? allAccounts : (accounts || []);
-  const otherAccounts = accountList.filter(a => a && a.id !== account.id);
+  const otherAccounts = accountList
+    .filter(a => a && a.id !== account.id)
+    .filter(a => {
+      if (isAdmin && !account.isUserView) return true;
+      if (account.userId && a.userId) return a.userId === account.userId;
+      return true;
+    });
   const [copyFromId, setCopyFromId] = useFishState(otherAccounts.length > 0 ? otherAccounts[0].id : '');
+
+  React.useEffect(() => {
+    if (otherAccounts.length > 0) {
+      if (!copyFromId || !otherAccounts.some(a => a.id === copyFromId)) {
+        setCopyFromId(otherAccounts[0].id);
+      }
+    } else {
+      setCopyFromId('');
+    }
+  }, [allAccounts, accounts, account.id]);
 
   const [isSubmitting, setIsSubmitting] = useFishState(false);
   const [feedback, setFeedback] = useFishState(null);

@@ -1,5 +1,6 @@
 const ApiResponse = require('../../../application/dtos/common/ApiResponse');
 const { sendErrorResponse } = require('../helpers/errorHandler');
+const { UnauthorizedException } = require('../../../domain/errors');
 
 /**
  * RentalController (Interface Layer)
@@ -29,8 +30,12 @@ class RentalController {
 
   async checkout(req, res, sendJson, parseJsonBody) {
     try {
-      const body = await parseJsonBody(req);
       const userId = req.user?.sub;
+      if (!userId) {
+        throw new UnauthorizedException('Vui lòng đăng nhập để thuê nick bot!');
+      }
+
+      const body = await parseJsonBody(req);
       const result = await this.rentSlotUseCase.execute({
         userId,
         username: body.username,
@@ -49,8 +54,12 @@ class RentalController {
 
   async renew(req, res, sendJson, parseJsonBody) {
     try {
-      const body = await parseJsonBody(req);
       const userId = req.user?.sub;
+      if (!userId) {
+        throw new UnauthorizedException('Vui lòng đăng nhập để gia hạn nick bot!');
+      }
+
+      const body = await parseJsonBody(req);
       const accountId = req.params?.id || body.accountId;
 
       const result = await this.rentSlotUseCase.renewSlot({

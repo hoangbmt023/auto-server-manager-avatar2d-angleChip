@@ -1,7 +1,7 @@
 const JavaDetector = require('../../../infrastructure/process/JavaDetector');
 const ApiResponse = require('../../../application/dtos/common/ApiResponse');
 const ErrorResponse = require('../../../application/dtos/common/ErrorResponse');
-const { BadRequestException } = require('../../../domain/errors');
+const { BadRequestException, UnauthorizedException, ForbiddenException } = require('../../../domain/errors');
 const { sendErrorResponse } = require('../helpers/errorHandler');
 const os = require('os');
 const path = require('path');
@@ -102,11 +102,14 @@ class BotController {
         throw new BadRequestException('Thiếu ID tài khoản cần treo!');
       }
 
-      const isUser = req.user && String(req.user.role || '').toUpperCase() !== 'ADMIN';
-      if (isUser) {
+      const isActualAdmin = Boolean(req.user && String(req.user.role || '').toUpperCase() === 'ADMIN');
+      if (!isActualAdmin) {
+        if (!req.user || !req.user.sub) {
+          throw new UnauthorizedException('Vui lòng đăng nhập để thực hiện thao tác!');
+        }
         const acc = await this.accountRepo.findById(accountId);
         if (!acc || acc.userId !== req.user.sub) {
-          throw new BadRequestException('Bạn không có quyền thao tác trên tài khoản này!');
+          throw new ForbiddenException('Bạn không có quyền thao tác trên tài khoản này!');
         }
         if (acc.isRentalExpired()) {
           throw new BadRequestException('Tài khoản bot này đã hết hạn thuê! Vui lòng gia hạn để tiếp tục chạy.');
@@ -137,11 +140,14 @@ class BotController {
         throw new BadRequestException('Thiếu ID tài khoản cần dừng!');
       }
 
-      const isUser = req.user && String(req.user.role || '').toUpperCase() !== 'ADMIN';
-      if (isUser) {
+      const isActualAdmin = Boolean(req.user && String(req.user.role || '').toUpperCase() === 'ADMIN');
+      if (!isActualAdmin) {
+        if (!req.user || !req.user.sub) {
+          throw new UnauthorizedException('Vui lòng đăng nhập để thực hiện thao tác!');
+        }
         const acc = await this.accountRepo.findById(accountId);
         if (!acc || acc.userId !== req.user.sub) {
-          throw new BadRequestException('Bạn không có quyền thao tác trên tài khoản này!');
+          throw new ForbiddenException('Bạn không có quyền thao tác trên tài khoản này!');
         }
       }
 
@@ -175,14 +181,53 @@ class BotController {
         throw new BadRequestException('Thiếu ID tài khoản!');
       }
 
-      const isUser = req.user && String(req.user.role || '').toUpperCase() !== 'ADMIN';
-      if (isUser) {
+      const isActualAdmin = Boolean(req.user && String(req.user.role || '').toUpperCase() === 'ADMIN');
+      if (!isActualAdmin) {
+        if (!req.user || !req.user.sub) {
+          throw new UnauthorizedException('Vui lòng đăng nhập để thực hiện thao tác!');
+        }
         const acc = await this.accountRepo.findById(accountId);
         if (!acc || acc.userId !== req.user.sub) {
-          throw new BadRequestException('Bạn không có quyền thao tác trên tài khoản này!');
+          throw new ForbiddenException('Bạn không có quyền thao tác trên tài khoản này!');
         }
         if (action === 'start' && acc.isRentalExpired()) {
           throw new BadRequestException('Tài khoản bot này đã hết hạn thuê! Vui lòng gia hạn để tiếp tục chạy.');
+        }
+        if (action === 'start' && acc.rentalPlan) {
+          let allowedFeatures = null;
+          if (this.settingRepo) {
+            try {
+              const rules = await this.settingRepo.get('rental_allocation_rules');
+              const plan = rules?.plans?.[acc.rentalPlan];
+              if (plan && Array.isArray(plan.features)) allowedFeatures = plan.features;
+            } catch (e) {}
+          }
+          if (!allowedFeatures) {
+            if (acc.rentalPlan === 'FULL') allowedFeatures = ['farm', 'fish', 'diamond', 'sellOre', 'upThue'];
+            else if (acc.rentalPlan === 'FISH') allowedFeatures = ['fish', 'upThue'];
+            else allowedFeatures = ['farm', 'upThue'];
+          }
+          const featMap = {
+            farm: 'farm',
+            diamond: 'diamond', kc: 'diamond',
+            fish: 'fish', cau_ca: 'fish', cc: 'fish',
+            sell_ore: 'sellOre', banda: 'sellOre', stone: 'sellOre', bd: 'sellOre'
+          };
+
+          if (autoType === 'all') {
+            if (!allowedFeatures.includes('farm') || !allowedFeatures.includes('fish') || !allowedFeatures.includes('diamond')) {
+              throw new ForbiddenException(`Gói [${acc.rentalPlan}] không hỗ trợ tính năng chạy toàn bộ auto (All Auto)!`);
+            }
+          } else if (autoType === 'event' || autoType === 'sk') {
+            if (!allowedFeatures.includes('diamond') && acc.rentalPlan !== 'FULL') {
+              throw new ForbiddenException(`Gói [${acc.rentalPlan}] không hỗ trợ tính năng Auto Sự Kiện!`);
+            }
+          } else {
+            const neededFeat = featMap[autoType];
+            if (neededFeat && !allowedFeatures.includes(neededFeat)) {
+              throw new ForbiddenException(`Gói [${acc.rentalPlan}] không hỗ trợ tính năng này!`);
+            }
+          }
         }
       }
 

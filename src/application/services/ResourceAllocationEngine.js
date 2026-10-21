@@ -74,33 +74,28 @@ class ResourceAllocationEngine {
     ]);
 
     // =========================================================================
-    // 1. CHOOSE BOT FILE
+    // 1. CHOOSE BOT FILE (Do Admin toàn quyền chỉ định & quản lý theo từng gói)
     // =========================================================================
-    const matchingFiles = (allFiles || []).filter(f => {
-      const m = String(f.modType || '').toUpperCase();
-      return m === targetModType;
-    });
-
     let selectedFile = null;
-    let minAccs = Infinity;
 
-    for (const f of matchingFiles) {
-      const count = allAccounts.filter(a => a.fileId === f.id).length;
-      const maxAccs = f.maxAccounts || 6;
-      if (count < maxAccs && count < minAccs) {
-        minAccs = count;
-        selectedFile = f;
-      }
+    // 1.1. Ưu tiên hàng đầu: Lấy chính xác File bot mà Admin đã chỉ định cho gói thuê này
+    if (planConfig && planConfig.defaultFileId) {
+      selectedFile = (allFiles || []).find(f => f.id === planConfig.defaultFileId);
     }
 
+    // 1.2. Fallback nếu file chỉ định bị xoá hoặc không tồn tại
     if (!selectedFile) {
+      const matchingFiles = (allFiles || []).filter(f => {
+        const m = String(f.modType || '').toUpperCase();
+        return m === targetModType;
+      });
+
       selectedFile = matchingFiles[0] ||
-        (allFiles || []).find(f => f.id === planConfig.defaultFileId) ||
         (allFiles || []).find(f => f.isDefault) ||
         (allFiles && allFiles[0]);
     }
 
-    const fileId = selectedFile ? selectedFile.id : 'file_1';
+    const fileId = selectedFile ? selectedFile.id : (planConfig?.defaultFileId || 'file_1');
 
     // =========================================================================
     // 2. CHOOSE PROXY (Dynamic Priority Scoring & Best-Fit Decreasing)

@@ -72,6 +72,28 @@ class BotIpcProtocol {
     const currentAutoState = context.autoState || {};
     const currentStats = context.playerStats || {};
     const hasProxy = Boolean(context.proxyId);
+    // 0. Filter out internal proxy setup, sensitive connection logs, settings loading, and emulator bootstrap
+    if (
+      line.includes('[PROXY SETUP]') ||
+      line.includes('[GIẢ LẬP ANGELCHIP]') ||
+      line.includes('PROXY    (NET):') ||
+      line.includes('PROXY (NET):') ||
+      line.includes('TÀI KHOẢN (WEB):') ||
+      line.includes('MẬT KHẨU (WEB):') ||
+      line.includes('SERVER   (WEB):') ||
+      line.includes('SERVER (WEB):') ||
+      line.includes('[CÀI ĐẶT AUTO') ||
+      line.includes('[KIỂM TRA FILE JAR]') ||
+      line.includes('AVATAR HEADLESS AUTO-LOGIN') ||
+      line.includes('Picked up JAVA_TOOL_OPTIONS') ||
+      line.includes('headless arguments') ||
+      line.includes('openJar') ||
+      line.includes('loadJar') ||
+      /^[=\-─_]{8,}/.test(line)
+    ) {
+      result.handledSpecialPacket = true;
+      return result;
+    }
 
     // 1. Account Status Packet
     if (line.includes('[ACCOUNT_STATUS]:')) {

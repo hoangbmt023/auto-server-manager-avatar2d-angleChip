@@ -90,14 +90,11 @@ public class AvatarHeadlessLauncher {
                 // 2. Ghi trực tiếp cấu hình vào Config của bản giả lập MicroEmulator (angelchip_config2.xml)
                 try {
                     org.microemu.app.Config.setProxy(true, proxyHost, pPort, finalUser != null ? finalUser : "", finalPass != null ? finalPass : "", nonProxyHosts);
-                    System.out.println("💾 [GIẢ LẬP ANGELCHIP]: Đã đồng bộ cấu hình Proxy vào Config giả lập!");
                 } catch (Throwable t) {
-                    System.err.println("⚠️ [CONFIG PROXY ERR]: " + t.getMessage());
                 }
 
                 // 3. Khởi tạo Authenticator
                 if (finalUser != null && !finalUser.isEmpty()) {
-                    System.out.println("🌐 [PROXY SETUP]: Đang kích hoạt Proxy [" + typeStr + "://" + proxyHost + ":" + pPort + "] với tài khoản [" + finalUser + "]...");
                     System.setProperty("java.net.socks.username", finalUser);
                     System.setProperty("java.net.socks.password", finalPass != null ? finalPass : "");
 
@@ -108,7 +105,6 @@ public class AvatarHeadlessLauncher {
                         String[] proxyArr = new String[] { proxyHost, String.valueOf(pPort), finalUser, finalPass != null ? finalPass : "", nonProxyHosts, "true" };
                         java.net.Authenticator.setDefault((java.net.Authenticator) ctor.newInstance((Object) proxyArr));
                         akSuccess = true;
-                        System.out.println("✅ [PROXY SETUP]: Đã cài đặt Authenticator bản quyền của AngelChip (class ak) thành công!");
                     } catch (Throwable t) {
                         // Fallback
                     }
@@ -120,10 +116,7 @@ public class AvatarHeadlessLauncher {
                                 return new java.net.PasswordAuthentication(finalUser, (finalPass != null ? finalPass : "").toCharArray());
                             }
                         });
-                        System.out.println("✅ [PROXY SETUP]: Đã cài đặt Authenticator mặc định thành công!");
                     }
-                } else {
-                    System.out.println("🌐 [PROXY SETUP]: Đang sử dụng Proxy [" + typeStr + "://" + proxyHost + ":" + pPort + "] (Không mật khẩu)");
                 }
             }
         } catch (Throwable t) {
@@ -147,9 +140,7 @@ public class AvatarHeadlessLauncher {
         // Tự động kiểm tra file game ngay khi khởi động
         checkAndRestoreGameJar(activeJarPath);
 
-        System.out.println("=================================================");
-        System.out.println("🚀 AVATAR HEADLESS AUTO-LOGIN & ACCOUNT MANAGER");
-        System.out.println("=================================================");
+
 
         String customUser = System.getProperty("avatar.user");
         String customPass = System.getProperty("avatar.pass");
@@ -170,18 +161,6 @@ public class AvatarHeadlessLauncher {
 
         final int finalServerId = serverId;
         final String finalServerName = (resolvedServerName != null && !resolvedServerName.isEmpty()) ? resolvedServerName : "Hoàn Mỹ";
-
-        if (customUser != null && !customUser.isEmpty()) {
-            System.out.println("-------------------------------------------------");
-            System.out.println("  👤 TÀI KHOẢN (WEB): " + customUser);
-            System.out.println("  🌐 SERVER   (WEB): " + finalServerName + (customServer != null ? " (ID: " + customServer + ")" : ""));
-            System.out.println("  🔒 MẬT KHẨU (WEB): " + (customPass != null && !customPass.isEmpty() ? "****** (" + customPass.length() + " ký tự)" : "(Dùng mật khẩu đã lưu)"));
-            String prxHost = System.getProperty("avatar.proxyHost");
-            if (prxHost != null && !prxHost.isEmpty()) {
-                System.out.println("  🛡️ PROXY    (NET): " + prxHost + ":" + System.getProperty("avatar.proxyPort") + " (" + System.getProperty("avatar.proxyType", "socks").toUpperCase() + ")");
-            }
-            System.out.println("-------------------------------------------------");
-        }
 
         final String initialAutoStartType = System.getProperty("avatar.autoStartType");
         final String[] persistentAutoHolder = new String[] { (initialAutoStartType != null && !initialAutoStartType.isEmpty()) ? initialAutoStartType : null };
@@ -429,6 +408,7 @@ public class AvatarHeadlessLauncher {
                             // Trước khi cố kết nối lại, kiểm tra xem có phải bot đã hoàn thành mục tiêu không!
                             if (AvatarModAdapter.isTargetReached()) {
                                 isCurrentlyOnline = false;
+                                persistentAutoHolder[0] = null;
                                 AvatarModAdapter.PlayerStats s = AvatarModAdapter.extractPlayerStats();
                                 System.out.println("🎉 [HOÀN THÀNH MỤC TIÊU]: Đã đạt mục tiêu up xu (" + s.earnedCoins + "/" + s.targetCoins + " xu, Số dư: " + s.coins + " xu)!");
                                 System.out.println("[ACCOUNT_STATUS]: {\"state\":\"target_reached\",\"message\":\"Đã đạt yêu cầu up xu theo cài đặt!\",\"isTargetReached\":true,\"isCompleted\":true}");
@@ -455,16 +435,20 @@ public class AvatarHeadlessLauncher {
                                 isCurrentlyOnline = true;
                                 System.out.println("[ACCOUNT_STATUS]: {\"state\":\"online\",\"message\":\"Đang Treo Online\",\"isError\":false,\"isMaintenance\":false}");
 
-                                // Tự động khôi phục Auto đã chạy trước đó sau khi đăng nhập / kết nối lại thành công
-                                if (persistentAutoHolder[0] != null && !persistentAutoHolder[0].trim().isEmpty()) {
+                                // Tự động khôi phục Auto đã chạy trước đó sau khi đăng nhập / kết nối lại thành công (CHỈ KHI CHƯA HOÀN THÀNH MỤC TIÊU)
+                                if (persistentAutoHolder[0] != null && !persistentAutoHolder[0].trim().isEmpty() && !AvatarModAdapter.isTargetReached()) {
                                     final String toRestore = persistentAutoHolder[0];
                                     new Thread(new Runnable() {
                                         @Override
                                         public void run() {
                                             try {
                                                 Thread.sleep(3500); // Chờ 3.5 giây cho map và dữ liệu nhân vật nạp ổn định
-                                                System.out.println("🔄 [TỰ ĐỘNG KHÔI PHỤC AUTO]: Đang kích hoạt lại " + toRestore + " sau khi kết nối lại thành công...");
-                                                AvatarModAdapter.startAuto(toRestore);
+                                                if (!AvatarModAdapter.isTargetReached() && persistentAutoHolder[0] != null) {
+                                                    System.out.println("🔄 [TỰ ĐỘNG KHÔI PHỤC AUTO]: Đang kích hoạt lại " + toRestore + " sau khi kết nối lại thành công...");
+                                                    AvatarModAdapter.startAuto(toRestore);
+                                                } else {
+                                                    persistentAutoHolder[0] = null;
+                                                }
                                             } catch (Throwable ignored) {}
                                         }
                                     }).start();
@@ -526,7 +510,8 @@ public class AvatarHeadlessLauncher {
                             AvatarModAdapter.AutoTaskInfo curAutoTask = AvatarModAdapter.getActiveAutoTask();
 
                             if (lastAutoTask != null && curAutoTask == null) {
-                                // 1. TẤT CẢ AUTO KHI HOÀN THÀNH / DỪNG TOÀN BỘ
+                                // 1. TẤT CẢ AUTO KHI HOÀN THÀNH / DỪNG TOÀN BỘ -> XÓA AUTO GHI NHỚ ĐỂ KHÔNG TỰ BẬT LẠI
+                                persistentAutoHolder[0] = null;
                                 System.out.println("✅ [AUTO HOÀN THÀNH]: " + lastAutoTask.friendlyName + " đã hoàn tất toàn bộ công việc!");
                                 System.out.println("[AUTO_STATUS]: {\"isRunning\":false,\"status\":\"finished\",\"finished\":true,\"autoType\":\"" + lastAutoTask.autoType + "\",\"message\":\"Đã hoàn tất " + lastAutoTask.friendlyName + "!\"}");
                             } else if (lastAutoTask == null && curAutoTask != null) {

@@ -2209,13 +2209,7 @@ public class AvatarModAdapter {
             } catch (Throwable ignored) {
             }
 
-            String animalStr = (animal == 0 ? "Gà" : (animal == 1 ? "Vịt" : (animal == 2 ? "Heo" : "Không")));
-            String fishStr = (fish == 0 ? "Cá" : (fish == 1 ? "Rùa" : "Không"));
-            System.out.println("🌾 [CÀI ĐẶT AUTO FARM]: Đã nạp thành công (" + schema.name + ") | Cơ chế: "
-                    + (mode == 0 ? "Lái buôn hỗ trợ" : "Farm thường") + " | Món ăn: " + backupDishes + " | Cây dự bị: "
-                    + backupSeeds + " (>=" + replaceSeedThreshold + ") | Bán NS: " + sellProducts + " (>="
-                    + sellThreshold + ", sl:" + sellQuantity + ") | Nuôi: " + animalStr + " | Cá: " + fishStr
-                    + " | Cấp khế: " + maxStarfruitLevel);
+
         } catch (Throwable t) {
             System.err.println("[FARM SETUP ERR]: " + t.getMessage());
         }
@@ -2281,10 +2275,7 @@ public class AvatarModAdapter {
                 }
             }
 
-            System.out.println("💎 [CÀI ĐẶT AUTO KIM CƯƠNG]: Đã nạp thành công (" + schema.name
-                    + ") | Bán đá đầy rương: " + sellOreOnFull + " | Tự về farm: " + autoFarm + " ("
-                    + farmIntervalMinutes + " phút) | Thu hoạch đúng giờ: " + harvestOnTime + " | Thứ tự ưu tiên: "
-                    + pName + " | Tự bỏ KCX: " + autoDropKcx + " | Tự bỏ NHB: " + autoDropNhb);
+
         } catch (Throwable t) {
             System.err.println("[DIAMOND SETUP ERR]: " + t.getMessage());
         }
@@ -2367,10 +2358,7 @@ public class AvatarModAdapter {
                 }
             }
 
-            System.out.println("🎣 [CÀI ĐẶT AUTO CÂU CÁ]: Đã nạp thành công (" + schema.name + ") | Map: " + mName
-                    + " | Cần câu: " + rName + " | Bán cá: " + sName + " | Tự mua vé: " + autoBuyTicket + " | Về farm: "
-                    + backToFarm + " (" + farmIntervalMinutes + "p) | Bán KCX: " + sellKcx + " (SL: " + sellKcxThreshold
-                    + ") | Ngoại trừ: " + excludeFish);
+
         } catch (Throwable t) {
             System.err.println("[FISH SETUP ERR]: " + t.getMessage());
         }
@@ -2411,10 +2399,7 @@ public class AvatarModAdapter {
                 }
             }
 
-            System.out.println("🪨 [CÀI ĐẶT AUTO BÁN ĐÁ]: Đã nạp thành công (" + schema.name + ") | Thời gian: "
-                    + sellIntervalMinutes + " phút | Quãng nghỉ: " + delayMs + "ms | Khu bán: " + zoneFrom + " -> "
-                    + zoneTo + " | Reset NHB: " + resetTimeOnNhb + " | Reset KCX: " + resetTimeOnKcx + " | Bỏ NHB: "
-                    + dropNhbIfFailed + " | Bỏ KCX: " + dropKcxIfFailed);
+
         } catch (Throwable t) {
             System.err.println("[SELL ORE SETUP ERR]: " + t.getMessage());
         }
