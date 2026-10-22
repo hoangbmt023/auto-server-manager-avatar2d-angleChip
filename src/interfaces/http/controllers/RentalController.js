@@ -66,7 +66,8 @@ class RentalController {
         userId,
         accountId,
         durationMonths: body.durationMonths,
-        voucherCode: body.voucherCode
+        voucherCode: body.voucherCode,
+        newPlan: body.plan || body.newPlan
       });
 
       return sendJson(res, 200, ApiResponse.success(result, 'Gia hạn bot thành công!'));

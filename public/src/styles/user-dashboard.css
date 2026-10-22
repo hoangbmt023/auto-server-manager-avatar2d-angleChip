@@ -1396,6 +1396,27 @@ button .tx-spinner-circular {
   gap: 4px;
 }
 
+.rent-voucher-notice {
+  font-size: 0.73rem;
+  color: var(--apple-gold);
+  background: rgba(255, 214, 10, 0.08);
+  border: 1px solid rgba(255, 214, 10, 0.2);
+  border-radius: var(--radius-sm);
+  padding: 6px 10px;
+  margin-top: 6px;
+  display: flex;
+  align-items: flex-start;
+  gap: 6px;
+  line-height: 1.4;
+}
+
+.plan-confirm-tag {
+  font-size: 0.75rem;
+  color: var(--apple-gold);
+  font-weight: 500;
+  margin-left: 4px;
+}
+
 .rent-voucher-error {
   font-size: 0.74rem;
   color: var(--apple-red);
@@ -1660,6 +1681,73 @@ button .tx-spinner-circular {
 .rent-plan-item.selected {
   background: rgba(10, 132, 255, 0.12);
   border-color: var(--apple-blue);
+}
+
+.rent-plan-item.is-current-plan {
+  border-color: rgba(255, 149, 0, 0.45);
+}
+
+.rent-plan-title-group {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.rent-plan-badge-current {
+  font-size: 10px;
+  padding: 2px 6px;
+  border-radius: 4px;
+  background: rgba(255, 149, 0, 0.15);
+  color: var(--apple-orange);
+  font-weight: 700;
+  border: 1px solid rgba(255, 149, 0, 0.3);
+}
+
+/* Plan Switch Confirmation Dialog (Zero-Inline-Styles) */
+.plan-confirm-dialog {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  font-size: 0.9rem;
+  line-height: 1.5;
+  text-align: left;
+}
+
+.plan-confirm-notice {
+  background: rgba(255, 214, 10, 0.1);
+  border: 1px solid rgba(255, 214, 10, 0.25);
+  border-radius: var(--radius-md);
+  padding: 10px 14px;
+}
+
+.plan-confirm-notice-header {
+  font-weight: 600;
+  color: var(--apple-gold);
+  margin-bottom: 4px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.plan-confirm-summary {
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid var(--apple-border);
+  border-radius: var(--radius-md);
+  padding: 10px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.plan-confirm-price {
+  color: var(--apple-green);
+  font-weight: 700;
+}
+
+.plan-confirm-footer-note {
+  color: var(--text-secondary);
+  font-size: 0.82rem;
 }
 
 .rent-plan-title-row {

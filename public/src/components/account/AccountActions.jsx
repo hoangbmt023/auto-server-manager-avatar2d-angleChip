@@ -108,9 +108,9 @@ window.AccountActions = function AccountActions({
         <button
           className="btn btn-sm btn-renew-action"
           onClick={() => onRenewAccount && onRenewAccount(account)}
-          title="Tài khoản đã hết hạn thuê! Bấm để gia hạn ngay"
+          title="Tài khoản đã hết hạn thuê! Bấm để gia hạn / đổi gói ngay"
         >
-          <window.Icon name="zap" size={13} color="#fff" /> Gia Hạn
+          <window.Icon name="zap" size={13} color="#fff" /> Gia Hạn / Đổi Gói
         </button>
       ) : (
         <button
@@ -245,7 +245,7 @@ window.AccountActions = function AccountActions({
                 className="dropdown-item-glass dropdown-item-renew"
                 onClick={() => { setMoreMenuOpen(false); onRenewAccount && onRenewAccount(account); }}
               >
-                <window.Icon name="clock" size={14} color="var(--apple-gold)" /> Gia Hạn Thuê Bot
+                <window.Icon name="clock" size={14} color="var(--apple-gold)" /> Gia Hạn / Đổi Gói
               </button>
             )}
             <button className="dropdown-item-glass" onClick={() => { setMoreMenuOpen(false); onOpenEditAccount && onOpenEditAccount(account); }}>

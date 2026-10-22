@@ -27,7 +27,11 @@ class Account {
     ipSlot = 1,
     isEmergencySlot = false,
     rentalExpiresAt = null,
-    rentalPlan = null
+    rentalPlan = null,
+    effectivePriceMonth = null,
+    effective_price_month = null,
+    deletedAt = null,
+    deleted_at = null
   }) {
     this.id = id || uuidv7();
     this.userId = userId || null;
@@ -46,6 +50,10 @@ class Account {
     this.pendingReset = Boolean(pendingReset);
     this.rentalExpiresAt = rentalExpiresAt ? new Date(rentalExpiresAt) : null;
     this.rentalPlan = rentalPlan ? String(rentalPlan).toUpperCase() : null;
+    const rawPrice = effectivePriceMonth !== null && effectivePriceMonth !== undefined ? effectivePriceMonth : effective_price_month;
+    this.effectivePriceMonth = rawPrice !== null && rawPrice !== undefined ? parseInt(rawPrice, 10) : null;
+    const rawDeletedAt = deletedAt || deleted_at;
+    this.deletedAt = rawDeletedAt ? new Date(rawDeletedAt) : null;
     this.farmSettings = farmSettings || {
       mode: 0,
       animal: 3,
@@ -110,9 +118,24 @@ class Account {
     }
   }
 
+  isDeleted() {
+    return Boolean(this.deletedAt);
+  }
+
   isRentalExpired() {
     if (!this.rentalExpiresAt) return false;
     return this.rentalExpiresAt.getTime() < Date.now();
+  }
+
+  getDaysExpired() {
+    if (!this.rentalExpiresAt) return 0;
+    const diffMs = Date.now() - this.rentalExpiresAt.getTime();
+    if (diffMs <= 0) return 0;
+    return Math.floor(diffMs / (24 * 60 * 60 * 1000));
+  }
+
+  canTransferToNewUser() {
+    return this.isDeleted() || (this.isRentalExpired() && this.getDaysExpired() >= 3);
   }
 
   getRentalRemainingMs() {
@@ -124,6 +147,67 @@ class Account {
     this.serverId = this.serverId === 0 ? 1 : 0;
     this.serverName = this.serverId === 0 ? 'Hoàn Mỹ' : 'Diệu Kỳ';
     return this.serverId;
+  }
+
+  resetBotConfigurations() {
+    this.note = '';
+    this.targetCoins = 0;
+    this.upDays = 0;
+    this.pendingReset = false;
+    this.farmSettings = {
+      mode: 0,
+      animal: 3,
+      fish: 2,
+      harvestHearts: true,
+      dailyAttendance: true,
+      deliverOrders: true,
+      hatchDragon: true,
+      trainDragon: true,
+      noBuyWithGold: true,
+      buyMilkWithGold: false,
+      upgradeStarfruit: true,
+      feedBaby: false,
+      upgradeBaby: false,
+      maxStarfruitLevel: 10,
+      sellProducts: '-1',
+      sellThreshold: 100,
+      sellQuantity: 50,
+      backupSeeds: '',
+      replaceSeedThreshold: 0,
+      backupDishes: ''
+    };
+    this.diamondSettings = {
+      sellOreOnFull: true,
+      autoFarm: true,
+      autoDropKcx: false,
+      autoDropNhb: false,
+      farmIntervalMinutes: 60,
+      harvestOnTime: true,
+      priorityOrder: 6
+    };
+    this.fishSettings = {
+      mapType: 0,
+      rodType: 0,
+      sellFishType: 0,
+      autoBuyTicket: true,
+      backToFarm: true,
+      farmIntervalMinutes: 30,
+      harvestOnTime: true,
+      sellKcx: false,
+      sellKcxThreshold: 5,
+      excludeFish: ''
+    };
+    this.sellOreSettings = {
+      sellIntervalMinutes: 15,
+      delayMs: 100,
+      zoneFrom: 20,
+      zoneTo: 79,
+      resetTimeOnNhb: true,
+      resetTimeOnKcx: false,
+      dropNhbIfFailed: true,
+      dropKcxIfFailed: true
+    };
+    this.effectivePriceMonth = null;
   }
 
   toPublicJson() {
@@ -145,6 +229,9 @@ class Account {
       pendingReset: this.pendingReset,
       rentalExpiresAt: this.rentalExpiresAt ? this.rentalExpiresAt.toISOString() : null,
       rentalPlan: this.rentalPlan,
+      effectivePriceMonth: this.effectivePriceMonth,
+      deletedAt: this.deletedAt ? this.deletedAt.toISOString() : null,
+      isDeleted: this.isDeleted(),
       isExpired: this.isRentalExpired(),
       remainingMs: this.getRentalRemainingMs(),
       farmSettings: this.farmSettings,
@@ -173,6 +260,8 @@ class Account {
       pendingReset: this.pendingReset,
       rental_expires_at: this.rentalExpiresAt,
       rental_plan: this.rentalPlan,
+      effective_price_month: this.effectivePriceMonth,
+      deleted_at: this.deletedAt,
       farmSettings: this.farmSettings,
       diamondSettings: this.diamondSettings,
       fishSettings: this.fishSettings,

@@ -899,11 +899,12 @@ window.UserDashboardPage = function UserDashboardPage() {
               const newExp = result?.account?.rentalExpiresAt
                 ? (window.formatDateTime ? window.formatDateTime(result.account.rentalExpiresAt) : new Date(result.account.rentalExpiresAt).toLocaleString('vi-VN'))
                 : '';
+              const planSwitched = renewAccount?.rentalPlan && result?.account?.rentalPlan && renewAccount.rentalPlan !== result.account.rentalPlan;
               showDialog({
                 mode: 'alert',
                 type: 'success',
-                title: 'Gia Hạn Thành Công!',
-                message: `Tài khoản bot [${renewAccount?.username || result?.account?.username}] đã được gia hạn thành công! Hạn sử dụng mới: ${newExp}`
+                title: planSwitched ? 'Đổi Gói & Gia Hạn Thành Công!' : 'Gia Hạn Thành Công!',
+                message: `Tài khoản bot [${renewAccount?.username || result?.account?.username}] đã được ${planSwitched ? `đổi sang gói ${result?.account?.rentalPlan} và gia hạn` : 'gia hạn'} thành công! Hạn sử dụng mới: ${newExp}`
               });
             }
           }}

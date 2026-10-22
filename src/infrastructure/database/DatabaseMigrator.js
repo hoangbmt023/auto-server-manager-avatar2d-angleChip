@@ -29,6 +29,22 @@ class DatabaseMigrator {
         await this.syncTable(pool, dbName, schema);
       }
 
+      // Đảm bảo tuyệt đối cột deleted_at tồn tại trên accounts (Chuẩn MySQL 5.7 / 8.0)
+      try {
+        const [existingCols] = await pool.query(
+          `SELECT COLUMN_NAME FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = ? AND TABLE_NAME = 'accounts' AND COLUMN_NAME = 'deleted_at'`,
+          [dbName]
+        );
+        if (existingCols.length === 0) {
+          await pool.query(`ALTER TABLE \`accounts\` ADD COLUMN \`deleted_at\` DATETIME NULL;`);
+          console.log('  + [Code-First Migrator] Đã thêm cột [deleted_at] vào bảng accounts.');
+        }
+      } catch (colErr) {
+        if (colErr.code !== 'ER_DUP_FIELDNAME' && colErr.errno !== 1060) {
+          console.warn('  ⚠️ [Code-First Migrator] Kiểm tra cột deleted_at:', colErr.message);
+        }
+      }
+
       console.log('✅ [Code-First Migrator] Đồng bộ Schema MySQL thành công!');
     } catch (err) {
       console.error('❌ [Code-First Migrator] Lỗi đồng bộ Schema MySQL:', err.message);

@@ -1,7 +1,7 @@
 const IAccountRepository = require('../../../domain/repositories/IAccountRepository');
 const Account = require('../../../domain/entities/Account');
 const { accounts } = require('../../database/drizzleSchema');
-const { eq, asc } = require('drizzle-orm');
+const { eq, asc, isNull, and } = require('drizzle-orm');
 
 /**
  * MySqlAccountRepository (Infrastructure Layer - Adapter)
@@ -53,6 +53,8 @@ class MySqlAccountRepository extends IAccountRepository {
       pendingReset: Boolean(row.pendingReset),
       rentalExpiresAt: row.rentalExpiresAt ? new Date(row.rentalExpiresAt) : null,
       rentalPlan: row.rentalPlan || null,
+      effectivePriceMonth: row.effectivePriceMonth !== null && row.effectivePriceMonth !== undefined ? parseInt(row.effectivePriceMonth, 10) : null,
+      deletedAt: row.deletedAt ? new Date(row.deletedAt) : null,
       farmSettings: this._parseJsonField(row.farmSettings),
       diamondSettings: this._parseJsonField(row.diamondSettings),
       fishSettings: this._parseJsonField(row.fishSettings),
@@ -62,28 +64,50 @@ class MySqlAccountRepository extends IAccountRepository {
 
   async findAll() {
     const db = this._getDb();
-    const rows = await db.select().from(accounts).orderBy(asc(accounts.serverId), asc(accounts.username));
+    const rows = await db.select().from(accounts)
+      .where(isNull(accounts.deletedAt))
+      .orderBy(asc(accounts.serverId), asc(accounts.username));
     return rows.map(r => this._mapRowToEntity(r));
   }
 
   async findById(id) {
     if (!id) return null;
     const db = this._getDb();
-    const [row] = await db.select().from(accounts).where(eq(accounts.id, id)).limit(1);
+    const [row] = await db.select().from(accounts)
+      .where(and(eq(accounts.id, id), isNull(accounts.deletedAt)))
+      .limit(1);
     return this._mapRowToEntity(row);
   }
 
   async findByFileId(fileId) {
     const db = this._getDb();
-    const rows = await db.select().from(accounts).where(eq(accounts.fileId, fileId)).orderBy(asc(accounts.ipSlot), asc(accounts.id));
+    const rows = await db.select().from(accounts)
+      .where(and(eq(accounts.fileId, fileId), isNull(accounts.deletedAt)))
+      .orderBy(asc(accounts.ipSlot), asc(accounts.id));
     return rows.map(r => this._mapRowToEntity(r));
   }
 
   async findByUserId(userId) {
     if (!userId) return [];
     const db = this._getDb();
-    const rows = await db.select().from(accounts).where(eq(accounts.userId, userId)).orderBy(asc(accounts.id));
+    const rows = await db.select().from(accounts)
+      .where(and(eq(accounts.userId, userId), isNull(accounts.deletedAt)))
+      .orderBy(asc(accounts.id));
     return rows.map(r => this._mapRowToEntity(r));
+  }
+
+  async findByUsername(username, includeDeleted = false) {
+    if (!username) return null;
+    const cleanName = String(username).trim();
+    const db = this._getDb();
+    const conditions = [eq(accounts.username, cleanName)];
+    if (!includeDeleted) {
+      conditions.push(isNull(accounts.deletedAt));
+    }
+    const [row] = await db.select().from(accounts)
+      .where(and(...conditions))
+      .limit(1);
+    return this._mapRowToEntity(row);
   }
 
   async save(account, connection = null) {
@@ -109,6 +133,8 @@ class MySqlAccountRepository extends IAccountRepository {
       pendingReset: Boolean(entity.pendingReset),
       rentalExpiresAt: entity.rentalExpiresAt ? new Date(entity.rentalExpiresAt) : null,
       rentalPlan: entity.rentalPlan || null,
+      effectivePriceMonth: entity.effectivePriceMonth !== null && entity.effectivePriceMonth !== undefined ? parseInt(entity.effectivePriceMonth, 10) : null,
+      deletedAt: entity.deletedAt ? new Date(entity.deletedAt) : null,
       farmSettings: entity.farmSettings || {},
       diamondSettings: entity.diamondSettings || {},
       fishSettings: entity.fishSettings || {},
@@ -124,7 +150,13 @@ class MySqlAccountRepository extends IAccountRepository {
 
   async delete(id, connection = null) {
     const db = this._getDb(connection);
-    await db.delete(accounts).where(eq(accounts.id, id));
+    // Soft delete: Đánh dấu ngày xóa và đồng thời giải phóng ghế Proxy ngay lập tức
+    await db.update(accounts)
+      .set({
+        deletedAt: new Date(),
+        proxyId: null
+      })
+      .where(eq(accounts.id, id));
     return true;
   }
 
@@ -136,7 +168,7 @@ class MySqlAccountRepository extends IAccountRepository {
 
   async deleteByFileId(fileId, connection = null) {
     const db = this._getDb(connection);
-    await db.delete(accounts).where(eq(accounts.fileId, fileId));
+    await db.update(accounts).set({ deletedAt: new Date(), proxyId: null }).where(eq(accounts.fileId, fileId));
     return true;
   }
 }
