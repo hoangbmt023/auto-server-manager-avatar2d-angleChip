@@ -719,7 +719,18 @@ formAccount.addEventListener('submit', async (e) => {
 });
 
 window.deleteAccount = async function(id, username) {
-  if (!confirm(`Bạn có chắc muốn xóa tài khoản [${username}]?`)) return;
+  const acc = (cachedAccounts || []).find(a => a.id === id);
+  let confirmMsg = `Bạn có chắc muốn xóa tài khoản [${username}]?`;
+
+  if (acc && acc.rentalExpiresAt) {
+    const remainingMs = new Date(acc.rentalExpiresAt).getTime() - Date.now();
+    if (remainingMs > 0) {
+      const remainingDays = Math.max(1, Math.ceil(remainingMs / (24 * 60 * 60 * 1000)));
+      confirmMsg = `⚠️ Nick [${username}] của bạn vẫn còn ${remainingDays} ngày sử dụng! Nếu xóa, bot sẽ dừng chạy và nhả slot Proxy. Bạn vẫn có thể khôi phục lại toàn bộ cấu hình cũ và cộng dồn số ngày còn dư này khi thuê lại nick tại mục Thuê Bot.\n\nBạn có chắc chắn muốn xóa không?`;
+    }
+  }
+
+  if (!confirm(confirmMsg)) return;
 
   try {
     const res = await fetch('/api/accounts/delete', {

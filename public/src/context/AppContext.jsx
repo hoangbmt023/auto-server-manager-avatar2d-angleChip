@@ -547,13 +547,27 @@ window.AppProvider = function AppProvider({ children }) {
 
   const handleDeleteAccount = async (id, username) => {
     if (!window.showConfirm) return;
-    window.showConfirm(`Bạn có chắc muốn xóa tài khoản [${username}]?`, async () => {
+    const targetAcc = (accounts || []).find(a => a.id === id);
+    let confirmMsg = `Bạn có chắc muốn xóa tài khoản [${username}]?`;
+
+    if (targetAcc && targetAcc.rentalExpiresAt) {
+      const remainingMs = new Date(targetAcc.rentalExpiresAt).getTime() - Date.now();
+      if (remainingMs > 0) {
+        const remainingDays = Math.max(1, Math.ceil(remainingMs / (24 * 60 * 60 * 1000)));
+        confirmMsg = `⚠️ Nick [${username}] của bạn vẫn còn ${remainingDays} ngày sử dụng! Nếu xóa, bot sẽ dừng chạy và nhả slot Proxy. Bạn vẫn có thể khôi phục lại toàn bộ cấu hình cũ và cộng dồn số ngày còn dư này khi thuê lại nick tại mục Thuê Bot.\n\nBạn có chắc chắn muốn xóa không?`;
+      }
+    }
+
+    window.showConfirm(confirmMsg, async () => {
       try {
         const data = await window.ApiClient.deleteAccount(id);
         if (data.success) {
           fetchAccounts();
           fetchFiles();
           fetchProxies();
+          if (window.showAlert) {
+            window.showAlert(`Đã xóa bot [${username}] thành công. Bạn có thể khôi phục lại bất kỳ lúc nào tại mục Thuê Bot.`, 'Xóa Thành Công', 'success');
+          }
         } else if (window.showAlert) {
           window.showAlert(data.message || 'Không thể xóa tài khoản', 'Lỗi Xóa Tài Khoản', 'error');
         }

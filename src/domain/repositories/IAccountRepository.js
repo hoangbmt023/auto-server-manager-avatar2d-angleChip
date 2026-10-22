@@ -7,6 +7,7 @@ class IAccountRepository {
   async findById(id) { throw new Error('Not implemented'); }
   async findByFileId(fileId) { throw new Error('Not implemented'); }
   async findByUserId(userId) { throw new Error('Not implemented'); }
+  async findByUsername(username, includeDeleted = false) { throw new Error('Not implemented'); }
   async save(account, connection = null) { throw new Error('Not implemented'); }
   async delete(id, connection = null) { throw new Error('Not implemented'); }
   async unlinkProxy(proxyId, connection = null) { throw new Error('Not implemented'); }

@@ -64,8 +64,32 @@ window.RentSlotModal = function RentSlotModal({
     fetchPlans();
   }, []);
 
-  // Compute pricing
-  const currentPlanConfig = plans[selectedPlan] || plans.UPXU || { priceMonth: 50000, name: 'Up Xu' };
+  // Compute pricing & plan comparison
+  const originalPlanKey = accountToRenew?.rentalPlan || 'UPXU';
+  const originalPlanConfig = plans[originalPlanKey] || plans.UPXU || { priceMonth: 50000, name: 'Gói Up Xu' };
+  const currentPlanConfig = plans[selectedPlan] || plans.UPXU || { priceMonth: 50000, name: 'Gói Up Xu' };
+  const isPlanChanged = isRenewMode && (selectedPlan !== originalPlanKey);
+
+  const now = Date.now();
+  const currentExpiryMs = accountToRenew?.rentalExpiresAt ? new Date(accountToRenew.rentalExpiresAt).getTime() : 0;
+  const remainingMs = Math.max(0, currentExpiryMs - now);
+
+  const formatRemainingDetail = (ms) => {
+    if (!ms || ms <= 0) return '0 giờ';
+    const totalHours = Math.floor(ms / (3600 * 1000));
+    const days = Math.floor(totalHours / 24);
+    const hours = totalHours % 24;
+    if (days > 0 && hours > 0) return `${days} ngày ${hours} giờ`;
+    if (days > 0) return `${days} ngày`;
+    return `${hours} giờ`;
+  };
+
+  const oldPrice = accountToRenew?.effectivePriceMonth || originalPlanConfig.priceMonth || 50000;
+  const isDiscountedOldPrice = Boolean(accountToRenew?.effectivePriceMonth && accountToRenew.effectivePriceMonth < (originalPlanConfig.priceMonth || 50000));
+  const newPrice = currentPlanConfig.priceMonth || 50000;
+  const convertedRemainingMs = isPlanChanged && remainingMs > 0 ? Math.floor(remainingMs * (oldPrice / newPrice)) : remainingMs;
+  const convertedRemainingStr = formatRemainingDetail(convertedRemainingMs);
+
   const baseMonthly = currentPlanConfig.priceMonth || 50000;
   const subtotal = baseMonthly * selectedMonths;
 
@@ -156,77 +180,133 @@ window.RentSlotModal = function RentSlotModal({
       return;
     }
 
-    setLoading(true);
+    const proceedCheckout = async () => {
+      setLoading(true);
 
-    try {
-      if (window.rentalService) {
-        let res;
-        if (isRenewMode) {
-          res = await window.rentalService.renew(accountToRenew.id, {
-            durationMonths: selectedMonths,
-            voucherCode: appliedVoucher ? appliedVoucher.code : null
-          });
-        } else {
-          res = await window.rentalService.checkout({
-            username: username.trim(),
-            password: password || '',
-            plan: selectedPlan,
-            durationMonths: selectedMonths,
-            voucherCode: appliedVoucher ? appliedVoucher.code : null,
-            note: note.trim()
-          });
-        }
-
-        if (res && res.success) {
-          if (onRented) onRented(res.data, isRenewMode);
-          onClose();
-        } else {
-          // 3. Nếu Backend chặn và trả về field-level errors (Map errors)
-          if (res && res.errors && typeof res.errors === 'object' && Object.keys(res.errors).length > 0) {
-            setFieldErrors(res.errors);
+      try {
+        if (window.rentalService) {
+          let res;
+          if (isRenewMode) {
+            res = await window.rentalService.renew(accountToRenew.id, {
+              durationMonths: selectedMonths,
+              voucherCode: appliedVoucher ? appliedVoucher.code : null,
+              plan: selectedPlan
+            });
           } else {
-            // Không có field-level error -> Hiện Popup hệ thống đã viết sẵn
-            const msg = res?.message || (isRenewMode ? 'Có lỗi xảy ra khi gia hạn bot!' : 'Có lỗi xảy ra khi thuê bot!');
-            if (typeof window.showAlert === 'function') {
-              window.showAlert(msg, isRenewMode ? 'Lỗi Gia Hạn Bot' : 'Lỗi Thuê Bot', 'error');
-            } else if (typeof window.showDialog === 'function') {
-              window.showDialog({
-                mode: 'alert',
-                type: 'error',
-                title: isRenewMode ? 'Lỗi Gia Hạn Bot' : 'Lỗi Thuê Bot',
-                message: msg,
-                confirmText: 'Đã Hiểu'
-              });
+            res = await window.rentalService.checkout({
+              username: username.trim(),
+              password: password || '',
+              plan: selectedPlan,
+              durationMonths: selectedMonths,
+              voucherCode: appliedVoucher ? appliedVoucher.code : null,
+              note: note.trim()
+            });
+          }
+
+          if (res && res.success) {
+            if (res.data && res.data.isReactivated) {
+              if (typeof window.showAlert === 'function') {
+                window.showAlert(`Đã tự động khôi phục nick [${res.data.account?.username || username}] và bảo lưu 100% cấu hình Auto cũ của bạn!`, 'Khôi Phục Thành Công', 'success');
+              }
+            }
+            if (onRented) onRented(res.data, isRenewMode);
+            onClose();
+          } else {
+            // 3. Nếu Backend chặn và trả về field-level errors (Map errors)
+            if (res && res.errors && typeof res.errors === 'object' && Object.keys(res.errors).length > 0) {
+              setFieldErrors(res.errors);
             } else {
-              alert(msg);
+              // Không có field-level error -> Hiện Popup hệ thống đã viết sẵn
+              const msg = res?.message || (isRenewMode ? 'Có lỗi xảy ra khi gia hạn bot!' : 'Có lỗi xảy ra khi thuê bot!');
+              if (typeof window.showAlert === 'function') {
+                window.showAlert(msg, isRenewMode ? 'Lỗi Gia Hạn Bot' : 'Lỗi Thuê Bot', 'error');
+              } else if (typeof window.showDialog === 'function') {
+                window.showDialog({
+                  mode: 'alert',
+                  type: 'error',
+                  title: isRenewMode ? 'Lỗi Gia Hạn Bot' : 'Lỗi Thuê Bot',
+                  message: msg,
+                  confirmText: 'Đã Hiểu'
+                });
+              } else {
+                alert(msg);
+              }
             }
           }
         }
-      }
-    } catch (err) {
-      const resData = err?.response?.data || err?.data;
-      if (resData && resData.errors && typeof resData.errors === 'object' && Object.keys(resData.errors).length > 0) {
-        setFieldErrors(resData.errors);
-      } else {
-        // Không có field error -> Hiện Popup hệ thống
-        const errorMsg = resData?.message || err?.message || (isRenewMode ? 'Có lỗi xảy ra khi gia hạn bot!' : 'Có lỗi xảy ra khi thuê bot!');
-        if (typeof window.showAlert === 'function') {
-          window.showAlert(errorMsg, isRenewMode ? 'Lỗi Gia Hạn Bot' : 'Lỗi Thuê Bot', 'error');
-        } else if (typeof window.showDialog === 'function') {
-          window.showDialog({
-            mode: 'alert',
-            type: 'error',
-            title: isRenewMode ? 'Lỗi Gia Hạn Bot' : 'Lỗi Thuê Bot',
-            message: errorMsg,
-            confirmText: 'Đã Hiểu'
-          });
+      } catch (err) {
+        const resData = err?.response?.data || err?.data;
+        if (resData && resData.errors && typeof resData.errors === 'object' && Object.keys(resData.errors).length > 0) {
+          setFieldErrors(resData.errors);
         } else {
-          alert(errorMsg);
+          // Không có field error -> Hiện Popup hệ thống
+          const errorMsg = resData?.message || err?.message || (isRenewMode ? 'Có lỗi xảy ra khi gia hạn bot!' : 'Có lỗi xảy ra khi thuê bot!');
+          if (typeof window.showAlert === 'function') {
+            window.showAlert(errorMsg, isRenewMode ? 'Lỗi Gia Hạn Bot' : 'Lỗi Thuê Bot', 'error');
+          } else if (typeof window.showDialog === 'function') {
+            window.showDialog({
+              mode: 'alert',
+              type: 'error',
+              title: isRenewMode ? 'Lỗi Gia Hạn Bot' : 'Lỗi Thuê Bot',
+              message: errorMsg,
+              confirmText: 'Đã Hiểu'
+            });
+          } else {
+            alert(errorMsg);
+          }
         }
+      } finally {
+        setLoading(false);
       }
-    } finally {
-      setLoading(false);
+    };
+
+    // Khi người dùng đổi sang gói khác: Hiển thị popup xác nhận để người dùng nắm rõ quy đổi
+    if (isRenewMode && isPlanChanged) {
+      const confirmContent = (
+        <div className="plan-confirm-dialog">
+          <div>
+            Bạn đang chuyển từ gói <strong>{originalPlanConfig.name}</strong> sang gói <strong>{currentPlanConfig.name}</strong> cho tài khoản <strong>{accountToRenew?.username}</strong>.
+          </div>
+          {remainingMs > 0 && (
+            <div className="plan-confirm-notice">
+              <div className="plan-confirm-notice-header">
+                <window.Icon name="lightbulb" size={16} /> Quy đổi ngày sử dụng còn lại:
+              </div>
+              {isDiscountedOldPrice && (
+                <div>• Đơn giá thực tế gói cũ: <strong>{formatMoney(oldPrice)} đ/tháng</strong> <span className="plan-confirm-tag">(Đã trừ Voucher/KM lúc mua)</span></div>
+              )}
+              <div>• Đơn giá gói mới: <strong>{formatMoney(newPrice)} đ/tháng</strong></div>
+              <div>• Hạn cũ ({originalPlanConfig.name}): <strong>{oldRemainingStr}</strong></div>
+              <div>• Quy đổi ({currentPlanConfig.name}): <strong>{convertedRemainingStr}</strong></div>
+            </div>
+          )}
+          <div className="plan-confirm-summary">
+            <div>• Gia hạn thêm: <strong>{selectedMonths} tháng</strong></div>
+            <div>• Số tiền thanh toán: <strong className="plan-confirm-price">{formatMoney(finalPrice)} đ</strong></div>
+          </div>
+          <div className="plan-confirm-footer-note">
+            Sau khi xác nhận, gói mới sẽ được áp dụng ngay lập tức và hạn bot sẽ được cộng dồn theo thời gian đã quy đổi.
+          </div>
+        </div>
+      );
+
+      if (typeof window.showDialog === 'function') {
+        window.showDialog({
+          mode: 'confirm',
+          type: 'warning',
+          title: 'Xác Nhận Đổi Gói Bot',
+          message: confirmContent,
+          confirmText: 'Xác Nhận Đổi Gói',
+          cancelText: 'Kiểm Tra Lại',
+          onConfirm: () => {
+            proceedCheckout();
+          }
+        });
+        return;
+      }
     }
+
+    proceedCheckout();
   };
 
   const FEATURE_NAMES = {
@@ -239,8 +319,8 @@ window.RentSlotModal = function RentSlotModal({
 
   return (
     <window.ModalBase
-      title={isRenewMode ? "Gia Hạn Tài Khoản Bot" : "Thuê Slot Bot Tự Động"}
-      subtitle={isRenewMode ? `Gia hạn thời gian chạy cho nick [${accountToRenew.username}]` : "Hệ thống tự động phân bổ tài nguyên tối ưu cho tài khoản"}
+      title={isRenewMode ? "Gia Hạn / Đổi Gói Bot" : "Thuê Slot Bot Tự Động"}
+      subtitle={isRenewMode ? (isPlanChanged ? `Chuyển sang gói ${currentPlanConfig.name} cho nick [${accountToRenew.username}]` : `Gia hạn thời gian chạy cho nick [${accountToRenew.username}]`) : "Hệ thống tự động phân bổ tài nguyên tối ưu cho tài khoản"}
       icon={isRenewMode ? "clock" : "zap"}
       iconColor={isRenewMode ? "var(--apple-gold)" : "var(--apple-blue)"}
       size="md"
@@ -267,7 +347,7 @@ window.RentSlotModal = function RentSlotModal({
             <div className="rent-renew-plan-info">
               <div className="rent-renew-row">
                 <span className="rent-renew-row-lbl">Gói cước:</span>
-                <span className={`rent-renew-plan-badge badge-plan-${(selectedPlan || '').toLowerCase()}`}>
+                <span className={`rent-renew-plan-badge badge-plan-${(selectedPlan || originalPlanKey || '').toLowerCase()}`}>
                   <window.Icon name={selectedPlan === 'FULL' ? 'zap' : (selectedPlan === 'FISH' ? 'fish' : 'sprout')} size={13} />
                   {currentPlanConfig.name || selectedPlan}
                 </span>
@@ -276,7 +356,7 @@ window.RentSlotModal = function RentSlotModal({
                 <span className="rent-renew-row-lbl">Đơn giá:</span>
                 <div className="rent-renew-price-tag">
                   <strong className="rent-renew-price-val">{formatMoney(baseMonthly)} đ</strong>
-                  <span className="rent-renew-price-period">/tháng (cố định)</span>
+                  <span className="rent-renew-price-period">/tháng</span>
                 </div>
               </div>
             </div>
@@ -327,49 +407,55 @@ window.RentSlotModal = function RentSlotModal({
           </div>
         )}
 
-        {/* 2. Choose Bot Version (Plan) - Only shown in new rent mode */}
-        {!isRenewMode && (
-          <div className="form-group">
-            <label className="rent-field-label">
-              Chọn Phiên Bản Bot
-            </label>
-            <div className="rent-plan-grid">
-              {Object.entries(plans).map(([key, p]) => {
-                const isSelected = selectedPlan === key;
-                const featuresList = p.features || (key === 'FULL' ? ['farm', 'fish', 'diamond', 'sellOre', 'upThue'] : (key === 'FISH' ? ['fish', 'upThue'] : ['farm', 'upThue']));
-                return (
-                  <div
-                    key={key}
-                    onClick={() => setSelectedPlan(key)}
-                    className={`rent-plan-item ${isSelected ? 'selected' : ''}`}
-                  >
-                    <div className="rent-plan-title-row">
+        {/* 2. Choose Bot Version (Plan) */}
+        <div className="form-group">
+          <label className="rent-field-label">
+            {isRenewMode ? 'Chọn Gói Cước Bot' : 'Chọn Phiên Bản Bot'}
+          </label>
+          <div className="rent-plan-grid">
+            {Object.entries(plans).map(([key, p]) => {
+              const isSelected = selectedPlan === key;
+              const isCurrent = isRenewMode && (key === originalPlanKey);
+              const featuresList = p.features || (key === 'FULL' ? ['farm', 'fish', 'diamond', 'sellOre', 'upThue'] : (key === 'FISH' ? ['fish', 'upThue'] : ['farm', 'upThue']));
+              return (
+                <div
+                  key={key}
+                  onClick={() => setSelectedPlan(key)}
+                  className={`rent-plan-item ${isSelected ? 'selected' : ''} ${isCurrent ? 'is-current-plan' : ''}`}
+                >
+                  <div className="rent-plan-title-row">
+                    <div className="rent-plan-title-group">
                       <strong className={`rent-plan-title-txt ${isSelected ? 'selected' : ''}`}>
                         {p.name}
                       </strong>
-                      {isSelected && <window.Icon name="check" size={14} color="var(--apple-blue)" />}
+                      {isCurrent && (
+                        <span className="rent-plan-badge-current">
+                          Đang Dùng
+                        </span>
+                      )}
                     </div>
-                    <span className="rent-plan-desc-txt">
-                      {p.desc}
-                    </span>
-                    {Array.isArray(featuresList) && featuresList.length > 0 && (
-                      <div className="rent-plan-features-list">
-                        {featuresList.map(fKey => (
-                          <span key={fKey} className="rent-plan-feature-tag">
-                            ✓ {FEATURE_NAMES[fKey] || fKey}
-                          </span>
-                        ))}
-                      </div>
-                    )}
-                    <span className="rent-plan-price-txt">
-                      {formatMoney(p.priceMonth)} đ<span className="rent-plan-price-sub">/tháng</span>
-                    </span>
+                    {isSelected && <window.Icon name="check" size={14} color="var(--apple-blue)" />}
                   </div>
-                );
-              })}
-            </div>
+                  <span className="rent-plan-desc-txt">
+                    {p.desc}
+                  </span>
+                  {Array.isArray(featuresList) && featuresList.length > 0 && (
+                    <div className="rent-plan-features-list">
+                      {featuresList.map(fKey => (
+                        <span key={fKey} className="rent-plan-feature-tag">
+                          ✓ {FEATURE_NAMES[fKey] || fKey}
+                        </span>
+                      ))}
+                    </div>
+                  )}
+                  <span className="rent-plan-price-txt">
+                    {formatMoney(p.priceMonth)} đ<span className="rent-plan-price-sub">/tháng</span>
+                  </span>
+                </div>
+              );
+            })}
           </div>
-        )}
+        </div>
 
           {/* 3. Choose Duration (Months) */}
           <div className="form-group">
@@ -423,9 +509,15 @@ window.RentSlotModal = function RentSlotModal({
               </button>
             </div>
             {appliedVoucher && (
-              <span className="rent-voucher-applied">
-                <window.Icon name="check" size={12} /> Đã áp dụng mã [{appliedVoucher.code}]: Giảm {formatMoney(voucherSavings)} đ
-              </span>
+              <>
+                <span className="rent-voucher-applied">
+                  <window.Icon name="check" size={12} /> Đã áp dụng mã [{appliedVoucher.code}]: Giảm {formatMoney(voucherSavings)} đ
+                </span>
+                <div className="rent-voucher-notice">
+                  <window.Icon name="lightbulb" size={13} />
+                  <span>Lưu ý: Khi áp dụng giảm giá, nếu sau này bạn đổi sang gói khác, giá trị ngày sử dụng còn lại sẽ được quy đổi theo số tiền thực tế bạn đã thanh toán.</span>
+                </div>
+              </>
             )}
             {voucherError && (
               <span className="rent-voucher-error">
@@ -506,8 +598,8 @@ window.RentSlotModal = function RentSlotModal({
               disabled={loading}
             >
               {loading
-                ? (isRenewMode ? 'Đang Xử Lý Gia Hạn...' : 'Đang Xử Lý...')
-                : (isRenewMode ? 'Xác Nhận Gia Hạn' : 'Xác Nhận Thuê Nick')}
+                ? (isRenewMode ? (isPlanChanged ? 'Đang Xử Lý Đổi Gói...' : 'Đang Xử Lý Gia Hạn...') : 'Đang Xử Lý...')
+                : (isRenewMode ? (isPlanChanged ? 'Xác Nhận Đổi Gói & Gia Hạn' : 'Xác Nhận Gia Hạn') : 'Xác Nhận Thuê Nick')}
             </button>
           </div>
         </form>

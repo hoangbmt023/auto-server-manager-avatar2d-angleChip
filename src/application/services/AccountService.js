@@ -167,7 +167,9 @@ class AccountService {
 
     // Stop bot if running
     if (this.multiBotManager) {
-      this.multiBotManager.stopAccount(accountId);
+      try {
+        await this.multiBotManager.stopAccount(accountId);
+      } catch (e) {}
     }
 
     // Single table deletion (accounts) -> NO transaction needed

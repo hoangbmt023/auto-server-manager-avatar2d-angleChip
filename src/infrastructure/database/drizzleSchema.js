@@ -107,10 +107,12 @@ const accounts = mysqlTable('accounts', {
   pendingReset: boolean('pending_reset').notNull().default(false),
   rentalExpiresAt: datetime('rental_expires_at'),
   rentalPlan: varchar('rental_plan', { length: 50 }),
+  effectivePriceMonth: int('effective_price_month'),
   farmSettings: json('farm_settings'),
   diamondSettings: json('diamond_settings'),
   fishSettings: json('fish_settings'),
   sellOreSettings: json('sell_ore_settings'),
+  deletedAt: datetime('deleted_at'),
   createdAt: timestamp('created_at').defaultNow().notNull(),
   updatedAt: timestamp('updated_at').defaultNow().onUpdateNow()
 }, (table) => [
@@ -119,6 +121,7 @@ const accounts = mysqlTable('accounts', {
   index('idx_accounts_proxy_id').on(table.proxyId),
   index('idx_accounts_server_id').on(table.serverId),
   index('idx_accounts_username').on(table.username),
+  index('idx_accounts_username_deleted').on(table.username, table.deletedAt),
   index('idx_accounts_file_server').on(table.fileId, table.serverId),
   index('idx_accounts_rental_expires').on(table.rentalExpiresAt),
   index('idx_accounts_user_created').on(table.userId, table.createdAt),
