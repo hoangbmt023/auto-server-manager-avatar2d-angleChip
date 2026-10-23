@@ -87,6 +87,7 @@ window.RentSlotModal = function RentSlotModal({
   const oldPrice = accountToRenew?.effectivePriceMonth || originalPlanConfig.priceMonth || 50000;
   const isDiscountedOldPrice = Boolean(accountToRenew?.effectivePriceMonth && accountToRenew.effectivePriceMonth < (originalPlanConfig.priceMonth || 50000));
   const newPrice = currentPlanConfig.priceMonth || 50000;
+  const oldRemainingStr = formatRemainingDetail(remainingMs);
   const convertedRemainingMs = isPlanChanged && remainingMs > 0 ? Math.floor(remainingMs * (oldPrice / newPrice)) : remainingMs;
   const convertedRemainingStr = formatRemainingDetail(convertedRemainingMs);
 

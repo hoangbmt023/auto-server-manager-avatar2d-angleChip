@@ -308,6 +308,13 @@ class MultiBotManager extends EventEmitter {
     this.proxyVnApiClient = client;
   }
 
+  setAllocationEngine(engine) {
+    this.allocationEngine = engine;
+    if (this.startBotUseCase && typeof this.startBotUseCase.setAllocationEngine === 'function') {
+      this.startBotUseCase.setAllocationEngine(engine);
+    }
+  }
+
   async markProxyExpired(proxyId, reason, accountId = null) {
     if (!proxyId) return;
 

@@ -7,10 +7,10 @@
  * Rental Plan Categories for User Dashboard Sidebar
  */
 const USER_PLAN_TABS = [
-  { id: 'ALL', name: 'Tất Cả Gói', subtitle: 'Toàn Bộ Tài Khoản', icon: 'layers', badgeColor: 'var(--apple-blue)', badgeBg: 'rgba(10, 132, 255, 0.12)' },
-  { id: 'UPXU', name: 'Gói Up Xu', subtitle: 'Farm & Up Xu Tự Động', icon: 'sprout', badgeColor: 'var(--apple-green)', badgeBg: 'rgba(52, 211, 153, 0.12)' },
-  { id: 'FULL', name: 'Gói Full', subtitle: 'Full Tính Năng Cao Cấp', icon: 'zap', badgeColor: 'var(--apple-purple)', badgeBg: 'rgba(191, 90, 242, 0.12)' },
-  { id: 'FISH', name: 'Gói Câu Cá', subtitle: 'Auto Câu Cá Chuyên Nghiệp', icon: 'fish', badgeColor: 'var(--apple-teal)', badgeBg: 'rgba(100, 210, 255, 0.12)' }
+  { id: 'ALL', name: 'Tất Cả Gói', subtitle: 'Toàn Bộ Tài Khoản', icon: 'layers', badgeClass: 'badge-plan-all' },
+  { id: 'UPXU', name: 'Gói Up Xu', subtitle: 'Farm & Up Xu Tự Động', icon: 'sprout', badgeClass: 'badge-plan-upxu' },
+  { id: 'FULL', name: 'Gói Full', subtitle: 'Full Tính Năng Cao Cấp', icon: 'zap', badgeClass: 'badge-plan-full' },
+  { id: 'FISH', name: 'Gói Câu Cá', subtitle: 'Auto Câu Cá Chuyên Nghiệp', icon: 'fish', badgeClass: 'badge-plan-fish' }
 ];
 
 window.UserDashboardPage = function UserDashboardPage() {
@@ -445,36 +445,26 @@ window.UserDashboardPage = function UserDashboardPage() {
                           className={`file-tab-btn ${isActive ? 'active-file-tab' : ''}`}
                           onClick={() => setActivePlanFilter(plan.id)}
                         >
-                          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%' }}>
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                          <div className="file-tab-header">
+                            <div className="file-tab-title-group">
                               <window.Icon name={plan.icon} size={15} color={isActive ? 'var(--apple-blue)' : 'var(--text-secondary)'} />
-                              <strong style={{ fontSize: '0.86rem', fontWeight: 600 }}>{plan.name}</strong>
+                              <strong className="file-tab-title">{plan.name}</strong>
                             </div>
-                            <span style={{ fontSize: '0.72rem', color: 'var(--text-tertiary)' }}>({count} nick)</span>
+                            <span className="file-tab-count">({count} nick)</span>
                           </div>
 
-                          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%', marginTop: '2px' }}>
-                            <span style={{
-                              padding: '2px 7px',
-                              borderRadius: '999px',
-                              fontSize: '0.66rem',
-                              fontWeight: 600,
-                              background: plan.badgeBg,
-                              color: plan.badgeColor,
-                              display: 'inline-flex',
-                              alignItems: 'center',
-                              gap: '4px'
-                            }}>
+                          <div className="file-tab-meta-row">
+                            <span className={`file-tab-badge ${plan.badgeClass || 'badge-plan-all'}`}>
                               <window.Icon name={plan.icon} size={11} />
                               {plan.subtitle}
                             </span>
 
-                            <div style={{ fontSize: '0.7rem', color: 'var(--text-tertiary)', display: 'flex', gap: '6px', alignItems: 'center' }}>
+                            <div className="file-tab-online-stats">
                               <span>HM: {hmOnline}</span>
                               <span>•</span>
                               <span>DK: {dkOnline}</span>
                               {totalOnline > 0 && (
-                                <span style={{ color: 'var(--apple-green)', fontWeight: 700, marginLeft: '2px' }}>
+                                <span className="file-tab-online-highlight">
                                   • {totalOnline} On
                                 </span>
                               )}

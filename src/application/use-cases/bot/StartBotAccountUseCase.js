@@ -20,6 +20,11 @@ class StartBotAccountUseCase {
     this.settingRepo = settingRepo;
     this.sseEventBus = sseEventBus;
     this.startingLocks = new Set();
+    this.allocationEngine = null;
+  }
+
+  setAllocationEngine(engine) {
+    this.allocationEngine = engine;
   }
 
   async execute(accountId) {
@@ -38,6 +43,10 @@ class StartBotAccountUseCase {
         throw new NotFoundException(`Không tìm thấy tài khoản với ID [${accountId}]!`);
       }
 
+      if (account.isEmptySlot && account.isEmptySlot()) {
+        throw new BadRequestException('Slot bot này đang để trống, chưa có thông tin đăng nhập! Vui lòng bấm "Đổi Nick Úp" hoặc "Gắn Nick" trước khi chạy.');
+      }
+
       // 2. Fetch File Profile directly from MySQL
       const fileId = account.fileId || (await this.fileRepo.getActiveFileId()) || 'file_1';
       const fileProfile = await this.fileRepo.findById(fileId);
@@ -53,33 +62,73 @@ class StartBotAccountUseCase {
       // 4. Check server / file limits
       const allRunning = await this.multiBotManager.getRunningAccounts();
       const otherRunning = allRunning.filter(a => a.id !== accountId);
-      const proxy = account.proxyId ? await this.proxyRepo.findById(account.proxyId) : null;
-      ServerLimitRule.validateCanRun(otherRunning, account, proxy, fileProfile?.maxAccounts || 6);
 
-      // 5. Check rental expiration & proxy requirements
+      // 4.1 Chặn chạy đồng thời nếu nick game đang chạy ở Slot khác (Lựa chọn 2.B)
+      if (account.username && account.username.trim()) {
+        const cleanUser = account.username.trim().toLowerCase();
+        const conflictSlot = otherRunning.find(r =>
+          r.username && r.username.trim().toLowerCase() === cleanUser
+        );
+        if (conflictSlot) {
+          throw new BadRequestException(
+            `Tài khoản game [${account.username.trim()}] hiện đang được treo tại một Slot khác trên hệ thống. Vui lòng tắt bot ở Slot kia trước khi bật!`
+          );
+        }
+
+        for (const startingId of this.startingLocks) {
+          if (startingId !== accountId) {
+            const startingAcc = await this.accountRepo.findById(startingId);
+            if (startingAcc && startingAcc.username && startingAcc.username.trim().toLowerCase() === cleanUser) {
+              throw new BadRequestException(
+                `Tài khoản game [${account.username.trim()}] đang trong quá trình khởi chạy tại một Slot khác. Vui lòng đợi hoặc tắt bot ở Slot kia!`
+              );
+            }
+          }
+        }
+      }
+
+      // 5. Check rental expiration
       if (account.isRentalExpired()) {
         throw new BadRequestException(`Tài khoản bot [${account.username}] đã hết hạn thuê! Vui lòng gia hạn để tiếp tục chạy.`);
       }
 
       const isCustomerRental = Boolean(account.userId || account.rentalExpiresAt);
+      let proxy = null;
+
+      // 5.1 ĐẢM BẢO PROXY SỐNG KHẢ DỤNG QUA RESOURCE ALLOCATION ENGINE (CLEAN ARCHITECTURE)
+      if (this.allocationEngine) {
+        const proxyCheck = await this.allocationEngine.ensureHealthyProxyForBot(account, otherRunning);
+        if (proxyCheck.changed) {
+          this.sseEventBus?.broadcast?.('proxy-status-changed', { accountId: account.id, proxyId: proxyCheck.proxy?.id });
+          this.sseEventBus?.broadcast?.('bot-status-changed', { accountId: account.id });
+          if (proxyCheck.reason && this.sseEventBus?.addLog) {
+            this.sseEventBus.addLog({
+              type: 'info',
+              accountId: account.id,
+              username: account.username,
+              text: `🔄 ${proxyCheck.reason}`
+            });
+          }
+        }
+        if (proxyCheck.waitMessage) {
+          throw new BadRequestException(proxyCheck.waitMessage);
+        }
+        if (proxyCheck.error && isCustomerRental) {
+          throw new BadRequestException(proxyCheck.error);
+        }
+        proxy = proxyCheck.proxy;
+      } else {
+        proxy = account.proxyId ? await this.proxyRepo.findById(account.proxyId) : null;
+      }
+
       if (isCustomerRental && (!account.proxyId || !proxy)) {
         throw new BadRequestException(`[SECURITY BLOCK] Tài khoản thuê của khách [${account.username}] bắt buộc phải có Proxy khả dụng để bảo vệ IP máy chủ!`);
       }
 
-    if (account.proxyId && proxy) {
-      if (proxy.isExpired) {
-        throw new BadRequestException(`❌ Proxy [${proxy.name || proxy.host}] gán cho nick [${account.username}] ĐÃ BỊ ĐÁNH DẤU HẾT HẠN! Vui lòng đổi proxy khác.`);
+      ServerLimitRule.validateCanRun(otherRunning, account, proxy, fileProfile?.maxAccounts || 6);
+      if (proxy) {
+        ServerLimitRule.validateProxyLimit(otherRunning, account, proxy);
       }
-
-      // Live Health Test before spawning process
-      const testRes = await ProxyChecker.testProxy(proxy, 3500);
-      if (testRes.isExpired) {
-        await this.multiBotManager.markProxyExpired(account.proxyId, testRes.message, account.id);
-        throw new BadRequestException(`❌ Proxy [${proxy.name || proxy.host}] của nick [${account.username}] ĐÃ HẾT HẠN hoặc LỖI KẾT NỐI (${testRes.message})! Đã tự động đánh dấu cờ.`);
-      }
-
-      ServerLimitRule.validateProxyLimit(otherRunning, account, proxy);
-    }
 
     // 6. Fetch Global System Settings from MySQL
     const config = await this.settingRepo.getCompleteConfig();
@@ -188,6 +237,8 @@ class StartBotAccountUseCase {
       this.startingLocks.delete(accountId);
     }
   }
+
+
 }
 
 module.exports = StartBotAccountUseCase;

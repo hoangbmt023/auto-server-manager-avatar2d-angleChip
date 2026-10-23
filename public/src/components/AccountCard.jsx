@@ -118,10 +118,16 @@ window.AccountCard = function AccountCard({
           <div className="acc-user-info-text">
             <div className="acc-username-row">
               <div className="acc-username-wrapper">
-                <span className="acc-username">
-                  {account.username}
-                </span>
-                <span className={`status-dot ${statusType}`} title={statusLabel}></span>
+                {account.isEmptySlot || !account.username ? (
+                  <span className="acc-username acc-empty-slot-title">
+                    [Slot Trống - Chờ Gắn Nick]
+                  </span>
+                ) : (
+                  <span className="acc-username">
+                    {account.username}
+                  </span>
+                )}
+                <span className={`status-dot ${account.isEmptySlot || !account.username ? 'idle' : statusType}`} title={account.isEmptySlot || !account.username ? 'Chờ gắn nick' : statusLabel}></span>
               </div>
 
               {/* Real-time Expiration Countdown Badge (Proxy / Thuê) */}

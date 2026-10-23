@@ -57,10 +57,35 @@ class RmsWriter {
   /**
    * Cleans up all .microemulator RMS directories associated with a deleted account
    * @param {Object} account
+   * @param {Array<Object>} [otherActiveAccounts]
    */
-  static cleanAccountRmsDirs(account) {
+  static cleanAccountRmsDirs(account, otherActiveAccounts = []) {
     if (!account) return;
-    const cleanUser = String(account.username || account.id).replace(/[^a-zA-Z0-9_-]/g, '_');
+    const rawUsername = account.username ? String(account.username).trim() : '';
+    if (!rawUsername) {
+      // Slot trống hoặc không có tên nick -> Tuyệt đối không thực thi xóa để tránh xóa nhầm thư mục gốc
+      return;
+    }
+    const cleanUser = rawUsername.replace(/[^a-zA-Z0-9_-]/g, '_');
+    if (!cleanUser || cleanUser === '_' || cleanUser.toLowerCase() === 'main') {
+      return;
+    }
+
+    // BẢO VỆ TUYỆT ĐỐI THEO MÔ HÌNH SLOT THUẦN TÚY:
+    // Nếu có Slot khác trong hệ thống đang sở hữu hoặc chạy chung nick game này, KHÔNG ĐƯỢC XÓA thư mục RMS
+    if (Array.isArray(otherActiveAccounts) && otherActiveAccounts.length > 0) {
+      const isStillUsed = otherActiveAccounts.some(a =>
+        a && a.id !== account.id &&
+        (typeof a.isDeleted === 'function' ? !a.isDeleted() : !a.deletedAt) &&
+        a.username &&
+        a.username.trim().toLowerCase() === rawUsername.toLowerCase()
+      );
+      if (isStillUsed) {
+        console.log(`[RmsCleaner] Bỏ qua xóa RMS cho nick [${rawUsername}] vì vẫn còn Slot khác đang sử dụng.`);
+        return;
+      }
+    }
+
     const baseDir = path.join(process.cwd(), '.microemulator');
     if (!fs.existsSync(baseDir)) return;
 

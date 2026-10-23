@@ -34,15 +34,25 @@ class ResourceAllocationEngine {
       rules = await this.settingRepo.get('rental_allocation_rules');
     } catch (e) {}
 
-    return rules || {
+    const defaultRules = {
       plans: {
         UPXU: { name: 'Auto Up Xu Nông Trại', priceMonth: 50000, modType: 'UPXU', defaultFileId: 'file_1' },
         FULL: { name: 'Auto Full chức năng', priceMonth: 90000, modType: 'CHIPMIX', defaultFileId: 'file_1' },
         FISH: { name: 'Auto Câu Cá Chuyên Nghiệp', priceMonth: 60000, modType: 'FISH', defaultFileId: 'file_1' }
       },
       durationDiscounts: { 1: 0, 3: 10, 6: 20, 12: 30 },
+      cancellationFeePercent: 10,
+      minHoldHours: 1,
       proxyStrategy: 'dynamic_best_fit',
       serverBalanceStrategy: 'auto_balance'
+    };
+
+    if (!rules) return defaultRules;
+    return {
+      ...defaultRules,
+      ...rules,
+      cancellationFeePercent: rules.cancellationFeePercent !== undefined ? rules.cancellationFeePercent : 10,
+      minHoldHours: rules.minHoldHours !== undefined ? rules.minHoldHours : 1
     };
   }
 
@@ -148,8 +158,13 @@ class ResourceAllocationEngine {
       if (p.status === 'EXPIRED' || p.isExpired) continue;
       if (p.expiresAt && new Date(p.expiresAt).getTime() <= now + 2 * 3600 * 1000) continue; // Còn <= 2 giờ xem như sắp chết
 
-      // Đếm số lượng nick đang gắn vào proxy này
-      const botsOnProxy = allAccounts.filter(a => a.proxyId === p.id);
+      // Đếm số lượng nick đang gắn vào proxy này (CHỈ ĐẾM NICK CHƯA HỦY VÀ CÒN HẠN THUÊ HỢP ĐỒNG)
+      const botsOnProxy = allAccounts.filter(a => {
+        if (a.proxyId !== p.id) return false;
+        if (typeof a.isDeleted === 'function' && a.isDeleted()) return false;
+        if (typeof a.isRentalExpired === 'function' && a.isRentalExpired()) return false;
+        return true;
+      });
       const totalBots = botsOnProxy.length;
       const maxCapacity = p.maxSlots || 6;
 
@@ -296,7 +311,13 @@ class ResourceAllocationEngine {
    * Picks optimal server (HM = 0 or DK = 1) for the account on the target proxy
    */
   _pickOptimalServer(targetProxy, allAccounts) {
-    const botsOnProxy = allAccounts.filter(a => a.proxyId === targetProxy.id);
+    const livingAccounts = allAccounts.filter(a => {
+      if (typeof a.isDeleted === 'function' && a.isDeleted()) return false;
+      if (typeof a.isRentalExpired === 'function' && a.isRentalExpired()) return false;
+      return true;
+    });
+
+    const botsOnProxy = livingAccounts.filter(a => a.proxyId === targetProxy.id);
     const countHM = botsOnProxy.filter(a => parseInt(a.serverId, 10) === 0).length;
     const countDK = botsOnProxy.filter(a => parseInt(a.serverId, 10) === 1).length;
 
@@ -309,8 +330,8 @@ class ResourceAllocationEngine {
     }
 
     // 2. Nếu hòa nhau (0-0, 1-1, 2-2) -> Cân bằng theo tổng tải toàn hệ thống
-    const globalHM = allAccounts.filter(a => parseInt(a.serverId, 10) === 0).length;
-    const globalDK = allAccounts.filter(a => parseInt(a.serverId, 10) === 1).length;
+    const globalHM = livingAccounts.filter(a => parseInt(a.serverId, 10) === 0).length;
+    const globalDK = livingAccounts.filter(a => parseInt(a.serverId, 10) === 1).length;
 
     if (globalHM <= globalDK && countHM < 3) {
       return { serverId: 0, serverName: 'Hoàn Mỹ' };
@@ -322,6 +343,149 @@ class ResourceAllocationEngine {
     // Fallback nếu 1 bên đã đạt 3
     if (countHM < 3) return { serverId: 0, serverName: 'Hoàn Mỹ' };
     return { serverId: 1, serverName: 'Diệu Kỳ' };
+  }
+
+  /**
+   * Đảm bảo tài khoản bot có Proxy sống khả dụng trước khi chạy:
+   * 1. Được bọc trong mutex tuần tự toàn hệ thống để chống Race Condition mua trùng Proxy.
+   * 2. Kiểm tra ngày hết hạn hợp đồng của Proxy hiện tại.
+   * 3. Nếu Proxy chết/hết hạn: Quét kho DB tìm Proxy khác còn sống & còn chỗ (< 6 bot).
+   * 4. Nếu kho DB hết sạch: Tự động mua mới 30 ngày qua proxy.vn và chờ mở cổng (waitForProxyReady).
+   *
+   * @param {Object} account - Entity Account cần chạy bot
+   * @param {Array<Object>} otherRunning - Danh sách bot đang chạy
+   * @returns {Promise<{ proxy: Object, changed: boolean, reason?: string, waitMessage?: string, error?: string }>}
+   */
+  async ensureHealthyProxyForBot(account, otherRunning = []) {
+    return this.mutex.runExclusive(async () => {
+      return this._ensureHealthyProxyForBotInternal(account, otherRunning);
+    });
+  }
+
+  async _ensureHealthyProxyForBotInternal(account, otherRunning = []) {
+    let proxy = account.proxyId ? await this.proxyRepo.findById(account.proxyId) : null;
+    const now = Date.now();
+    const hasExpiryDate = Boolean(proxy && proxy.expiresAt);
+    const isCalendarExpired = hasExpiryDate && new Date(proxy.expiresAt).getTime() <= now;
+    const isMarkedDead = Boolean(proxy && (proxy.isExpired || proxy.status === 'EXPIRED'));
+
+    // Proxy được coi là THỰC SỰ HẾT HẠN khi:
+    // 1. Chưa có proxy, hoặc
+    // 2. Ngày hết hạn theo lịch đã trôi qua (expiresAt <= now), hoặc
+    // 3. Không có ngày hết hạn nhưng đã bị đánh dấu cờ EXPIRED
+    const isTrulyExpired = !proxy || isCalendarExpired || (!hasExpiryDate && isMarkedDead);
+
+    if (isTrulyExpired) {
+      // BƯỚC 1: Tìm proxy có sẵn trong kho DB còn sống & còn slot (< 6)
+      const allProxies = await this.proxyRepo.findAll();
+      const allAccounts = await this.accountRepo.findAll();
+      let fallback = await this._selectOptimalProxy({
+        allProxies,
+        allAccounts,
+        botExpiresAt: account.rentalExpiresAt || new Date(now + 30 * 86400 * 1000),
+        requiredServerId: account.serverId
+      });
+
+      // BƯỚC 2: Nếu kho DB HẾT SẠCH Proxy sống -> Kích hoạt mua Proxy mới qua proxy.vn
+      if (!fallback) {
+        try {
+          const newProxy = await this._autoPurchaseNewProxy();
+          if (newProxy) {
+            account.proxyId = newProxy.id;
+            await this.accountRepo.save(account);
+
+            // Chờ kích hoạt mở cổng kết nối từ nhà mạng (thử tối đa 15s)
+            const waitResult = await ProxyChecker.waitForProxyReady(
+              newProxy.toJSON ? newProxy.toJSON() : newProxy,
+              15000,
+              2500
+            );
+
+            if (waitResult.ready) {
+              newProxy.markActive(waitResult.latencyMs);
+              await this.proxyRepo.save(newProxy);
+              return {
+                proxy: newProxy,
+                changed: true,
+                reason: `Đã tự động mua Proxy mới [${newProxy.name || newProxy.host}] và kích hoạt thành công!`
+              };
+            } else {
+              return {
+                proxy: newProxy,
+                changed: true,
+                waitMessage: `🛒 Hệ thống đã tự động mua Proxy mới cho bạn! Proxy đang được nhà mạng kích hoạt mở cổng (mất khoảng 30s - 1 phút). Vui lòng đợi 30 giây rồi bấm Treo lại!`
+              };
+            }
+          }
+        } catch (buyErr) {
+          return {
+            proxy: null,
+            error: `❌ Proxy của nick đã hết hạn và hệ thống gặp lỗi khi mua Proxy mới: ${buyErr.message}`
+          };
+        }
+        return {
+          proxy: null,
+          error: `❌ Proxy của nick đã hết hạn và hệ thống hiện không còn Proxy dự phòng nào khả dụng. Vui lòng liên hệ Admin bổ sung Proxy!`
+        };
+      }
+
+      // Đã tìm thấy fallback sống trong kho
+      account.proxyId = fallback.id;
+      await this.accountRepo.save(account);
+      return {
+        proxy: fallback,
+        changed: true,
+        reason: `Proxy cũ bị hết hạn. Hệ thống đã tự động di tản nick sang Proxy mới [${fallback.name || fallback.host}]!`
+      };
+    }
+
+    // TH2: Proxy VẪN CÒN HẠN HỢP ĐỒNG THEO LỊCH (expiresAt > now)
+    // Kiểm tra xem có phải proxy mới mua trong vòng 60 giây không
+    const isNewlyCreated = proxy.createdAt && (now - new Date(proxy.createdAt).getTime() < 60000);
+    if (isNewlyCreated) {
+      const waitRes = await ProxyChecker.waitForProxyReady(proxy.toJSON ? proxy.toJSON() : proxy, 10000, 2000);
+      if (!waitRes.ready) {
+        return {
+          proxy,
+          waitMessage: `⏳ Proxy [${proxy.name || proxy.host}] vừa mua đang được nhà mạng mở cổng SOCKS5. Vui lòng thử lại sau 30 giây!`
+        };
+      }
+    }
+
+    // Live Health Test trước khi khởi chạy
+    const testRes = await ProxyChecker.testProxy(proxy, 3500);
+    if (testRes.isExpired) {
+      // Hạn ngày vẫn còn -> LỖI MẠNG TẠM THỜI, KHÔNG ĐÁNH DẤU EXPIRED
+      proxy.failCount = (proxy.failCount || 0) + 1;
+      await this.proxyRepo.save(proxy);
+
+      // Thử tìm proxy sống khác trong kho để chạy tạm
+      const allProxies = await this.proxyRepo.findAll();
+      const allAccounts = await this.accountRepo.findAll();
+      const fallback = await this._selectOptimalProxy({
+        allProxies,
+        allAccounts,
+        botExpiresAt: account.rentalExpiresAt || new Date(now + 30 * 86400 * 1000),
+        requiredServerId: account.serverId
+      });
+
+      if (fallback && fallback.id !== proxy.id) {
+        account.proxyId = fallback.id;
+        await this.accountRepo.save(account);
+        return {
+          proxy: fallback,
+          changed: true,
+          reason: `Proxy [${proxy.name}] đang gặp sự cố mạng tạm thời (${testRes.message}). Đã tự động đổi sang Proxy [${fallback.name}]!`
+        };
+      }
+
+      return {
+        proxy,
+        error: `⚠️ Proxy [${proxy.name || proxy.host}] đang gặp sự cố mạng tạm thời (${testRes.message}). Proxy vẫn còn hạn dùng, vui lòng thử lại sau ít phút!`
+      };
+    }
+
+    return { proxy, changed: false };
   }
 }
 

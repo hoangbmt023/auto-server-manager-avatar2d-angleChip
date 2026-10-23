@@ -198,12 +198,19 @@ class ProxyLifecycleCron {
       }
 
       // 3. Đếm lại số lượng nick còn kẹt lại (stuck_bots)
+      // CHỐNG THẤT THOÁT TIỀN: Chỉ gia hạn Proxy nếu có ít nhất 1 nick kẹt lại CÒN HẠN THUÊ Ý NGHĨA (> 6 giờ)
       const refreshedAccounts = await this.accountRepo.findAll();
-      const stuckBots = refreshedAccounts.filter(a => a.proxyId === dyingProxy.id && !a.isRentalExpired());
+      const stuckBots = refreshedAccounts.filter(a => {
+        if (a.proxyId !== dyingProxy.id) return false;
+        if (typeof a.isDeleted === 'function' && a.isDeleted()) return false;
+        if (typeof a.isRentalExpired === 'function' && a.isRentalExpired()) return false;
+        if (a.rentalExpiresAt && new Date(a.rentalExpiresAt).getTime() <= now + 6 * 3600 * 1000) return false;
+        return true;
+      });
 
-      // TRƯỜNG HỢP A: stuck_bots == 0 (Đã dồn sạch 100%)
+      // TRƯỜNG HỢP A: stuck_bots == 0 (Đã dồn sạch 100% hoặc các nick còn lại sắp hết hạn tự nhiên)
       if (stuckBots.length === 0) {
-        console.log(`✅ [ProxyLifecycleCron] Proxy [${dyingProxy.name || dyingProxy.id}] đã dồn sạch nick. Cho tự hủy trên proxy.vn (Chi phí = 0đ).`);
+        console.log(`✅ [ProxyLifecycleCron] Proxy [${dyingProxy.name || dyingProxy.id}] không còn nick kẹt hạn dài. Cho tự hủy trên proxy.vn (Chi phí = 0đ).`);
         await this.proxyRepo.updateLifecycle(dyingProxy.id, {
           status: 'EXPIRED',
           isActive: false,

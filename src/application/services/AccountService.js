@@ -135,7 +135,18 @@ class AccountService {
       await this.settingRepo.set('activeAccountId', saved.id);
     }
 
-    // 4. Auto-restart bot process if running
+    // 4. Auto-restart bot process if running & dọn RMS nick nếu đổi tên nick hoặc đổi mật khẩu (chỉ dọn nếu không còn Slot nào khác dùng nick cũ)
+    const isUsernameChanged = Boolean(existing && existing.username && saved.username !== existing.username);
+    const isPasswordChanged = Boolean(existing && existing.password && saved.password !== existing.password);
+    if (isUsernameChanged || isPasswordChanged) {
+      try {
+        const RmsWriter = require('../../infrastructure/storage/RmsWriter');
+        RmsWriter.cleanAccountRmsDirs(existing, allAccountsInSystem);
+      } catch (e) {
+        console.warn(`[AccountService] Cảnh báo dọn RMS nick [${existing.username}]:`, e.message);
+      }
+    }
+
     if (this.multiBotManager && this.multiBotManager.isAccountRunning(saved.id)) {
       this.multiBotManager.stopAccount(saved.id);
       setTimeout(async () => {
@@ -182,9 +193,10 @@ class AccountService {
       await this.settingRepo.set('activeAccountId', remaining.length > 0 ? remaining[0].id : null);
     }
 
-    // Clean up MicroEmulator RMS suites on disk
+    // Clean up MicroEmulator RMS suites on disk (chỉ xóa nếu không còn Slot nào khác dùng nick này)
     if (targetAccount) {
-      RmsWriter.cleanAccountRmsDirs(targetAccount);
+      const remainingAccounts = await this.accountRepo.findAll();
+      RmsWriter.cleanAccountRmsDirs(targetAccount, remainingAccounts);
     }
 
     return deleted;

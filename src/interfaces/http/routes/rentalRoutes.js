@@ -22,5 +22,9 @@ module.exports = function createRentalRoutes(rentalController) {
     return rentalController.renew(req, res, sendJson, parseJsonBody);
   });
 
+  router.post('/api/rental/cancel/:id', (req, res, { sendJson }) => {
+    return rentalController.cancelSlot(req, res, sendJson);
+  });
+
   return router;
 };
