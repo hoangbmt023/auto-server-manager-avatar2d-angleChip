@@ -34,6 +34,7 @@ const AsyncMutex = require('../../shared/utils/AsyncMutex');
 
 // Use Cases
 const RentSlotUseCase = require('../../application/use-cases/rental/RentSlotUseCase');
+const CancelSlotUseCase = require('../../application/use-cases/rental/CancelSlotUseCase');
 const BillingUseCase = require('../../application/use-cases/billing/BillingUseCase');
 const ManageRentalAllocationsUseCase = require('../../application/use-cases/admin/ManageRentalAllocationsUseCase');
 
@@ -143,6 +144,7 @@ class HttpServer {
       this.proxyVnApiClient,
       this.allocationMutex
     );
+    this.multiBotManager.setAllocationEngine(this.allocationEngine);
     this.proxyLifecycleCron = new ProxyLifecycleCron({
       proxyRepo: this.proxyRepo,
       accountRepo: this.accountRepo,
@@ -181,6 +183,16 @@ class HttpServer {
       this.proxyRepo,
       this.allocationMutex
     );
+    this.cancelSlotUseCase = new CancelSlotUseCase({
+      accountRepo: this.accountRepo,
+      userRepo: this.userRepo,
+      transactionRepo: this.transactionRepo,
+      settingRepo: this.settingRepo,
+      multiBotManager: this.multiBotManager,
+      sseEventBus: this.sseEventBus,
+      mutex: this.allocationMutex,
+      transactionManager: this.transactionManager
+    });
 
     // Interface Controllers
     this.authController = new AuthController(this.authService);
@@ -189,7 +201,11 @@ class HttpServer {
     this.fileController = new FileController(this.fileProfileService, this.fileRepo, this.sseEventBus);
     this.proxyController = new ProxyController(this.proxyService, this.sseEventBus, this.proxyVnApiClient, this.settingRepo);
     this.systemController = new SystemController(this.settingRepo, this.sseEventBus);
-    this.rentalController = new RentalController(this.rentSlotUseCase, this.allocationEngine);
+    this.rentalController = new RentalController(
+      this.rentSlotUseCase,
+      this.allocationEngine,
+      this.cancelSlotUseCase
+    );
     this.billingController = new BillingController(this.billingUseCase, this.userRepo);
     this.adminAllocationController = new AdminAllocationController(this.manageAllocationUseCase);
 

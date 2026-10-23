@@ -54,46 +54,7 @@ class RentSlotUseCase {
       throw new BadRequestException('Tên tài khoản game không được để trống!');
     }
 
-    // 1. Kiểm tra tài khoản trong hệ thống (bao gồm cả tài khoản đã xóa mềm)
-    const existing = await this.accountRepo.findByUsername(cleanUsername, true);
-    let isReactivation = false;
-    let isTransferToNewUser = false;
 
-    if (existing) {
-      const isDeleted = existing.isDeleted();
-      const isExpired = existing.isRentalExpired();
-      const daysExpired = existing.getDaysExpired();
-
-      // TRƯỜNG HỢP 1: Nick đang hoạt động (chưa xóa) và VẪN CÒN HẠN
-      if (!isDeleted && !isExpired) {
-        if (existing.userId === userId) {
-          throw new BadRequestException(
-            `Tài khoản bot [${cleanUsername}] đang hoạt động bình thường trên hệ thống. Vui lòng vào danh sách tài khoản để bấm "Gia hạn" thay vì thuê mới!`
-          );
-        } else {
-          throw new BadRequestException(`Tài khoản game [${cleanUsername}] đang có người khác thuê và đang hoạt động!`);
-        }
-      }
-
-      // TRƯỜNG HỢP 2: Nick chưa bấm xóa nhưng mới hết hạn DƯỚI 3 NGÀY (Thời gian ân hạn)
-      if (!isDeleted && isExpired && daysExpired < 3) {
-        if (existing.userId !== userId) {
-          throw new BadRequestException(
-            `Tài khoản [${cleanUsername}] đang trong 3 ngày chờ chủ cũ gia hạn. Nếu bạn là chủ mới của nick, vui lòng nhắn chủ cũ bấm "Xóa nick" trên web để thuê ngay!`
-          );
-        }
-        isReactivation = true;
-      }
-
-      // TRƯỜNG HỢP 3: Nick ĐÃ BẤM XÓA HOẶC ĐÃ HẾT HẠN >= 3 NGÀY
-      if (isDeleted || (isExpired && daysExpired >= 3)) {
-        if (existing.userId === userId) {
-          isReactivation = true;
-        } else {
-          isTransferToNewUser = true;
-        }
-      }
-    }
 
     // 2. Fetch User & check status
     const user = await this.userRepo.findById(userId);
@@ -197,103 +158,26 @@ class RentSlotUseCase {
       }
 
       const now = Date.now();
-      let expiresAt;
-      let accountResult = null;
-      let newEffectivePriceMonth;
+      // TẠO SLOT MỚI HOÀN TOÀN (Mô hình Slot Thuần Túy)
+      const expiresAt = new Date(now + months * 30 * 24 * 60 * 60 * 1000);
+      const newEffectivePriceMonth = Math.round(finalPrice / months);
+      const newAccount = new Account({
+        userId,
+        username: cleanUsername,
+        password: password || '',
+        serverId: allocation.serverId,
+        serverName: allocation.serverName,
+        fileId: allocation.fileId,
+        proxyId: allocation.proxyId,
+        note: note || `Thuê gói ${planConfig.name} (${months}T)`,
+        rentalExpiresAt: expiresAt,
+        rentalPlan: planKey,
+        effectivePriceMonth: newEffectivePriceMonth,
+        isEmergencySlot: false
+      });
 
-      if (isReactivation && existing) {
-        // CHÍNH CHỦ CŨ KHÔI PHỤC LẠI NICK
-        const oldPlanKey = existing.rentalPlan || 'UPXU';
-        const newPlanKey = planKey;
-        const currentExpiryMs = existing.rentalExpiresAt ? new Date(existing.rentalExpiresAt).getTime() : 0;
-        const remainingMs = Math.max(0, currentExpiryMs - now);
-
-        if (remainingMs > 0 && oldPlanKey !== newPlanKey) {
-          // VÁ LỖ HỔNG TÀI CHÍNH: Quy đổi thời gian còn lại theo đơn giá thực tế đã thanh toán
-          const oldPlanConfig = rules.plans[oldPlanKey] || rules.plans.UPXU;
-          const oldEffectivePrice = existing.effectivePriceMonth || oldPlanConfig.priceMonth || 50000;
-          const newMonthlyPrice = planConfig.priceMonth || 50000;
-
-          const remainingTimeAfterConvert = Math.floor(remainingMs * (oldEffectivePrice / newMonthlyPrice));
-          expiresAt = new Date(now + remainingTimeAfterConvert + months * 30 * 24 * 60 * 60 * 1000);
-
-          const oldRemainingValue = (remainingMs / (30 * 86400000)) * oldEffectivePrice;
-          const totalNewMs = remainingTimeAfterConvert + months * 30 * 86400000;
-          newEffectivePriceMonth = Math.round((oldRemainingValue + finalPrice) / (totalNewMs / (30 * 86400000)));
-
-          console.log(`🔄 [RentSlotUseCase] Khôi phục đổi gói [${oldPlanKey} -> ${newPlanKey}] cho [${cleanUsername}]. Đơn giá thực tế cũ: ${oldEffectivePrice}đ/tháng. Thời gian dư quy đổi: ${Math.round(remainingTimeAfterConvert / 86400000)} ngày.`);
-        } else if (remainingMs > 0) {
-          // Giữ nguyên gói cũ: cộng dồn vào thời hạn còn lại trên lịch thực
-          expiresAt = new Date(currentExpiryMs + months * 30 * 24 * 60 * 60 * 1000);
-          const oldPlanConfig = rules.plans[oldPlanKey] || rules.plans.UPXU;
-          const oldEffectivePrice = existing.effectivePriceMonth || oldPlanConfig.priceMonth || 50000;
-          const oldRemainingValue = (remainingMs / (30 * 86400000)) * oldEffectivePrice;
-          const totalNewMs = remainingMs + months * 30 * 86400000;
-          newEffectivePriceMonth = Math.round((oldRemainingValue + finalPrice) / (totalNewMs / (30 * 86400000)));
-        } else {
-          // Đã hết hạn: tính từ thời điểm hiện tại
-          expiresAt = new Date(now + months * 30 * 24 * 60 * 60 * 1000);
-          newEffectivePriceMonth = Math.round(finalPrice / months);
-        }
-
-        existing.deletedAt = null;
-        existing.userId = userId;
-        existing.rentalPlan = newPlanKey;
-        existing.rentalExpiresAt = expiresAt;
-        existing.effectivePriceMonth = newEffectivePriceMonth;
-        existing.proxyId = allocation.proxyId;
-        if (allocation.fileId) existing.fileId = allocation.fileId;
-        if (password) existing.password = password;
-        if (note) existing.note = note;
-        // BẢO LƯU NGUYÊN VẸN 100% farmSettings, diamondSettings, fishSettings, sellOreSettings!
-
-        await this.accountRepo.save(existing);
-        accountResult = existing;
-      } else if (isTransferToNewUser && existing) {
-        // SANG TÊN ĐỔI CHỦ CHO USER MỚI (Sau khi chủ cũ bấm Xóa hoặc quá 3 ngày ân hạn)
-        if (this.multiBotManager) {
-          try { await this.multiBotManager.stopAccount(existing.id); } catch (e) {}
-        }
-        try { RmsWriter.cleanAccountRmsDirs(existing); } catch (e) {}
-
-        expiresAt = new Date(now + months * 30 * 24 * 60 * 60 * 1000);
-        newEffectivePriceMonth = Math.round(finalPrice / months);
-
-        existing.userId = userId;
-        existing.deletedAt = null;
-        existing.password = password || '';
-        existing.rentalPlan = planKey;
-        existing.rentalExpiresAt = expiresAt;
-        existing.effectivePriceMonth = newEffectivePriceMonth;
-        existing.proxyId = allocation.proxyId;
-        if (allocation.fileId) existing.fileId = allocation.fileId;
-        existing.resetBotConfigurations(); // Reset sạch 100% settings, note, cờ auto về mặc định
-        if (note) existing.note = note;
-
-        await this.accountRepo.save(existing);
-        accountResult = existing;
-      } else {
-        // TẠO NICK MỚI HOÀN TOÀN
-        expiresAt = new Date(now + months * 30 * 24 * 60 * 60 * 1000);
-        newEffectivePriceMonth = Math.round(finalPrice / months);
-        const newAccount = new Account({
-          userId,
-          username: cleanUsername,
-          password: password || '',
-          serverId: allocation.serverId,
-          serverName: allocation.serverName,
-          fileId: allocation.fileId,
-          proxyId: allocation.proxyId,
-          note: note || `Thuê gói ${planConfig.name} (${months}T)`,
-          rentalExpiresAt: expiresAt,
-          rentalPlan: planKey,
-          effectivePriceMonth: newEffectivePriceMonth,
-          isEmergencySlot: false
-        });
-
-        await this.accountRepo.save(newAccount);
-        accountResult = newAccount;
-      }
+      await this.accountRepo.save(newAccount);
+      const accountResult = newAccount;
 
       return {
         account: accountResult.toPublicJson(),
@@ -331,11 +215,12 @@ class RentSlotUseCase {
     });
   }
 
-  async _renewSlotInternal({ userId, accountId, durationMonths = 1, voucherCode = null, newPlan = null }) {
+  async _renewSlotInternal({ userId, userRole = 'USER', accountId, durationMonths = 1, voucherCode = null, newPlan = null }) {
     if (!userId) throw new BadRequestException('Vui lòng đăng nhập!');
     const account = await this.accountRepo.findById(accountId);
     if (!account) throw new BadRequestException('Tài khoản bot không tồn tại!');
-    if (account.userId !== userId) throw new BadRequestException('Bạn không có quyền thao tác trên tài khoản này!');
+    const isActualAdmin = String(userRole || '').toUpperCase() === 'ADMIN';
+    if (!isActualAdmin && account.userId !== userId) throw new BadRequestException('Bạn không có quyền thao tác trên tài khoản này!');
 
     const user = await this.userRepo.findById(userId);
     if (!user || user.status === 'BANNED') throw new BadRequestException('Tài khoản bị khóa!');

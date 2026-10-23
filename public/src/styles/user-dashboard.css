@@ -1750,6 +1750,28 @@ button .tx-spinner-circular {
   font-size: 0.82rem;
 }
 
+.plan-refund-gross {
+  text-decoration: line-through;
+  color: var(--text-tertiary);
+  font-size: 0.85rem;
+}
+
+.plan-refund-net {
+  color: var(--apple-green);
+  font-weight: 700;
+  font-size: 1.05rem;
+}
+
+.plan-refund-fee-danger {
+  color: var(--apple-red);
+  font-weight: 600;
+}
+
+.plan-refund-fee-free {
+  color: var(--apple-green);
+  font-weight: 600;
+}
+
 .rent-plan-title-row {
   display: flex;
   align-items: center;
@@ -2770,3 +2792,125 @@ button .tx-spinner-circular {
     font-size: 0.8rem !important;
   }
 }
+
+/* ==========================================================================
+   Change Game Account / Detach Slot Modal & Empty Slot Styles (Zero-Inline)
+   ========================================================================== */
+.change-account-modal-body {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.change-account-info-banner {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 12px 14px;
+  background: rgba(0, 122, 255, 0.08);
+  border: 1px solid rgba(0, 122, 255, 0.22);
+  border-radius: 12px;
+  color: var(--text-primary);
+  font-size: 0.85rem;
+  line-height: 1.45;
+}
+
+.change-account-info-text strong {
+  color: var(--apple-blue);
+  font-weight: 600;
+}
+
+.change-account-tab-row {
+  display: flex;
+  gap: 8px;
+  background: var(--glass-bg-subtle, rgba(255, 255, 255, 0.04));
+  padding: 4px;
+  border-radius: 10px;
+  border: 1px solid var(--glass-border-subtle, rgba(255, 255, 255, 0.08));
+}
+
+.change-account-tab-btn {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 8px 12px;
+  border: none;
+  background: transparent;
+  color: var(--text-secondary);
+  font-size: 0.84rem;
+  font-weight: 500;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.change-account-tab-btn.active {
+  background: var(--glass-bg-card, rgba(255, 255, 255, 0.12));
+  color: var(--text-primary);
+  font-weight: 600;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.18);
+}
+
+.change-account-form {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.change-account-detach-box {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.detach-warning-card {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 16px;
+  background: rgba(255, 159, 10, 0.08);
+  border: 1px solid rgba(255, 159, 10, 0.25);
+  border-radius: 12px;
+  color: var(--text-primary);
+}
+
+.detach-warning-content strong {
+  display: block;
+  font-size: 0.92rem;
+  color: var(--apple-gold);
+  margin-bottom: 6px;
+}
+
+.detach-warning-content p {
+  margin: 0;
+  font-size: 0.83rem;
+  line-height: 1.6;
+  color: var(--text-secondary);
+}
+
+.acc-empty-slot-title {
+  color: var(--apple-gold) !important;
+  font-style: italic;
+  font-weight: 600 !important;
+  letter-spacing: -0.2px;
+}
+
+.btn-attach-nick {
+  background: rgba(0, 122, 255, 0.12) !important;
+  border: 1px solid rgba(0, 122, 255, 0.35) !important;
+  color: var(--apple-blue) !important;
+  font-weight: 600 !important;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  border-radius: 8px;
+  transition: all 0.2s ease;
+}
+
+.btn-attach-nick:hover {
+  background: rgba(0, 122, 255, 0.22) !important;
+  border-color: var(--apple-blue) !important;
+  transform: translateY(-1px);
+}

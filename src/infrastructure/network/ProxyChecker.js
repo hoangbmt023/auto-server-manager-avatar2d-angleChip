@@ -85,6 +85,38 @@ class ProxyChecker {
   }
 
   /**
+   * Chờ Proxy mới mua kích hoạt và mở cổng SOCKS5/HTTP từ nhà mạng
+   * Thử lại mỗi intervalMs cho đến khi thành công hoặc chạm ngưỡng maxWaitMs
+   * @param {Object} proxy
+   * @param {number} maxWaitMs - Thời gian chờ tối đa (mặc định 15s)
+   * @param {number} intervalMs - Khoảng cách mỗi lần thử (mặc định 2.5s)
+   * @returns {Promise<{ ready: boolean, latencyMs: number, message: string }>}
+   */
+  static async waitForProxyReady(proxy, maxWaitMs = 15000, intervalMs = 2500) {
+    if (!proxy) return { ready: false, latencyMs: 0, message: 'Dữ liệu Proxy không tồn tại' };
+    const startTime = Date.now();
+    let lastResult = null;
+
+    while (Date.now() - startTime < maxWaitMs) {
+      lastResult = await this.testSingleAttempt(proxy, 2000);
+      if (lastResult.success && !lastResult.isExpired) {
+        return {
+          ready: true,
+          latencyMs: lastResult.latencyMs,
+          message: 'Proxy đã mở cổng kết nối thành công!'
+        };
+      }
+      await new Promise(resolve => setTimeout(resolve, intervalMs));
+    }
+
+    return {
+      ready: false,
+      latencyMs: 0,
+      message: lastResult ? lastResult.message : 'Timeout chờ mở cổng từ nhà mạng'
+    };
+  }
+
+  /**
    * Performs a single low-level socket handshake attempt to test SOCKS5 or HTTP proxy.
    * @param {Object} proxy - { host, port, type, username, password }
    * @param {number} timeoutMs - Timeout in milliseconds (default: 3500ms)

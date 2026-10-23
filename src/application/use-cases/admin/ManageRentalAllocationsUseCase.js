@@ -72,6 +72,8 @@ class ManageRentalAllocationsUseCase {
         bankAccount: '',
         bankName: ''
       },
+      cancellationFeePercent: 10,
+      minHoldHours: 1,
       proxyStrategy: 'dynamic_best_fit',
       serverBalanceStrategy: 'auto_balance'
     };
@@ -98,6 +100,8 @@ class ManageRentalAllocationsUseCase {
       topupBonusTiers: topupDb?.bonusTiers || rules?.topupBonusTiers || defaultRules.topupBonusTiers,
       topupPresets: topupDb?.presets || rules?.topupPresets || defaultRules.topupPresets,
       minTopupAmount: topupDb?.minAmount || rules?.minTopupAmount || defaultRules.minTopupAmount,
+      cancellationFeePercent: rules?.cancellationFeePercent !== undefined ? rules.cancellationFeePercent : defaultRules.cancellationFeePercent,
+      minHoldHours: rules?.minHoldHours !== undefined ? rules.minHoldHours : defaultRules.minHoldHours,
       payosConfig: { ...defaultRules.payosConfig, ...(rules?.payosConfig || {}) },
       proxyStrategy: 'dynamic_best_fit',
       serverBalanceStrategy: 'auto_balance'

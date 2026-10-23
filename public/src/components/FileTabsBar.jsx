@@ -17,8 +17,7 @@ window.FileTabsBar = function FileTabsBar({
           const totalOnline = f.runningTotal !== undefined ? f.runningTotal : (f.runningCount || 0);
           const isChipMix = f.modType === 'chipmix' || (!f.modType && f.gameJar && (f.gameJar.toLowerCase().includes('chip') || f.gameJar.toLowerCase().includes('mix')));
           const isFish = !isChipMix && (f.modType === 'fish' || (!f.modType && f.gameJar && f.gameJar.toLowerCase().includes('fish')));
-          const badgeBg = isChipMix ? 'rgba(52, 211, 153, 0.12)' : isFish ? 'rgba(100, 210, 255, 0.12)' : 'rgba(191, 90, 242, 0.12)';
-          const badgeColor = isChipMix ? 'var(--apple-green)' : isFish ? 'var(--apple-teal)' : 'var(--apple-purple)';
+          const badgeClass = isChipMix ? 'badge-chipmix' : isFish ? 'badge-fish' : 'badge-gem';
           const badgeIcon = isChipMix ? 'zap' : isFish ? 'fish' : 'gem';
           const badgeText = isChipMix ? 'ChipMix' : isFish ? 'Câu Cá' : 'Kim Cương';
 
@@ -28,36 +27,26 @@ window.FileTabsBar = function FileTabsBar({
               className={`file-tab-btn ${isActive ? 'active-file-tab' : ''}`}
               onClick={() => onSwitchFile(f.id)}
             >
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <div className="file-tab-header">
+                <div className="file-tab-title-group">
                   <window.Icon name="folder" size={15} color={isActive ? 'var(--apple-blue)' : 'var(--text-secondary)'} />
-                  <strong style={{ fontSize: '0.86rem', fontWeight: 600 }}>{f.name}</strong>
+                  <strong className="file-tab-title">{f.name}</strong>
                 </div>
-                <span style={{ fontSize: '0.72rem', color: 'var(--text-tertiary)' }}>({f.totalAccounts || 0}/6)</span>
+                <span className="file-tab-count">({f.totalAccounts || 0}/6)</span>
               </div>
 
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%', marginTop: '2px' }}>
-                <span style={{
-                  padding: '2px 7px',
-                  borderRadius: '999px',
-                  fontSize: '0.66rem',
-                  fontWeight: 600,
-                  background: badgeBg,
-                  color: badgeColor,
-                  display: 'inline-flex',
-                  alignItems: 'center',
-                  gap: '4px'
-                }}>
+              <div className="file-tab-meta-row">
+                <span className={`file-tab-badge ${badgeClass}`}>
                   <window.Icon name={badgeIcon} size={11} />
                   {badgeText}
                 </span>
 
-                <div style={{ fontSize: '0.7rem', color: 'var(--text-tertiary)', display: 'flex', gap: '6px', alignItems: 'center' }}>
+                <div className="file-tab-online-stats">
                   <span>HM: {hmOnline}/3</span>
                   <span>•</span>
                   <span>DK: {dkOnline}/3</span>
                   {totalOnline > 0 && (
-                    <span style={{ color: 'var(--apple-green)', fontWeight: 700, marginLeft: '2px' }}>
+                    <span className="file-tab-online-highlight">
                       🔥 {totalOnline}
                     </span>
                   )}

@@ -58,7 +58,9 @@ class MySqlAccountRepository extends IAccountRepository {
       farmSettings: this._parseJsonField(row.farmSettings),
       diamondSettings: this._parseJsonField(row.diamondSettings),
       fishSettings: this._parseJsonField(row.fishSettings),
-      sellOreSettings: this._parseJsonField(row.sellOreSettings)
+      sellOreSettings: this._parseJsonField(row.sellOreSettings),
+      createdAt: row.createdAt ? new Date(row.createdAt) : null,
+      updatedAt: row.updatedAt ? new Date(row.updatedAt) : null
     });
   }
 

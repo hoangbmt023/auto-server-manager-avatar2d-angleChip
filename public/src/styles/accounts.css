@@ -180,6 +180,146 @@
   box-shadow: 0 4px 18px -2px rgba(10, 132, 255, 0.25), inset 0 1px 0 0 rgba(255, 255, 255, 0.15);
 }
 
+.file-tab-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+}
+
+.file-tab-title-group {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.file-tab-title {
+  font-size: 0.86rem;
+  font-weight: 600;
+  color: inherit;
+}
+
+.file-tab-count {
+  font-size: 0.72rem;
+  color: var(--text-tertiary);
+}
+
+.file-tab-meta-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  margin-top: 2px;
+}
+
+.file-tab-badge {
+  padding: 2px 7px;
+  border-radius: var(--radius-pill);
+  font-size: 0.66rem;
+  font-weight: 600;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.file-tab-badge.badge-chipmix,
+.file-tab-badge.badge-plan-upxu {
+  background: rgba(52, 211, 153, 0.12);
+  color: var(--apple-green);
+}
+
+.file-tab-badge.badge-fish,
+.file-tab-badge.badge-plan-fish {
+  background: rgba(100, 210, 255, 0.12);
+  color: var(--apple-teal);
+}
+
+.file-tab-badge.badge-gem,
+.file-tab-badge.badge-plan-full {
+  background: rgba(191, 90, 242, 0.12);
+  color: var(--apple-purple);
+}
+
+.file-tab-badge.badge-plan-all {
+  background: rgba(10, 132, 255, 0.12);
+  color: var(--apple-blue);
+}
+
+.file-tab-online-stats {
+  font-size: 0.7rem;
+  color: var(--text-tertiary);
+  display: flex;
+  gap: 6px;
+  align-items: center;
+}
+
+.file-tab-online-highlight {
+  color: var(--apple-green);
+  font-weight: 700;
+  margin-left: 2px;
+}
+
+.main-pane-title-group {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 220px;
+}
+
+.main-pane-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0;
+}
+
+.main-pane-sub {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.badge-server-quota {
+  padding: 1px 7px;
+  border-radius: var(--radius-pill);
+  font-weight: 600;
+  font-size: 0.72rem;
+}
+
+.badge-server-quota.hm {
+  background: rgba(10, 132, 255, 0.1);
+  border: 1px solid rgba(10, 132, 255, 0.25);
+  color: var(--apple-blue);
+}
+
+.badge-server-quota.dk {
+  background: rgba(191, 90, 242, 0.1);
+  border: 1px solid rgba(191, 90, 242, 0.25);
+  color: var(--apple-purple);
+}
+
+.search-dropdown-hint {
+  font-size: 0.62rem;
+  color: var(--text-tertiary);
+}
+
+.ip-item-title-all {
+  color: var(--apple-blue);
+}
+
+.ip-item-title-proxy {
+  color: var(--apple-purple);
+}
+
+.ip-item-status-avail {
+  color: var(--apple-green);
+}
+
+.ip-item-status-full {
+  color: var(--apple-red);
+}
+
 /* ==========================================================================
    SERVER LIMIT BANNER (Inside Sidebar)
    ========================================================================== */
@@ -986,32 +1126,38 @@
     gap: 12px;
     position: relative;
   }
+
   .main-pane-tools-cluster {
     width: 100%;
     margin-left: 0;
     display: flex;
     gap: 8px;
   }
+
   .main-search-wrapper {
     flex: 1 1 50%;
     min-width: 0;
     max-width: none;
     width: 100%;
   }
+
   .ip-selector-dropdown-wrapper {
     flex: 1 1 50%;
     min-width: 0;
     width: 100%;
   }
+
   .ip-dropdown-btn {
     width: 100%;
     max-width: none;
     min-width: 0;
     padding: 0 8px;
   }
+
   .ip-btn-title {
     max-width: calc(100% - 65px);
   }
+
   .search-dropdown-menu,
   .ip-dropdown-menu {
     position: absolute;
@@ -1025,6 +1171,7 @@
     box-shadow: 0 20px 50px rgba(0, 0, 0, 0.85), 0 0 0 1px var(--glass-border);
     z-index: 99999;
   }
+
   .search-result-item,
   .ip-dropdown-item {
     padding: 10px 12px;
@@ -1036,14 +1183,17 @@
     flex-direction: column;
     gap: 8px;
   }
+
   .main-search-wrapper,
   .ip-selector-dropdown-wrapper {
     flex: 1 1 100%;
     width: 100%;
   }
+
   .ip-btn-title {
     max-width: 160px;
   }
+
   .search-dropdown-menu,
   .ip-dropdown-menu {
     max-height: 320px;

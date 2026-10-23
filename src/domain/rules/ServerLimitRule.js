@@ -27,7 +27,12 @@ class ServerLimitRule {
     const ipDisplayName = targetKey === 'direct' ? 'IP Mặc định' : (proxyName ? `Proxy [${proxyName}]` : `Proxy [${targetKey}]`);
 
     const poolToCheck = allAccountsInSystem || accountsInFile;
-    const existingInIp = poolToCheck.filter(a => a.id !== editingAccountId && (a.proxyId || 'direct') === targetKey);
+    const existingInIp = poolToCheck.filter(a => {
+      if (a.id === editingAccountId) return false;
+      if (typeof a.isDeleted === 'function' && a.isDeleted()) return false;
+      if (typeof a.isRentalExpired === 'function' && a.isRentalExpired()) return false;
+      return (a.proxyId || 'direct') === targetKey;
+    });
     const serverCountInIp = existingInIp.filter(a => parseInt(a.serverId, 10) === sId).length;
 
     const maxPerServer = this.MAX_PER_SERVER;

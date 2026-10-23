@@ -805,7 +805,59 @@ window.SettingsModal = function SettingsModal({ config, theme = 'dark', setTheme
                 </div>
               </div>
 
-              {/* 5. Automated Payment Gateway: payOS (Configured via ENV) */}
+              {/* 5. CẤU HÌNH HỦY SLOT & PHÍ HOÀN TIỀN VỀ VÍ (DO ADMIN CÀI ĐẶT) */}
+              <div className="farm-section-card" style={{ marginTop: '10px' }}>
+                <span className="sidebar-section-lbl" style={{ marginBottom: '8px' }}>CẤU HÌNH HỦY SLOT & PHÍ HOÀN TIỀN VỀ VÍ</span>
+                <p style={{ fontSize: '0.75rem', color: 'var(--text-tertiary)', margin: '0 0 10px 0' }}>
+                  Admin toàn quyền cài đặt tỷ lệ % phí khấu trừ khi người dùng chủ động hủy Slot bot và số giờ tối thiểu cần giữ slot trước khi được hủy hoàn tiền.
+                </p>
+
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+                  <div className="form-group">
+                    <label style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>Phí Hủy Slot (% Khấu Trừ Khi Hoàn):</label>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                      <input
+                        type="number"
+                        className="form-control"
+                        min="0"
+                        max="100"
+                        value={allocationRules.cancellationFeePercent !== undefined && allocationRules.cancellationFeePercent !== null ? allocationRules.cancellationFeePercent : 10}
+                        onChange={(e) => {
+                          const val = Math.min(100, Math.max(0, parseInt(e.target.value, 10) || 0));
+                          setAllocationRules(prev => ({ ...prev, cancellationFeePercent: val }));
+                        }}
+                      />
+                      <span style={{ fontWeight: 600, color: 'var(--text-secondary)' }}>%</span>
+                    </div>
+                    <span style={{ fontSize: '0.72rem', color: 'var(--text-tertiary)', marginTop: '4px', display: 'block' }}>
+                      Ví dụ đặt 10%: Khách còn 100k tiền ngày dư thì được hoàn 90k vào ví, trừ 10k phí hủy. Đặt 0% nếu muốn hoàn 100%.
+                    </span>
+                  </div>
+
+                  <div className="form-group">
+                    <label style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>Thời Gian Thuê Tối Thiểu Trước Khi Được Hủy (Giờ):</label>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                      <input
+                        type="number"
+                        className="form-control"
+                        min="0"
+                        max="720"
+                        value={allocationRules.minHoldHours !== undefined && allocationRules.minHoldHours !== null ? allocationRules.minHoldHours : 1}
+                        onChange={(e) => {
+                          const val = Math.max(0, parseInt(e.target.value, 10) || 0);
+                          setAllocationRules(prev => ({ ...prev, minHoldHours: val }));
+                        }}
+                      />
+                      <span style={{ fontWeight: 600, color: 'var(--text-secondary)' }}>Giờ</span>
+                    </div>
+                    <span style={{ fontSize: '0.72rem', color: 'var(--text-tertiary)', marginTop: '4px', display: 'block' }}>
+                      Ngăn chặn spam thuê vài phút rồi hủy hoặc đổi IP Proxy liên tục. Đặt 0 nếu cho phép hủy ngay lập tức.
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              {/* 6. Automated Payment Gateway: payOS (Configured via ENV) */}
               <div className="farm-section-card" style={{ marginTop: '10px' }}>
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '8px' }}>
                   <span className="sidebar-section-lbl" style={{ margin: 0 }}>CỔNG THANH TOÁN TỰ ĐỘNG payOS (CẤU HÌNH QUA FILE .ENV)</span>

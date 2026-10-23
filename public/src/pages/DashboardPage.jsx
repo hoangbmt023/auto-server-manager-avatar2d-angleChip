@@ -66,6 +66,8 @@ window.DashboardPage = function DashboardPage() {
     jreProgress
   } = window.useModals();
 
+  const [renewAccount, setRenewAccount] = React.useState(null);
+
   const {
     maxHmTotal,
     maxDkTotal,
@@ -323,40 +325,24 @@ window.DashboardPage = function DashboardPage() {
           {/* Right Main Pane: Accounts Grid */}
           <div className="accounts-main-pane">
             <div className="main-pane-header">
-              <div style={{ display: 'flex', alignItems: 'center', gap: '10px', minWidth: '220px' }}>
+              <div className="main-pane-title-group">
                 <div className="sidebar-icon-box">
                   <window.Icon name="users" size={18} />
                 </div>
                 <div>
-                  <h3 style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <h3 className="main-pane-title">
                     {activeFile?.name || 'File Bot'}
                   </h3>
-                  <span className="sidebar-sub" style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
+                  <span className="sidebar-sub main-pane-sub">
                     <span>{activeFile?.modType === 'chipmix' ? '⚡ Bản ChipMix Full' : activeFile?.modType === 'fish' ? '🎣 Auto Câu Cá' : '💎 Auto Kim Cương'}</span>
                     <span>•</span>
-                    <span>Tổng: <strong style={{ color: 'var(--text-primary)' }}>{fileAccounts.length}/{fileMaxAccounts}</strong> nick</span>
+                    <span>Tổng: <strong className="text-primary">{fileAccounts.length}/{fileMaxAccounts}</strong> nick</span>
                     <span>•</span>
-                    <span style={{
-                      padding: '1px 7px',
-                      borderRadius: '999px',
-                      background: 'rgba(10, 132, 255, 0.1)',
-                      border: '1px solid rgba(10, 132, 255, 0.25)',
-                      color: 'var(--apple-blue)',
-                      fontWeight: 600,
-                      fontSize: '0.72rem'
-                    }}>
+                    <span className="badge-server-quota hm">
                       HM: {totalHmCount}/{fileMaxHm}
                     </span>
                     <span>|</span>
-                    <span style={{
-                      padding: '1px 7px',
-                      borderRadius: '999px',
-                      background: 'rgba(191, 90, 242, 0.1)',
-                      border: '1px solid rgba(191, 90, 242, 0.25)',
-                      color: 'var(--apple-purple)',
-                      fontWeight: 600,
-                      fontSize: '0.72rem'
-                    }}>
+                    <span className="badge-server-quota dk">
                       DK: {totalDkCount}/{fileMaxDk}
                     </span>
                   </span>
@@ -401,7 +387,7 @@ window.DashboardPage = function DashboardPage() {
                     <div className="search-dropdown-menu">
                       <div className="search-dropdown-header">
                         <span>KẾT QUẢ TÌM KIẾM TOÀN CỤC ({searchResults.length})</span>
-                        <span style={{ fontSize: '0.62rem', color: 'var(--text-tertiary)' }}>Nhấp để nhảy tới nick</span>
+                        <span className="search-dropdown-hint">Nhấp để nhảy tới nick</span>
                       </div>
                       {searchResults.length === 0 ? (
                         <div className="search-no-result">Không tìm thấy tài khoản nào khớp "{searchQuery}"</div>
@@ -419,7 +405,7 @@ window.DashboardPage = function DashboardPage() {
                             >
                               <div className="search-result-user">
                                 <window.Icon name="user" size={13} color="var(--apple-blue)" />
-                                <strong style={{ color: 'var(--text-primary)' }}>{acc.username}</strong>
+                                <strong className="text-primary">{acc.username}</strong>
                                 <span className={`badge-server-sm ${acc.serverId === 1 ? 'dk' : 'hm'}`}>
                                   {sName}
                                 </span>
@@ -472,7 +458,7 @@ window.DashboardPage = function DashboardPage() {
                         }}
                       >
                         <div className="ip-item-title">
-                          <strong style={{ color: 'var(--apple-blue)' }}>Tất Cả IP (Toàn Bộ Nick)</strong>
+                          <strong className="ip-item-title-all">Tất Cả IP (Toàn Bộ Nick)</strong>
                           <span className="ip-item-count">{slotCapacityAll.badgeCount} slot</span>
                         </div>
                         <div className="ip-item-sub">
@@ -495,7 +481,7 @@ window.DashboardPage = function DashboardPage() {
                         <div className="ip-item-sub">
                           <span>File này: {slotCapacityDirect.fileTotal} nick (HM: {slotCapacityDirect.directHm}/3 • DK: {slotCapacityDirect.directDk}/3)</span>
                           <span>|</span>
-                          <span style={{ color: slotCapacityDirect.serverRemaining > 0 ? 'var(--apple-green)' : 'var(--apple-red)' }}>
+                          <span className={slotCapacityDirect.serverRemaining > 0 ? 'ip-item-status-avail' : 'ip-item-status-full'}>
                             Toàn server: {slotCapacityDirect.globalRunning}/6 Online (Còn {slotCapacityDirect.serverRemaining} slot)
                           </span>
                         </div>
@@ -514,13 +500,13 @@ window.DashboardPage = function DashboardPage() {
                             }}
                           >
                             <div className="ip-item-title">
-                              <strong style={{ color: 'var(--apple-purple)' }}>{p.name}</strong>
+                              <strong className="ip-item-title-proxy">{p.name}</strong>
                               <span className="ip-item-count">{slot.badgeCount} slot</span>
                             </div>
                             <div className="ip-item-sub">
                               <span>File này: {slot.fileTotal} nick (HM: {slot.pHm}/3 • DK: {slot.pDk}/3)</span>
                               <span>|</span>
-                              <span style={{ color: slot.serverRemaining > 0 ? 'var(--apple-green)' : 'var(--apple-red)' }}>
+                              <span className={slot.serverRemaining > 0 ? 'ip-item-status-avail' : 'ip-item-status-full'}>
                                 Toàn server: {slot.globalRunning}/6 Online (Còn {slot.serverRemaining} slot)
                               </span>
                             </div>
@@ -549,6 +535,7 @@ window.DashboardPage = function DashboardPage() {
               onTriggerAuto={handleTriggerAuto}
               onInspectRms={handleInspectRms}
               onOpenLogs={(acc) => setSelectedLogAccount(acc)}
+              onRenewAccount={(acc) => setRenewAccount(acc)}
             />
           </div>
         </section>
@@ -639,6 +626,17 @@ window.DashboardPage = function DashboardPage() {
           account={selectedLogAccount}
           isAdmin={true}
           onClose={() => setSelectedLogAccount(null)}
+        />
+      )}
+
+      {renewAccount && window.RentSlotModal && (
+        <window.RentSlotModal
+          currentBalance={999999999}
+          accountToRenew={renewAccount}
+          onClose={() => setRenewAccount(null)}
+          onRented={() => {
+            fetchAccounts();
+          }}
         />
       )}
     </div>

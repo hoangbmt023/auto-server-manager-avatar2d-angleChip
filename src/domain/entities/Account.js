@@ -31,7 +31,11 @@ class Account {
     effectivePriceMonth = null,
     effective_price_month = null,
     deletedAt = null,
-    deleted_at = null
+    deleted_at = null,
+    createdAt = null,
+    created_at = null,
+    updatedAt = null,
+    updated_at = null
   }) {
     this.id = id || uuidv7();
     this.userId = userId || null;
@@ -54,6 +58,10 @@ class Account {
     this.effectivePriceMonth = rawPrice !== null && rawPrice !== undefined ? parseInt(rawPrice, 10) : null;
     const rawDeletedAt = deletedAt || deleted_at;
     this.deletedAt = rawDeletedAt ? new Date(rawDeletedAt) : null;
+    const rawCreatedAt = createdAt || created_at;
+    this.createdAt = rawCreatedAt ? new Date(rawCreatedAt) : new Date();
+    const rawUpdatedAt = updatedAt || updated_at;
+    this.updatedAt = rawUpdatedAt ? new Date(rawUpdatedAt) : new Date();
     this.farmSettings = farmSettings || {
       mode: 0,
       animal: 3,
@@ -110,8 +118,14 @@ class Account {
   }
 
   validate() {
-    if (!this.username) {
-      throw new BadRequestException('Tên tài khoản không được để trống!');
+    if (this.isEmptySlot()) {
+      if (!this.rentalPlan) {
+        throw new BadRequestException('Tên tài khoản không được để trống!');
+      }
+    } else {
+      if (this.username.length > 100) {
+        throw new BadRequestException('Tên tài khoản không được vượt quá 100 ký tự!');
+      }
     }
     if (this.serverId !== 0 && this.serverId !== 1) {
       throw new BadRequestException('Server không hợp lệ (0: Hoàn Mỹ, 1: Diệu Kỳ)!');
@@ -147,6 +161,24 @@ class Account {
     this.serverId = this.serverId === 0 ? 1 : 0;
     this.serverName = this.serverId === 0 ? 'Hoàn Mỹ' : 'Diệu Kỳ';
     return this.serverId;
+  }
+
+  isEmptySlot() {
+    return !this.username || this.username.trim() === '';
+  }
+
+  calculateRefundAmount(now = Date.now()) {
+    if (!this.rentalExpiresAt) return 0;
+    const remainingMs = Math.max(0, this.rentalExpiresAt.getTime() - now);
+    if (remainingMs <= 0) return 0;
+    const effectivePrice = this.effectivePriceMonth || 50000;
+    return Math.floor((remainingMs / (30 * 86400 * 1000)) * effectivePrice);
+  }
+
+  detachGameAccount() {
+    this.username = '';
+    this.password = '';
+    this.resetBotConfigurations();
   }
 
   resetBotConfigurations() {
@@ -207,7 +239,6 @@ class Account {
       dropNhbIfFailed: true,
       dropKcxIfFailed: true
     };
-    this.effectivePriceMonth = null;
   }
 
   toPublicJson() {
@@ -234,6 +265,9 @@ class Account {
       isDeleted: this.isDeleted(),
       isExpired: this.isRentalExpired(),
       remainingMs: this.getRentalRemainingMs(),
+      isEmptySlot: this.isEmptySlot(),
+      refundEstimate: this.calculateRefundAmount(),
+      createdAt: this.createdAt ? this.createdAt.toISOString() : null,
       farmSettings: this.farmSettings,
       diamondSettings: this.diamondSettings,
       fishSettings: this.fishSettings,
@@ -262,6 +296,8 @@ class Account {
       rental_plan: this.rentalPlan,
       effective_price_month: this.effectivePriceMonth,
       deleted_at: this.deletedAt,
+      created_at: this.createdAt,
+      updated_at: this.updatedAt,
       farmSettings: this.farmSettings,
       diamondSettings: this.diamondSettings,
       fishSettings: this.fishSettings,

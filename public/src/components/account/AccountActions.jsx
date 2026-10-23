@@ -86,7 +86,7 @@ window.AccountActions = function AccountActions({
 
   return (
     <div className="acc-action-bar">
-      {/* Play / Stop / Renew Button */}
+      {/* Play / Stop / Renew / Attach Button */}
       {isRunning ? (
         <button
           className="btn btn-sm btn-danger"
@@ -103,6 +103,14 @@ window.AccountActions = function AccountActions({
           title="Dừng bot này"
         >
           <window.Icon name="stop" size={13} /> {isStarting ? '...' : 'Dừng'}
+        </button>
+      ) : (account.isEmptySlot || !account.username) ? (
+        <button
+          className="btn btn-sm btn-secondary btn-attach-nick"
+          onClick={() => onOpenEditAccount && onOpenEditAccount(account)}
+          title="Slot này đang để trống! Bấm để gắn nick úp"
+        >
+          <window.Icon name="user" size={13} color="var(--apple-blue)" /> Gắn Nick
         </button>
       ) : isRentalExpired ? (
         <button
@@ -254,8 +262,11 @@ window.AccountActions = function AccountActions({
             <button className="dropdown-item-glass" onClick={() => { setMoreMenuOpen(false); onOpenLogs && onOpenLogs(account); }}>
               <window.Icon name="terminal" size={14} color="var(--apple-blue)" /> Xem Nhật Ký Bot
             </button>
-            <button className="dropdown-item-glass dropdown-item-danger" onClick={() => { setMoreMenuOpen(false); onDeleteAccount && onDeleteAccount(account.id, account.username); }}>
-              <window.Icon name="trash" size={14} color="var(--apple-red)" /> Xóa Tài Khoản
+            <button
+              className="dropdown-item-glass dropdown-item-danger"
+              onClick={() => { setMoreMenuOpen(false); onDeleteAccount && onDeleteAccount(account.id, account.username, account); }}
+            >
+              <window.Icon name="trash" size={14} color="var(--apple-red)" /> {Boolean(account.rentalPlan) ? 'Hủy Slot & Hoàn Tiền' : 'Xóa Tài Khoản'}
             </button>
             {(() => {
               const currentUser = window.authService?.getCurrentUser ? window.authService.getCurrentUser() : null;

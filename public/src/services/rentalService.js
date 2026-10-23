@@ -18,6 +18,10 @@
       return http().post(`/api/rental/renew/${encodeURIComponent(accountId)}`, payload);
     },
 
+    cancelSlot(slotId) {
+      return http().post(`/api/rental/cancel/${encodeURIComponent(slotId)}`);
+    },
+
     // Admin APIs
     getAdminAllocations() {
       return http().get('/api/admin/rental-allocations');

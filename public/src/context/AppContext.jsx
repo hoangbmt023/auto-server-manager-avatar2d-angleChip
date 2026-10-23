@@ -431,12 +431,13 @@ window.AppProvider = function AppProvider({ children }) {
     try {
       const data = await window.ApiClient.startAccount(id);
       if (!data.success && window.showAlert) window.showAlert(data.message || 'Lỗi khởi chạy nick', 'Lỗi Khởi Chạy', 'error');
+    } catch (err) {
+      if (window.showAlert) window.showAlert('Lỗi: ' + err.message, 'Lỗi Hệ Thống', 'error');
+    } finally {
       fetchAccounts();
       fetchStatus();
       fetchFiles();
       fetchProxies();
-    } catch (err) {
-      if (window.showAlert) window.showAlert('Lỗi: ' + err.message, 'Lỗi Hệ Thống', 'error');
     }
   };
 
@@ -545,9 +546,124 @@ window.AppProvider = function AppProvider({ children }) {
     });
   };
 
-  const handleDeleteAccount = async (id, username) => {
+  const handleDeleteAccount = async (id, username, accountObj = null) => {
     if (!window.showConfirm) return;
-    const targetAcc = (accounts || []).find(a => a.id === id);
+    const targetAcc = accountObj || (accounts || []).find(a => a.id === id);
+
+    // XỬ LÝ DÀNH RIÊNG CHO SLOT BOT THUÊ (HỦY SLOT HOÀN TIỀN DƯ VỀ VÍ)
+    if (targetAcc && targetAcc.rentalPlan) {
+      let cancelFeePercent = 10;
+      try {
+        if (window.rentalService && window.rentalService.getPlans) {
+          const plansRes = await window.rentalService.getPlans();
+          if (plansRes?.data?.cancellationFeePercent !== undefined && plansRes?.data?.cancellationFeePercent !== null) {
+            const parsed = parseInt(plansRes.data.cancellationFeePercent, 10);
+            if (!isNaN(parsed) && parsed >= 0 && parsed <= 100) {
+              cancelFeePercent = parsed;
+            }
+          }
+        }
+      } catch (e) {}
+
+      const remainingMs = targetAcc.rentalExpiresAt ? Math.max(0, new Date(targetAcc.rentalExpiresAt).getTime() - Date.now()) : 0;
+      const remainingDays = Math.floor(remainingMs / 86400000);
+      const remainingHours = Math.floor((remainingMs % 86400000) / 3600000);
+      const timeStr = remainingDays > 0 ? `${remainingDays} ngày ${remainingHours} giờ` : `${remainingHours} giờ`;
+
+      const effectivePrice = targetAcc.effectivePriceMonth || 50000;
+      const remainingSeconds = Math.round(remainingMs / 1000);
+      const totalMonthSeconds = 30 * 86400;
+      const grossRefund = remainingSeconds > 0 ? Math.floor((remainingSeconds / totalMonthSeconds) * effectivePrice) : 0;
+      const cancelFee = Math.floor((grossRefund * cancelFeePercent) / 100);
+      const netRefund = Math.max(0, grossRefund - cancelFee);
+
+      const confirmContent = remainingMs > 0 ? (
+        <div className="plan-confirm-dialog">
+          <div>
+            Bạn đang yêu cầu hủy Slot bot <strong>[{username || targetAcc.id}]</strong> (Gói <strong>{targetAcc.rentalPlan}</strong>).
+          </div>
+
+          <div className="plan-confirm-notice">
+            <div className="plan-confirm-notice-header">
+              <window.Icon name="clock" size={16} /> Thông tin thời gian & Đơn giá:
+            </div>
+            <div>• Thời gian còn lại: <strong>{timeStr}</strong></div>
+            <div>• Đơn giá gói thực tế: <strong>{effectivePrice.toLocaleString('vi-VN')} đ/tháng</strong></div>
+            <div>
+              • Phí hủy dịch vụ ({cancelFeePercent}%):{' '}
+              <strong className={cancelFeePercent > 0 ? 'plan-refund-fee-danger' : 'plan-refund-fee-free'}>
+                {cancelFeePercent > 0 ? `-${cancelFee.toLocaleString('vi-VN')} đ` : 'Miễn phí (0%)'}
+              </strong>
+            </div>
+          </div>
+
+          <div className="plan-confirm-summary">
+            {cancelFeePercent > 0 && (
+              <div>
+                • Giá trị thời gian dư:{' '}
+                <span className="plan-refund-gross">
+                  {grossRefund.toLocaleString('vi-VN')} đ
+                </span>
+              </div>
+            )}
+            <div>
+              • TIỀN HOÀN VỀ VÍ THỰC NHẬN:{' '}
+              <strong className="plan-refund-net">
+                +{netRefund.toLocaleString('vi-VN')} đ
+              </strong>
+            </div>
+          </div>
+
+          <div className="plan-confirm-footer-note">
+            Sau khi hủy, tiến trình bot sẽ dừng, ghế Proxy được giải phóng và số tiền trên sẽ được cộng trực tiếp vào Số Dư Ví của bạn ngay lập tức.
+          </div>
+        </div>
+      ) : (
+        <div className="plan-confirm-dialog">
+          <div>
+            Slot bot <strong>[{username || targetAcc.id}]</strong> đã hết hạn thuê. Bạn có chắc muốn xóa slot này khỏi danh sách không?
+          </div>
+        </div>
+      );
+
+      const doCancelSlot = async () => {
+        try {
+          const res = await window.rentalService.cancelSlot(id);
+          if (res && res.data) {
+            fetchAccounts();
+            fetchFiles();
+            fetchProxies();
+            if (fetchBalance) fetchBalance();
+            if (window.showAlert) {
+              window.showAlert(res.message || 'Đã hủy slot và hoàn tiền về ví thành công!', 'Hủy Slot Thành Công', 'success');
+            }
+          } else {
+            if (window.showAlert) {
+              window.showAlert(res?.message || 'Không thể hủy slot', 'Lỗi', 'error');
+            }
+          }
+        } catch (err) {
+          if (window.showAlert) window.showAlert('Lỗi: ' + (err.response?.data?.message || err.message), 'Lỗi Hủy Slot', 'error');
+        }
+      };
+
+      if (typeof window.showDialog === 'function') {
+        window.showDialog({
+          mode: 'confirm',
+          type: 'warning',
+          title: 'Xác Nhận Hủy Slot & Hoàn Tiền',
+          message: confirmContent,
+          confirmText: 'Xác Nhận Hủy Slot',
+          cancelText: 'Giữ Lại Slot',
+          onConfirm: doCancelSlot
+        });
+        return;
+      }
+
+      window.showConfirm(confirmContent, doCancelSlot, 'Xác Nhận Hủy Slot & Hoàn Tiền', 'warning', 'Xác Nhận Hủy Slot', 'Giữ Lại Slot');
+      return;
+    }
+
     let confirmMsg = `Bạn có chắc muốn xóa tài khoản [${username}]?`;
 
     if (targetAcc && targetAcc.rentalExpiresAt) {
@@ -566,7 +682,7 @@ window.AppProvider = function AppProvider({ children }) {
           fetchFiles();
           fetchProxies();
           if (window.showAlert) {
-            window.showAlert(`Đã xóa bot [${username}] thành công. Bạn có thể khôi phục lại bất kỳ lúc nào tại mục Thuê Bot.`, 'Xóa Thành Công', 'success');
+            window.showAlert(`Đã xóa bot [${username}] thành công.`, 'Xóa Thành Công', 'success');
           }
         } else if (window.showAlert) {
           window.showAlert(data.message || 'Không thể xóa tài khoản', 'Lỗi Xóa Tài Khoản', 'error');
