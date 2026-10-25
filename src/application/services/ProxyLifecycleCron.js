@@ -1,6 +1,7 @@
 const AsyncMutex = require('../../shared/utils/AsyncMutex');
 const { uuidv7 } = require('../../shared/utils/uuid');
 const Proxy = require('../../domain/entities/Proxy');
+const ProxyChecker = require('../../infrastructure/network/ProxyChecker');
 
 /**
  * ProxyLifecycleCron (Application Layer - Domain Service)
@@ -17,7 +18,7 @@ const Proxy = require('../../domain/entities/Proxy');
  *     - If empty -> Mark EXPIRED and let proxy.vn auto-terminate (0 VND cost)
  */
 class ProxyLifecycleCron {
-  constructor({ proxyRepo, accountRepo, multiBotManager, proxyVnApiClient = null, sseEventBus = null, dbPool = null, mutex = null }) {
+  constructor({ proxyRepo, accountRepo, multiBotManager, proxyVnApiClient = null, sseEventBus = null, dbPool = null, mutex = null, settingRepo = null }) {
     this.proxyRepo = proxyRepo;
     this.accountRepo = accountRepo;
     this.multiBotManager = multiBotManager;
@@ -25,6 +26,7 @@ class ProxyLifecycleCron {
     this.sseEventBus = sseEventBus;
     this.dbPool = dbPool;
     this.mutex = mutex || AsyncMutex.globalAllocationMutex || new AsyncMutex('proxy-lifecycle-cron');
+    this.settingRepo = settingRepo;
     this.timer = null;
     this.isRunning = false;
   }
@@ -63,6 +65,7 @@ class ProxyLifecycleCron {
         await this._phase1ReleaseExpiredBots();
         await this._phase2SyncDrainingStatus();
         await this._phase3WaterfallMigrationAndRenewal();
+        await this._phase4ReclaimDirectIpBots();
       } catch (err) {
         console.error('❌ [ProxyLifecycleCron] Ngoại lệ trong vòng quét:', err.message);
       } finally {
@@ -198,13 +201,16 @@ class ProxyLifecycleCron {
       }
 
       // 3. Đếm lại số lượng nick còn kẹt lại (stuck_bots)
-      // CHỐNG THẤT THOÁT TIỀN: Chỉ gia hạn Proxy nếu có ít nhất 1 nick kẹt lại CÒN HẠN THUÊ Ý NGHĨA (> 6 giờ)
+      // CHỐNG THẤT THOÁT TIỀN: Chỉ gia hạn Proxy nếu còn bất kỳ nick nào có hạn thuê
+      // sống lâu hơn hạn của Proxy hiện tại (account.rentalExpiresAt > dyingProxy.expiresAt)
       const refreshedAccounts = await this.accountRepo.findAll();
+      const dyingProxyExpiresMs = dyingProxy.expiresAt ? new Date(dyingProxy.expiresAt).getTime() : now;
       const stuckBots = refreshedAccounts.filter(a => {
         if (a.proxyId !== dyingProxy.id) return false;
         if (typeof a.isDeleted === 'function' && a.isDeleted()) return false;
         if (typeof a.isRentalExpired === 'function' && a.isRentalExpired()) return false;
-        if (a.rentalExpiresAt && new Date(a.rentalExpiresAt).getTime() <= now + 6 * 3600 * 1000) return false;
+        // Bỏ qua các nick sẽ hết hạn trước hoặc cùng lúc với Proxy
+        if (a.rentalExpiresAt && new Date(a.rentalExpiresAt).getTime() <= dyingProxyExpiresMs) return false;
         return true;
       });
 
@@ -219,15 +225,26 @@ class ProxyLifecycleCron {
         continue;
       }
 
-      // TRƯỜNG HỢP B: Vẫn còn nick kẹt lại -> Gia hạn Proxy thêm 30 ngày để duy trì bot của khách
+      // TRƯỜNG HỢP B: Vẫn còn nick kẹt lại -> Gia hạn Proxy để duy trì bot của khách
       let renewed = false;
       if (this.proxyVnApiClient && dyingProxy.externalId) {
         try {
-          console.log(`💰 [ProxyLifecycleCron] Gia hạn Proxy [${dyingProxy.name}] (externalId: ${dyingProxy.externalId}) thêm 30 ngày vì còn ${stuckBots.length} nick cần duy trì.`);
+          let renewDays = 30;
+          if (this.settingRepo) {
+            try {
+              const configuredPeriod = await this.settingRepo.get('proxy_vn_default_period');
+              if (configuredPeriod) {
+                const parsed = parseInt(configuredPeriod, 10);
+                if (!isNaN(parsed) && parsed >= 1) renewDays = Math.min(365, parsed);
+              }
+            } catch (e) {}
+          }
+
+          console.log(`💰 [ProxyLifecycleCron] Gia hạn Proxy [${dyingProxy.name}] (externalId: ${dyingProxy.externalId}) thêm ${renewDays} ngày vì còn ${stuckBots.length} nick cần duy trì.`);
           const renewRes = await this.proxyVnApiClient.renewProxy({
             externalId: dyingProxy.externalId,
             category: dyingProxy.proxyCategory || 'DatacenterA',
-            days: 30
+            days: renewDays
           });
 
           await this.proxyRepo.updateLifecycle(dyingProxy.id, {
@@ -319,12 +336,27 @@ class ProxyLifecycleCron {
 
   async _autoPurchaseReplacementProxy(dyingProxy) {
     if (!this.proxyVnApiClient) return null;
-    const category = dyingProxy.proxyCategory || 'DatacenterA';
-    const type = dyingProxy.type || 'SOCKS5';
+    let category = dyingProxy.proxyCategory || 'DatacenterA';
+    let type = dyingProxy.type || 'SOCKS5';
+    let periodDays = 30;
+
+    if (this.settingRepo) {
+      try {
+        const cat = await this.settingRepo.get('proxy_vn_category');
+        if (cat) category = cat;
+        const period = await this.settingRepo.get('proxy_vn_default_period');
+        if (period) {
+          const p = parseInt(period, 10);
+          if (!isNaN(p) && p >= 1) periodDays = Math.min(365, p);
+        }
+        const pType = await this.settingRepo.get('proxy_vn_default_type');
+        if (pType) type = pType.toUpperCase();
+      } catch (e) {}
+    }
 
     const buyResult = await this.proxyVnApiClient.buyProxy({
       category,
-      days: 30,
+      days: periodDays,
       type
     });
 
@@ -349,6 +381,71 @@ class ProxyLifecycleCron {
     await this.proxyRepo.save(newProxy);
     console.log(`🛒 [ProxyLifecycleCron] Đã mua thành công Proxy thay thế [${newProxy.host}:${newProxy.port}] (ID: ${newProxy.externalId}).`);
     return newProxy;
+  }
+
+  // ===========================================================================
+  // PHA 4: TỰ ĐỘNG THU HỒI NICK CHẠY TẠM DIRECT IP VỀ PROXY ĐÃ CÀI ĐẶT
+  // ===========================================================================
+  /**
+   * Tôn trọng cài đặt của Admin & Khôi phục luồng an toàn:
+   * - Các nick có proxyId === null trong DB: do Admin chủ đích cho chạy Direct IP -> Giữ nguyên, không tự ý gán Proxy.
+   * - Chỉ quét những nick ĐANG CHẠY mà trong DB CÓ proxyId !== null (được thiết lập dùng Proxy),
+   *   nhưng trên RAM tiến trình SingleBotProcess đang phải fallback chạy Direct IP (usingDirectIp === true).
+   * - Khi Proxy của nick (acc.proxyId) đã phục hồi hoặc sống khỏe (testProxy thành công)
+   *   -> Gọi restartAccount với Staggered Delay (giãn cách 3.5s) để đưa bot trở lại Proxy an toàn.
+   */
+  async _phase4ReclaimDirectIpBots() {
+    if (!this.multiBotManager || !this.accountRepo || !this.proxyRepo) return;
+
+    try {
+      const allAccounts = await this.accountRepo.findAll();
+      const allProxies = await this.proxyRepo.findAll();
+      const runningStatuses = this.multiBotManager.getAllStatuses ? this.multiBotManager.getAllStatuses() : { instances: {} };
+      const instances = runningStatuses.instances || {};
+
+      let reclaimStaggerMs = 0;
+
+      for (const acc of allAccounts) {
+        // 1. Tôn trọng cấu hình Admin: Nếu trong DB proxyId === null -> Bỏ qua hoàn toàn
+        if (!acc.proxyId) continue;
+
+        // 2. Kiểm tra xem bot có đang chạy thực tế hay không
+        const inst = instances[acc.id];
+        if (!inst || !inst.running) continue;
+
+        // 3. Chỉ xử lý nick đang phải chạy tạm Direct IP trên RAM
+        if (!inst.usingDirectIp) continue;
+
+        // 4. Tìm Proxy được gắn trong DB của nick
+        const targetProxy = allProxies.find(p => p.id === acc.proxyId);
+        if (!targetProxy || targetProxy.status === 'EXPIRED' || targetProxy.isExpired) continue;
+
+        // 5. Kiểm tra xem Proxy này đã sống khỏe trở lại chưa
+        const testResult = await ProxyChecker.testProxy(targetProxy.toJSON ? targetProxy.toJSON() : targetProxy, 2500, 2, 200);
+        if (!testResult.isExpired && testResult.latencyMs > 0) {
+          console.log(`🛡️ [Direct-IP Reclaim] Proxy [${targetProxy.name || targetProxy.host}] của nick [${acc.username}] đã hoạt động trở lại (${testResult.latencyMs}ms). Lên lịch chuyển về Proxy an toàn sau +${reclaimStaggerMs}ms...`);
+
+          const delay = reclaimStaggerMs;
+          reclaimStaggerMs += 3500; // Giãn cách 3.5s giữa các lần restart bot
+
+          setTimeout(async () => {
+            try {
+              console.log(`🔄 [Direct-IP Reclaim Exec] Khởi động lại bot [${acc.username}] để đưa về Proxy [${targetProxy.host}:${targetProxy.port}]...`);
+              if (typeof this.multiBotManager.restartAccount === 'function') {
+                await this.multiBotManager.restartAccount(acc.id);
+              } else {
+                await this.multiBotManager.stopAccount(acc.id);
+                await this.multiBotManager.startAccount(acc.id);
+              }
+            } catch (reclaimErr) {
+              console.error(`[Direct-IP Reclaim] Lỗi khi restart bot [${acc.username}] về Proxy:`, reclaimErr.message);
+            }
+          }, delay);
+        }
+      }
+    } catch (err) {
+      console.warn(`[ProxyLifecycleCron] Lỗi trong Pha 4 Reclaim Direct IP:`, err.message);
+    }
   }
 }
 

@@ -130,6 +130,7 @@ class ProxyService {
       const stuckBots = [];
       const currentGlobalAccounts = [...allAccounts];
 
+      let deleteEvacuateStaggerMs = 0;
       for (const bot of livingBots) {
         const sId = parseInt(bot.serverId, 10) === 1 ? 1 : 0;
         const targetProxy = availableProxies.find(p => {
@@ -148,14 +149,20 @@ class ProxyService {
           const idx = currentGlobalAccounts.findIndex(a => a.id === bot.id);
           if (idx !== -1) currentGlobalAccounts[idx] = bot;
 
-          // Nếu bot đang chạy, khởi động lại trên Proxy mới
+          // Nếu bot đang chạy, khởi động lại trên Proxy mới có giãn cách Staggered Delay
           if (this.multiBotManager && this.multiBotManager.isAccountRunning(bot.id)) {
-            this.multiBotManager.stopAccount(bot.id);
+            const thisDelay = deleteEvacuateStaggerMs;
+            deleteEvacuateStaggerMs += 3500;
             setTimeout(async () => {
               try {
-                await this.multiBotManager.startAccount(bot.id);
+                if (typeof this.multiBotManager.restartAccount === 'function') {
+                  await this.multiBotManager.restartAccount(bot.id);
+                } else {
+                  await this.multiBotManager.stopAccount(bot.id);
+                  await this.multiBotManager.startAccount(bot.id);
+                }
               } catch (e) {}
-            }, 1200);
+            }, thisDelay);
           }
         } else {
           stuckBots.push(bot);

@@ -23,6 +23,7 @@ window.SettingsModal = function SettingsModal({ config, theme = 'dark', setTheme
   const [port, setPort] = useSettingsModalState(config?.port || 3001);
   const [rmsMode, setRmsMode] = useSettingsModalState(config?.rmsMode || 'file');
   const [maxMemory, setMaxMemory] = useSettingsModalState(config?.maxMemoryMb || 256);
+  const [maxUploadJarSize, setMaxUploadJarSize] = useSettingsModalState(config?.maxUploadJarSizeMb || 10);
   const [autoRestart, setAutoRestart] = useSettingsModalState(Boolean(config?.autoRestart));
   const [autoStart, setAutoStart] = useSettingsModalState(Boolean(config?.autoStart));
   const [password, setPassword] = useSettingsModalState('');
@@ -112,8 +113,9 @@ window.SettingsModal = function SettingsModal({ config, theme = 'dark', setTheme
       feErrors.port = `Cổng Port [${port || ''}] không hợp lệ (1 - 65535)!`;
     }
     const memNum = parseInt(maxMemory, 10);
-    if (isNaN(memNum) || memNum < 64) {
-      feErrors.maxMemory = 'Giới hạn RAM phải tối thiểu từ 64MB trở lên!';
+    const uploadNum = parseInt(maxUploadJarSize, 10);
+    if (isNaN(uploadNum) || uploadNum < 1 || uploadNum > 500) {
+      feErrors.maxUploadJarSize = 'Giới hạn dung lượng tải lên JAR phải từ 1MB đến 500MB!';
     }
 
     if (Object.keys(feErrors).length > 0) {
@@ -128,6 +130,7 @@ window.SettingsModal = function SettingsModal({ config, theme = 'dark', setTheme
       port: portNum || 3001,
       rmsMode,
       maxMemoryMb: memNum || 512,
+      maxUploadJarSizeMb: uploadNum || 10,
       autoRestart,
       autoStart
     };
@@ -437,6 +440,27 @@ window.SettingsModal = function SettingsModal({ config, theme = 'dark', setTheme
                 <div className="field-error-msg">
                   <window.Icon name="alert-circle" size={13} color="var(--apple-red)" />
                   <span>{fieldErrors.maxMemory}</span>
+                </div>
+              )}
+            </div>
+            <div className="form-group">
+              <label>Giới hạn tải lên JAR (MB):</label>
+              <input
+                type="number"
+                className={`form-control ${fieldErrors.maxUploadJarSize ? 'input-error' : ''}`}
+                value={maxUploadJarSize}
+                onChange={e => {
+                  setMaxUploadJarSize(e.target.value);
+                  clearFieldError('maxUploadJarSize');
+                }}
+                min="1"
+                max="500"
+                placeholder="10"
+              />
+              {fieldErrors.maxUploadJarSize && (
+                <div className="field-error-msg">
+                  <window.Icon name="alert-circle" size={13} color="var(--apple-red)" />
+                  <span>{fieldErrors.maxUploadJarSize}</span>
                 </div>
               )}
             </div>

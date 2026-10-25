@@ -8,9 +8,9 @@
  */
 const USER_PLAN_TABS = [
   { id: 'ALL', name: 'Tất Cả Gói', subtitle: 'Toàn Bộ Tài Khoản', icon: 'layers', badgeClass: 'badge-plan-all' },
-  { id: 'UPXU', name: 'Gói Up Xu', subtitle: 'Farm & Up Xu Tự Động', icon: 'sprout', badgeClass: 'badge-plan-upxu' },
-  { id: 'FULL', name: 'Gói Full', subtitle: 'Full Tính Năng Cao Cấp', icon: 'zap', badgeClass: 'badge-plan-full' },
-  { id: 'FISH', name: 'Gói Câu Cá', subtitle: 'Auto Câu Cá Chuyên Nghiệp', icon: 'fish', badgeClass: 'badge-plan-fish' }
+  { id: 'FISH', name: 'Auto Câu Cá', subtitle: 'Auto Câu Cá Chuyên Nghiệp', icon: 'fish', badgeClass: 'badge-plan-fish' },
+  { id: 'UPXU', name: 'Auto Up Kim Cương', subtitle: 'Farm & Đào Kim Cương', icon: 'gem', badgeClass: 'badge-plan-upxu' },
+  { id: 'FULL', name: 'Full Auto', subtitle: 'Full Tính Năng Cao Cấp', icon: 'zap', badgeClass: 'badge-plan-full' }
 ];
 
 window.UserDashboardPage = function UserDashboardPage() {

@@ -1,9 +1,10 @@
 const RegisterUserRequestDto = require('../../../application/dtos/auth/RegisterUserRequestDto');
 const LoginUserRequestDto = require('../../../application/dtos/auth/LoginUserRequestDto');
 const ApiResponse = require('../../../application/dtos/common/ApiResponse');
-const { UnauthorizedException } = require('../../../domain/errors');
+const { UnauthorizedException, TooManyRequestsException } = require('../../../domain/errors');
 const { sendErrorResponse } = require('../helpers/errorHandler');
 const cookieHelper = require('../helpers/cookieHelper');
+const { defaultRateLimiter } = require('../../../infrastructure/security/RateLimiter');
 
 /**
  * AuthController (Interface Layer)
@@ -19,8 +20,18 @@ class AuthController {
     return sendErrorResponse(res, sendJson, err);
   }
 
+  _getClientIp(req) {
+    return req.headers['x-forwarded-for']?.split(',')[0]?.trim() || req.socket?.remoteAddress || 'unknown';
+  }
+
   async register(req, res, sendJson, parseJsonBody) {
     try {
+      const clientIp = this._getClientIp(req);
+      const rateLimit = defaultRateLimiter.consume(`register:${clientIp}`, 5, 60000); // 5 lần/phút/IP
+      if (!rateLimit.isAllowed) {
+        throw new TooManyRequestsException(`Bạn thao tác quá nhanh! Vui lòng thử lại sau ${rateLimit.retryAfterSeconds} giây.`);
+      }
+
       const body = await parseJsonBody(req);
       const dto = new RegisterUserRequestDto(body);
       const result = await this.authService.register(dto);
@@ -33,6 +44,12 @@ class AuthController {
 
   async sendOtp(req, res, sendJson, parseJsonBody) {
     try {
+      const clientIp = this._getClientIp(req);
+      const rateLimit = defaultRateLimiter.consume(`send-otp:${clientIp}`, 5, 60000); // 5 lần/phút/IP
+      if (!rateLimit.isAllowed) {
+        throw new TooManyRequestsException(`Bạn gửi yêu cầu nhận mã OTP quá nhanh! Vui lòng thử lại sau ${rateLimit.retryAfterSeconds} giây.`);
+      }
+
       const body = await parseJsonBody(req);
       const result = await this.authService.sendOtp(body);
 

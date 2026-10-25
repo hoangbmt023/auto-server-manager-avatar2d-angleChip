@@ -31,23 +31,23 @@ class ManageRentalAllocationsUseCase {
     const defaultRules = {
       plans: {
         UPXU: {
-          name: 'Auto Up Xu Nông Trại',
+          name: 'Auto Up Kim Cương',
           priceMonth: 50000,
           modType: 'UPXU',
           defaultFileId: 'file_1',
-          desc: 'Gói cày xu cơ bản tiết kiệm chi phí cho tài khoản nông dân',
+          desc: 'Gói tự động cày cuốc, đào khoáng sản và bán kim cương',
           features: ['farm', 'upThue']
         },
         FULL: {
-          name: 'Auto Full chức năng',
+          name: 'Full Auto',
           priceMonth: 90000,
           modType: 'CHIPMIX',
           defaultFileId: 'file_1',
-          desc: 'Gói toàn năng hỗ trợ đầy đủ mọi hoạt động kiếm xu và ngọc tự động',
+          desc: 'Gói toàn năng hỗ trợ đầy đủ mọi hoạt động Auto Câu Cá, Đào KC & Farm',
           features: ['farm', 'fish', 'diamond', 'sellOre', 'upThue']
         },
         FISH: {
-          name: 'Auto Câu Cá Chuyên Nghiệp',
+          name: 'Auto Câu Cá',
           priceMonth: 60000,
           modType: 'FISH',
           defaultFileId: 'file_1',

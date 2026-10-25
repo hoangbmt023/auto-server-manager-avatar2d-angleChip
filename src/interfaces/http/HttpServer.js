@@ -152,7 +152,8 @@ class HttpServer {
       proxyVnApiClient: this.proxyVnApiClient,
       sseEventBus: this.sseEventBus,
       dbPool: this.dbPool,
-      mutex: this.allocationMutex
+      mutex: this.allocationMutex,
+      settingRepo: this.settingRepo
     });
 
     // Use Cases
@@ -198,7 +199,7 @@ class HttpServer {
     this.authController = new AuthController(this.authService);
     this.accountController = new AccountController(this.accountService, this.settingRepo, this.fileRepo, this.sseEventBus);
     this.botController = new BotController(this.multiBotManager, this.sseEventBus, this.accountRepo, this.fileRepo, this.settingRepo);
-    this.fileController = new FileController(this.fileProfileService, this.fileRepo, this.sseEventBus);
+    this.fileController = new FileController(this.fileProfileService, this.fileRepo, this.sseEventBus, this.settingRepo);
     this.proxyController = new ProxyController(this.proxyService, this.sseEventBus, this.proxyVnApiClient, this.settingRepo);
     this.systemController = new SystemController(this.settingRepo, this.sseEventBus);
     this.rentalController = new RentalController(
@@ -253,12 +254,26 @@ class HttpServer {
     if (safePath === '/' || !safePath) safePath = '/index.html';
 
     const normalized = path.normalize(safePath).replace(/^(\.\.[\/\\])+/, '');
-    const filePath = path.join(this.publicDir, normalized);
+    const resolvedPath = path.resolve(this.publicDir, normalized.replace(/^[\/\\]+/, ''));
+    const resolvedPublicDir = path.resolve(this.publicDir);
 
-    if (!filePath.startsWith(this.publicDir)) {
+    const isInsidePublic = process.platform === 'win32'
+      ? resolvedPath.toLowerCase().startsWith(resolvedPublicDir.toLowerCase())
+      : resolvedPath.startsWith(resolvedPublicDir);
+
+    if (!isInsidePublic) {
       res.writeHead(403);
       return res.end('Forbidden');
     }
+
+    // Chặn hoàn toàn việc truy cập các dotfile ẩn (.env, .git, v.v.)
+    const baseName = path.basename(resolvedPath);
+    if (baseName.startsWith('.')) {
+      res.writeHead(403);
+      return res.end('Forbidden');
+    }
+
+    const filePath = resolvedPath;
 
     fs.stat(filePath, (err, stats) => {
       if (err || !stats.isFile()) {

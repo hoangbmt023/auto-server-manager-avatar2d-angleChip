@@ -135,10 +135,10 @@ class CancelSlotUseCase {
       // 4. DATABASE TRANSACTION: Thực thi trọn gói tất cả các thao tác DB
       if (this.transactionManager) {
         await this.transactionManager.withTransaction(async (conn) => {
-          await this.accountRepo.save(account);
+          await this.accountRepo.save(account, conn);
           if (refundAmount > 0) {
-            await this.userRepo.updateBalance(user.id, refundAmount);
-            await this.transactionRepo.save(tx);
+            await this.userRepo.updateBalance(user.id, refundAmount, conn);
+            await this.transactionRepo.save(tx, conn);
           }
         });
       } else {

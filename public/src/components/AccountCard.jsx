@@ -188,8 +188,8 @@ window.AccountCard = function AccountCard({
                         : (account.rentalPlan === 'FISH' ? 'tag-teal' : 'tag-green')
                     }`}
                   >
-                    <window.Icon name={account.rentalPlan === 'FULL' ? 'zap' : account.rentalPlan === 'FISH' ? 'fish' : 'sprout'} size={11} />
-                    {account.rentalPlan === 'FULL' ? 'Gói Full' : (account.rentalPlan === 'FISH' ? 'Gói Câu Cá' : (account.rentalPlan === 'UPXU' ? 'Gói Up Xu' : (account.rentalPlanName || `Gói ${account.rentalPlan}`)))}
+                    <window.Icon name={account.rentalPlan === 'FULL' ? 'zap' : account.rentalPlan === 'FISH' ? 'fish' : 'gem'} size={11} />
+                    {account.rentalPlan === 'FULL' ? 'Full Auto' : (account.rentalPlan === 'FISH' ? 'Auto Câu Cá' : (account.rentalPlan === 'UPXU' ? 'Auto Up Kim Cương' : (account.rentalPlanName || `Gói ${account.rentalPlan}`)))}
                   </span>
                 </>
               )}

@@ -222,7 +222,7 @@
   gap: 4px;
 }
 
-.file-tab-badge.badge-chipmix,
+.file-tab-badge.badge-gem,
 .file-tab-badge.badge-plan-upxu {
   background: rgba(52, 211, 153, 0.12);
   color: var(--apple-green);
@@ -234,7 +234,7 @@
   color: var(--apple-teal);
 }
 
-.file-tab-badge.badge-gem,
+.file-tab-badge.badge-chipmix,
 .file-tab-badge.badge-plan-full {
   background: rgba(191, 90, 242, 0.12);
   color: var(--apple-purple);
