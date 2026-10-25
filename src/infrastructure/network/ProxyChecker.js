@@ -85,20 +85,26 @@ class ProxyChecker {
   }
 
   /**
-   * Chờ Proxy mới mua kích hoạt và mở cổng SOCKS5/HTTP từ nhà mạng
-   * Thử lại mỗi intervalMs cho đến khi thành công hoặc chạm ngưỡng maxWaitMs
+   * Chờ Proxy mới mua hoặc đang kích hoạt mở cổng SOCKS5/HTTP từ nhà mạng.
+   * Thử lại mỗi intervalMs cho đến khi thành công hoặc chạm ngưỡng maxWaitMs.
+   * Nếu có cung cấp proxyVnApiClient & proxyRepo: Cứ sau mỗi 3 lần thử thất bại sẽ tự động gọi API proxy.vn
+   * để cập nhật ip/port mới nhất nếu nhà mạng vừa hoàn tất cấp/đổi IP.
+   *
    * @param {Object} proxy
-   * @param {number} maxWaitMs - Thời gian chờ tối đa (mặc định 15s)
-   * @param {number} intervalMs - Khoảng cách mỗi lần thử (mặc định 2.5s)
+   * @param {number} maxWaitMs - Thời gian chờ tối đa (mặc định 60000ms)
+   * @param {number} intervalMs - Khoảng cách mỗi lần thử (mặc định 5000ms)
+   * @param {Object} [syncContext] - { proxyVnApiClient, proxyRepo, multiBotManager, accountRepo }
    * @returns {Promise<{ ready: boolean, latencyMs: number, message: string }>}
    */
-  static async waitForProxyReady(proxy, maxWaitMs = 15000, intervalMs = 2500) {
+  static async waitForProxyReady(proxy, maxWaitMs = 60000, intervalMs = 5000, syncContext = null) {
     if (!proxy) return { ready: false, latencyMs: 0, message: 'Dữ liệu Proxy không tồn tại' };
     const startTime = Date.now();
     let lastResult = null;
+    let attemptCounter = 0;
 
     while (Date.now() - startTime < maxWaitMs) {
-      lastResult = await this.testSingleAttempt(proxy, 2000);
+      attemptCounter++;
+      lastResult = await this.testSingleAttempt(proxy, 3000);
       if (lastResult.success && !lastResult.isExpired) {
         return {
           ready: true,
@@ -106,6 +112,25 @@ class ProxyChecker {
           message: 'Proxy đã mở cổng kết nối thành công!'
         };
       }
+
+      // Cứ sau mỗi 3 lần thử socket thất bại (~15s), thử gọi API proxy.vn để kiểm tra xem đã có IP/Port mới cấp chưa
+      if (attemptCounter % 3 === 0 && syncContext && syncContext.proxyVnApiClient && proxy.externalId) {
+        try {
+          const syncRes = await this.syncAndRecoverProxy({
+            proxy,
+            proxyVnApiClient: syncContext.proxyVnApiClient,
+            proxyRepo: syncContext.proxyRepo,
+            multiBotManager: syncContext.multiBotManager,
+            accountRepo: syncContext.accountRepo
+          });
+          if (syncRes && syncRes.updated) {
+            console.log(`📡 [waitForProxyReady] Nhà mạng đã cập nhật IP/Port mới cho Proxy [${proxy.name || proxy.externalId}]: ${proxy.host}:${proxy.port}`);
+          }
+        } catch (e) {
+          // Bỏ qua lỗi tạm thời khi sync
+        }
+      }
+
       await new Promise(resolve => setTimeout(resolve, intervalMs));
     }
 
@@ -114,6 +139,76 @@ class ProxyChecker {
       latencyMs: 0,
       message: lastResult ? lastResult.message : 'Timeout chờ mở cổng từ nhà mạng'
     };
+  }
+
+  /**
+   * Đồng bộ trạng thái thực tế từ API proxy.vn khi Proxy rớt mạng tạm thời hoặc đổi IP.
+   * Nếu phát hiện IP/Port hoặc Auth đã thay đổi so với DB -> Cập nhật DB và khởi động lại bot.
+   *
+   * @param {Object} params - { proxy, proxyVnApiClient, proxyRepo, multiBotManager, accountRepo }
+   * @returns {Promise<{ updated: boolean, proxy: Object, message: string }>}
+   */
+  static async syncAndRecoverProxy({ proxy, proxyVnApiClient, proxyRepo, multiBotManager, accountRepo }) {
+    if (!proxy || !proxyVnApiClient || !proxy.externalId) {
+      return { updated: false, proxy, message: 'Thiếu thông tin hoặc API client để đồng bộ' };
+    }
+
+    try {
+      const list = await proxyVnApiClient.getProxyList({
+        category: proxy.proxyCategory || 'DatacenterA',
+        idproxy: proxy.externalId
+      });
+
+      const matched = Array.isArray(list) ? list.find(item =>
+        String(item.idproxy || item.id || '').trim() === String(proxy.externalId).trim()
+      ) : null;
+
+      if (!matched) {
+        return { updated: false, proxy, message: 'Không tìm thấy proxy trên danh sách proxy.vn' };
+      }
+
+      const vnIp = String(matched.ip || matched.proxy || '').trim();
+      const isSocks = (proxy.type || 'socks').toLowerCase().startsWith('sock');
+      const vnPortRaw = isSocks
+        ? (matched.port_socks5 || matched.port || matched.port_http)
+        : (matched.port_http || matched.port || matched.port_socks5);
+      const vnPort = parseInt(vnPortRaw, 10);
+      const vnUser = String(matched.user || matched.username || '').trim();
+      const vnPass = String(matched.pass || matched.password || '').trim();
+
+      const hasChanged = (vnIp && vnIp !== proxy.host) ||
+                         (vnPort && !isNaN(vnPort) && vnPort !== proxy.port) ||
+                         (vnUser && vnUser !== (proxy.username || '')) ||
+                         (vnPass && vnPass !== (proxy.password || ''));
+
+      if (hasChanged) {
+        console.log(`🔄 [ProxyChecker] Đồng bộ thay đổi từ proxy.vn cho [${proxy.name || proxy.externalId}]: ${vnIp}:${vnPort} (Cũ: ${proxy.host}:${proxy.port})`);
+        if (vnIp) proxy.host = vnIp;
+        if (!isNaN(vnPort)) proxy.port = vnPort;
+        if (vnUser) proxy.username = vnUser;
+        if (vnPass) proxy.password = vnPass;
+        proxy.markActive();
+
+        if (proxyRepo && typeof proxyRepo.save === 'function') {
+          await proxyRepo.save(proxy);
+        }
+
+        if (multiBotManager && accountRepo) {
+          await this.restartBotsOnProxy({ proxy, multiBotManager, accountRepo });
+        }
+
+        return {
+          updated: true,
+          proxy,
+          message: `Đã tự động cập nhật IP/Port từ proxy.vn (${vnIp}:${vnPort}) và khởi động lại bot!`
+        };
+      }
+
+      return { updated: false, proxy, message: 'Thông tin trên proxy.vn không đổi' };
+    } catch (err) {
+      console.warn(`⚠️ [ProxyChecker] Lỗi khi đồng bộ proxy.vn: ${err.message}`);
+      return { updated: false, proxy, message: err.message };
+    }
   }
 
   /**
@@ -472,17 +567,26 @@ class ProxyChecker {
     try {
       const accounts = await accountRepo.findAll();
       const affected = accounts.filter(a => a.proxyId === proxy.id);
+      let staggerDelayMs = 0;
+
       for (const acc of affected) {
         if (multiBotManager.isAccountRunning(acc.id)) {
-          console.log(`🔄 [Auto-Restart] Khởi động lại bot [${acc.username}] với IP Proxy mới (${proxy.host}:${proxy.port})...`);
-          multiBotManager.stopAccount(acc.id);
+          const delayForThisBot = staggerDelayMs;
+          staggerDelayMs += 3500; // Giãn cách 3.5 giây giữa các nick tránh flood login lên server Avatar
+
           setTimeout(async () => {
             try {
-              await multiBotManager.startAccount(acc.id);
+              console.log(`🔄 [Auto-Restart Staggered +${delayForThisBot}ms] Khởi động lại bot [${acc.username}] với IP Proxy mới (${proxy.host}:${proxy.port})...`);
+              if (typeof multiBotManager.restartAccount === 'function') {
+                await multiBotManager.restartAccount(acc.id);
+              } else {
+                await multiBotManager.stopAccount(acc.id);
+                await multiBotManager.startAccount(acc.id);
+              }
             } catch (e) {
               console.error(`[Auto-Restart] Lỗi khởi động lại bot [${acc.username}]:`, e.message);
             }
-          }, 1200);
+          }, delayForThisBot);
         }
       }
     } catch (e) {

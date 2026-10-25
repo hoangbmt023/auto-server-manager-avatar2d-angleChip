@@ -19,7 +19,7 @@ window.FileTabsBar = function FileTabsBar({
           const isFish = !isChipMix && (f.modType === 'fish' || (!f.modType && f.gameJar && f.gameJar.toLowerCase().includes('fish')));
           const badgeClass = isChipMix ? 'badge-chipmix' : isFish ? 'badge-fish' : 'badge-gem';
           const badgeIcon = isChipMix ? 'zap' : isFish ? 'fish' : 'gem';
-          const badgeText = isChipMix ? 'ChipMix' : isFish ? 'Câu Cá' : 'Kim Cương';
+          const badgeText = isChipMix ? 'Full Auto' : isFish ? 'Auto Câu Cá' : 'Auto Up Kim Cương';
 
           return (
             <button

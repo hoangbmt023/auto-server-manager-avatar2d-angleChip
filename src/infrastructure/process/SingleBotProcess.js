@@ -226,7 +226,9 @@ class SingleBotProcess extends EventEmitter {
       args.push(`-Davatar.proxyHost=${proxy.host}`);
       args.push(`-Davatar.proxyPort=${proxy.port}`);
       args.push(`-Davatar.proxyType=${type}`);
+      this.usingDirectIp = false;
     } else {
+      this.usingDirectIp = true;
       this.emitLog('info', `🌐 [${this.account.username}] Đang chạy bằng IP Mặc định (Direct IP của máy chủ).`);
     }
 
@@ -578,6 +580,7 @@ class SingleBotProcess extends EventEmitter {
       startTime: this.startTime,
       uptimeSeconds,
       restartAttempts: this.restartAttempts,
+      usingDirectIp: Boolean(this.usingDirectIp),
       accountState: isRunning ? this.accountState : { state: 'offline', message: 'Đang tắt', isError: false, isMaintenance: false },
       autoState: isRunning ? this.autoState : { isRunning: false, autoType: null, status: 'idle', message: '' },
       stats: this.playerStats || {

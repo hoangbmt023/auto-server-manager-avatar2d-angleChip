@@ -4,7 +4,147 @@
  * Realtime Health Check, Expiration Flags, Status Filtering & Smart Proxy.vn Auto Allocation.
  * ZERO Inline Styles - 100% Modals CSS Semantic Classes & Full Mobile Responsive.
  */
-const { useState: useProxyModalState, useEffect: useProxyModalEffect, useCallback: useProxyModalCallback } = React;
+const { useState: useProxyModalState, useEffect: useProxyModalEffect, useCallback: useProxyModalCallback, useRef: useProxyModalRef } = React;
+
+/**
+ * Custom Dropdown Select for Proxy Packages with Lucide Vector Icons and Group Indentation
+ */
+function ProxyCategorySelect({ value, onChange }) {
+  const [isOpen, setIsOpen] = useProxyModalState(false);
+  const [dropUp, setDropUp] = useProxyModalState(false);
+  const wrapperRef = useProxyModalRef(null);
+
+  const categories = [
+    {
+      group: 'Datacenter Việt Nam (Tối ưu Game)',
+      items: [
+        { value: 'DatacenterC', label: 'DatacenterC', desc: 'Share 3 (Tiết kiệm nhất)' },
+        { value: 'DatacenterB', label: 'DatacenterB', desc: 'Share 1 (Độc lập 1 người)' },
+        { value: 'DatacenterA', label: 'DatacenterA', desc: 'Dùng riêng Private' }
+      ]
+    },
+    {
+      group: 'Dân cư Tĩnh Việt Nam (Share 3 IP Nhà Mạng)',
+      items: [
+        { value: 'FPT', label: 'FPT', desc: 'Dân cư tĩnh FPT Share 3' },
+        { value: 'Viettel', label: 'Viettel', desc: 'Dân cư tĩnh Viettel Share 3' },
+        { value: 'VNPT', label: 'VNPT', desc: 'Dân cư tĩnh VNPT Share 3' }
+      ]
+    },
+    {
+      group: 'Dân cư Tĩnh Dùng Riêng (100% Private)',
+      items: [
+        { value: 'PRIVATE', label: 'PRIVATE', desc: 'Dân cư tĩnh dùng riêng 100%' }
+      ]
+    },
+    {
+      group: 'Proxy Quốc Tế',
+      items: [
+        { value: 'US', label: 'US', desc: 'Datacenter Mỹ (Giá tốt nhất)' }
+      ]
+    }
+  ];
+
+  // Tìm item đang được chọn
+  let currentItem = null;
+  for (const g of categories) {
+    const found = g.items.find(it => it.value === value);
+    if (found) { currentItem = found; break; }
+  }
+
+  const handleToggle = () => {
+    if (!isOpen && wrapperRef.current) {
+      const rect = wrapperRef.current.getBoundingClientRect();
+      const modalBody = wrapperRef.current.closest('.modal-body') || wrapperRef.current.closest('.modal-card');
+      
+      let spaceBelow = window.innerHeight - rect.bottom;
+      let spaceAbove = rect.top;
+      
+      if (modalBody) {
+        const bodyRect = modalBody.getBoundingClientRect();
+        spaceBelow = bodyRect.bottom - rect.bottom;
+        spaceAbove = rect.top - bodyRect.top;
+      }
+      
+      // Nếu phía dưới không đủ chiều cao hiển thị menu (< 240px) và phía trên thoáng hơn thì đổ lên
+      setDropUp(spaceBelow < 240 && spaceAbove > spaceBelow);
+    }
+    setIsOpen(!isOpen);
+  };
+
+  useProxyModalEffect(() => {
+    function handleClickOutside(event) {
+      if (wrapperRef.current && !wrapperRef.current.contains(event.target)) {
+        setIsOpen(false);
+      }
+    }
+    if (isOpen) {
+      document.addEventListener('mousedown', handleClickOutside);
+      document.addEventListener('touchstart', handleClickOutside);
+    }
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+      document.removeEventListener('touchstart', handleClickOutside);
+    };
+  }, [isOpen]);
+
+  return (
+    <div
+      className={`custom-select-wrapper ${isOpen ? 'is-open' : ''}`}
+      ref={wrapperRef}
+      style={{ zIndex: isOpen ? 1000 : undefined }}
+    >
+      <div
+        className={`custom-select-control ${isOpen ? 'open' : ''}`}
+        onClick={handleToggle}
+        tabIndex="0"
+      >
+        <div className="custom-select-value">
+          {currentItem ? (
+            <span className="select-item-title">
+              <span>{currentItem.label} - {currentItem.desc}</span>
+            </span>
+          ) : (
+            <span className="select-placeholder">Chọn gói proxy...</span>
+          )}
+        </div>
+        <div className="custom-select-arrow">
+          <window.Icon name="chevronDown" size={13} color="var(--text-tertiary)" />
+        </div>
+      </div>
+
+      {isOpen && (
+        <div className={`custom-select-menu ${dropUp ? 'drop-up' : 'drop-down'}`}>
+          {categories.map((grp, gIdx) => (
+            <React.Fragment key={gIdx}>
+              <div className="custom-select-group-header">
+                <span>{grp.group}</span>
+              </div>
+              {grp.items.map(it => (
+                <div
+                  key={it.value}
+                  className={`custom-select-item is-child ${it.value === value ? 'selected' : ''}`}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onChange(it.value);
+                    setIsOpen(false);
+                  }}
+                >
+                  <div className="select-item-main">
+                    <span className="select-item-title">{it.label}</span>
+                  </div>
+                  <div className="select-item-sub">
+                    {it.desc}
+                  </div>
+                </div>
+              ))}
+            </React.Fragment>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
 
 /**
  * Standalone popup box modal for Configuring Proxy.vn System Automation
@@ -165,17 +305,10 @@ function ProxySystemConfigModal({
           <div className="form-row">
             <div className="form-group">
               <label>Gói Proxy Mặc Định (Category):</label>
-              <select
-                className="form-control"
+              <ProxyCategorySelect
                 value={defaultCategory}
-                onChange={(e) => setDefaultCategory(e.target.value)}
-              >
-                <option value="DatacenterA">DatacenterA (IPv4 VN Viettel/FPT)</option>
-                <option value="DatacenterB">DatacenterB (IPv4 VN VNPT)</option>
-                <option value="Residential">Residential (Dân cư xoay IP)</option>
-                <option value="US">Datacenter Mỹ (US)</option>
-                <option value="SG">Datacenter Singapore (SG)</option>
-              </select>
+                onChange={(val) => setDefaultCategory(val)}
+              />
             </div>
 
             <div className="form-group">
@@ -209,15 +342,77 @@ function ProxySystemConfigModal({
             </div>
 
             <div className="form-group">
-              <label>Giới Hạn Tải Proxy (Avatar):</label>
-              <div className="proxy-limit-fixed-tag">
-                <window.Icon name="shield-check" size={14} color="var(--apple-green)" />
-                <span>Cố định: 6 nick/IP (3 Hoàn Mỹ + 3 Diệu Kỳ)</span>
-              </div>
+              <label>
+                <window.Icon name="wallet" size={13} color="var(--apple-pink)" /> Số Tiền Thanh Toán (Proxy.vn):
+              </label>
+              {(() => {
+                const daysNum = Math.max(1, parseInt(defaultPeriod, 10) || 30);
+                let unitPrice = 0;
+
+                if (defaultCategory === 'DatacenterC') {
+                  unitPrice = 800;
+                  if (daysNum >= 5) unitPrice = 640;
+                  if (daysNum >= 10) unitPrice = 480;
+                  if (daysNum >= 20) unitPrice = 400;
+                  if (daysNum >= 30) unitPrice = 320;
+                } else if (defaultCategory === 'DatacenterB') {
+                  unitPrice = 800;
+                  if (daysNum >= 5) unitPrice = 720;
+                  if (daysNum >= 10) unitPrice = 640;
+                  if (daysNum >= 20) unitPrice = 560;
+                  if (daysNum >= 30) unitPrice = 480;
+                  if (daysNum >= 45) unitPrice = 440;
+                  if (daysNum >= 60) unitPrice = 400;
+                  if (daysNum >= 90) unitPrice = 360;
+                  if (daysNum >= 120) unitPrice = 320;
+                } else if (defaultCategory === 'DatacenterA') {
+                  unitPrice = 2800;
+                  if (daysNum >= 5) unitPrice = 2560;
+                  if (daysNum >= 15) unitPrice = 2400;
+                  if (daysNum >= 30) unitPrice = 1600;
+                  if (daysNum >= 90) unitPrice = 1440;
+                  if (daysNum >= 120) unitPrice = 1360;
+                } else if (defaultCategory === 'Viettel' || defaultCategory === 'FPT' || defaultCategory === 'VNPT') {
+                  unitPrice = 800;
+                  if (daysNum >= 5) unitPrice = 720;
+                  if (daysNum >= 10) unitPrice = 640;
+                  if (daysNum >= 20) unitPrice = 560;
+                  if (daysNum >= 30) unitPrice = 480;
+                  if (daysNum >= 45) unitPrice = 440;
+                  if (daysNum >= 60) unitPrice = 400;
+                  if (daysNum >= 90) unitPrice = 360;
+                  if (daysNum >= 120) unitPrice = 320;
+                } else if (defaultCategory === 'PRIVATE') {
+                  unitPrice = 2600;
+                } else if (defaultCategory === 'US') {
+                  unitPrice = 480;
+                  if (daysNum >= 5) unitPrice = 400;
+                  if (daysNum >= 10) unitPrice = 320;
+                  if (daysNum >= 20) unitPrice = 240;
+                  if (daysNum >= 30) unitPrice = 160;
+                } else {
+                  unitPrice = 500;
+                }
+
+                const totalCost = daysNum * unitPrice;
+                const fmtTotal = (typeof window.formatMoney === 'function')
+                  ? window.formatMoney(totalCost)
+                  : totalCost.toLocaleString('vi-VN');
+                const fmtUnit = (typeof window.formatMoney === 'function')
+                  ? window.formatMoney(unitPrice)
+                  : unitPrice.toLocaleString('vi-VN');
+
+                return (
+                  <div className="proxy-cost-estimate-tag">
+                    <span className="proxy-cost-amount">{fmtTotal} đ</span>
+                    <span className="proxy-cost-sub">({fmtUnit} đ/ngày)</span>
+                  </div>
+                );
+              })()}
             </div>
           </div>
           <span className="form-helper-text">
-            Khóa cứng đúng 6 slot để tuân thủ 100% giới hạn máy chủ TeaMobi, tránh tình trạng bị văng game.
+            Số tiền trên sẽ được tự động thanh toán qua số dư tài khoản Proxy.vn khi kích hoạt mua mới hoặc gia hạn.
           </span>
         </div>
       </form>

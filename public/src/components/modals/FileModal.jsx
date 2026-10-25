@@ -47,6 +47,11 @@ function FileFormModal({
       return;
     }
 
+    if (uploaded.size > 10 * 1024 * 1024) {
+      notifyAlert('Dung lượng tệp vượt quá 10MB! Vui lòng chọn tệp JAR nhỏ hơn 10MB.', 'Tệp Quá Lớn', 'warning');
+      return;
+    }
+
     setUploadStatus(`Đang tải lên: ${uploaded.name}...`);
     try {
       const data = await window.ApiClient.uploadJar(uploaded);
@@ -221,7 +226,7 @@ function FileFormModal({
                 style={{ accentColor: 'var(--apple-green)' }}
               />
               <div>
-                <strong style={{ color: 'var(--apple-green)', display: 'block', fontSize: '0.86rem' }}>ChipMix Full</strong>
+                <strong style={{ color: 'var(--apple-green)', display: 'block', fontSize: '0.86rem' }}>Full Auto</strong>
                 <span style={{ fontSize: '0.72rem', color: 'var(--text-secondary)' }}>Full Câu Cá, KC & Farm</span>
               </div>
             </label>
@@ -273,7 +278,7 @@ function FileFormModal({
                 style={{ accentColor: 'var(--apple-purple)' }}
               />
               <div>
-                <strong style={{ color: 'var(--apple-purple)', display: 'block', fontSize: '0.86rem' }}>Auto Kim Cương</strong>
+                <strong style={{ color: 'var(--apple-purple)', display: 'block', fontSize: '0.86rem' }}>Auto Up Kim Cương</strong>
                 <span style={{ fontSize: '0.72rem', color: 'var(--text-secondary)' }}>Farm, đào KC & bán đá</span>
               </div>
             </label>

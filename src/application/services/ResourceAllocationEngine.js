@@ -36,9 +36,9 @@ class ResourceAllocationEngine {
 
     const defaultRules = {
       plans: {
-        UPXU: { name: 'Auto Up Xu Nông Trại', priceMonth: 50000, modType: 'UPXU', defaultFileId: 'file_1' },
-        FULL: { name: 'Auto Full chức năng', priceMonth: 90000, modType: 'CHIPMIX', defaultFileId: 'file_1' },
-        FISH: { name: 'Auto Câu Cá Chuyên Nghiệp', priceMonth: 60000, modType: 'FISH', defaultFileId: 'file_1' }
+        UPXU: { name: 'Auto Up Kim Cương', priceMonth: 50000, modType: 'UPXU', defaultFileId: 'file_1' },
+        FULL: { name: 'Full Auto', priceMonth: 90000, modType: 'CHIPMIX', defaultFileId: 'file_1' },
+        FISH: { name: 'Auto Câu Cá', priceMonth: 60000, modType: 'FISH', defaultFileId: 'file_1' }
       },
       durationDiscounts: { 1: 0, 3: 10, 6: 20, 12: 30 },
       cancellationFeePercent: 10,
@@ -215,7 +215,8 @@ class ResourceAllocationEngine {
         totalBots,
         countHM,
         countDK,
-        totalScore
+        pExpiresMs,
+        groupScore
       });
     }
 
@@ -223,8 +224,42 @@ class ResourceAllocationEngine {
       return null;
     }
 
-    // Sắp xếp theo totalScore GIẢM DẦN
-    candidateProxies.sort((a, b) => b.totalScore - a.totalScore);
+    const botTargetMs = botExpiresAt ? new Date(botExpiresAt).getTime() : (now + 30 * 86400 * 1000);
+
+    // =========================================================================
+    // THUẬT TOÁN 2 TẦNG ƯU TIÊN BEST-FIT:
+    // Ưu tiên 1 (Bao phủ trọn vẹn): proxy.expiresAt >= botExpiresAt
+    //   -> Sắp xếp TĂNG DẦN theo độ lệch (proxy.expiresAt - botExpiresAt) để chọn
+    //      Proxy vừa khít nhất nhưng vẫn sống lâu hơn hạn của khách.
+    // Ưu tiên 2 (Chữa cháy): proxy.expiresAt < botExpiresAt
+    //   -> Sắp xếp GIẢM DẦN theo proxy.expiresAt (chọn Proxy còn sống lâu nhất hiện có)
+    //      để kéo dài tối đa thời gian sống trước khi phải Waterfall Migration.
+    // =========================================================================
+    const fullCoverage = candidateProxies.filter(c => c.pExpiresMs >= botTargetMs);
+
+    if (fullCoverage.length > 0) {
+      fullCoverage.sort((a, b) => {
+        // 1. Phân nhóm ưu tiên (Group 1: CORE / overflow >= 3 > Group 2 > Group 3)
+        if (b.groupScore !== a.groupScore) return b.groupScore - a.groupScore;
+        // 2. Độ lệch ngày tăng dần (vừa khít nhất trước)
+        const diffA = a.pExpiresMs - botTargetMs;
+        const diffB = b.pExpiresMs - botTargetMs;
+        if (diffA !== diffB) return diffA - diffB;
+        // 3. Best-Fit Decreasing: Ưu tiên thùng có nhiều nick hơn (5/6 trước 4/6) để lấp đầy thùng nhanh
+        return b.totalBots - a.totalBots;
+      });
+      return fullCoverage[0].proxy;
+    }
+
+    // Nhóm chữa cháy (Không có Proxy nào sống lâu hơn hạn khách)
+    candidateProxies.sort((a, b) => {
+      // 1. Phân nhóm ưu tiên
+      if (b.groupScore !== a.groupScore) return b.groupScore - a.groupScore;
+      // 2. Hạn dài nhất hiện có (Sắp xếp GIẢM DẦN theo pExpiresMs)
+      if (b.pExpiresMs !== a.pExpiresMs) return b.pExpiresMs - a.pExpiresMs;
+      // 3. Lấp đầy thùng
+      return b.totalBots - a.totalBots;
+    });
 
     return candidateProxies[0].proxy;
   }
@@ -286,19 +321,22 @@ class ResourceAllocationEngine {
       await this.proxyRepo.save(newProxy);
       console.log(`✅ [ResourceAllocationEngine] ĐÃ LƯU DB AN TOÀN Proxy mới [${newProxy.host}:${newProxy.port}] (ID: ${newProxy.externalId}). Hạn dùng: ${buyResult.expiresAt.toISOString()}`);
 
-      // BƯỚC 2: KIỂM TRA SƠ BỘ KẾT NỐI (TUYỆT ĐỐI KHÔNG THROW ERROR ĐỂ TRÁNH ROLLBACK TIỀN KHÁCH)
-      try {
-        const testResult = await ProxyChecker.testProxy(newProxy.toJSON(), 3500);
-        if (!testResult.isExpired && testResult.latencyMs > 0) {
-          newProxy.markActive(testResult.latencyMs);
-          await this.proxyRepo.save(newProxy);
-          console.log(`⚡ [ResourceAllocationEngine] Proxy [${newProxy.host}:${newProxy.port}] đã mở cổng SOCKS5 thành công (Latency: ${testResult.latencyMs}ms).`);
-        } else {
-          console.warn(`⏳ [ResourceAllocationEngine] Proxy [${newProxy.host}:${newProxy.port}] vừa mua đang đợi nhà mạng mở cổng SOCKS5. Đã lưu DB an toàn, tiếp tục phân bổ cho khách.`);
+      // BƯỚC 2: KIỂM TRA SƠ BỘ KẾT NỐI BẤT ĐỒNG BỘ NGOÀI MUTEX (CHỐNG KẸT MUTEX & GIẢI PHÓNG ĐƠN HÀNG NGAY)
+      // Không await để các đơn thuê tiếp theo có thể lập tức tái sử dụng slot trống của Proxy mới này.
+      setImmediate(async () => {
+        try {
+          const testResult = await ProxyChecker.testProxy(newProxy.toJSON(), 3500);
+          if (!testResult.isExpired && testResult.latencyMs > 0) {
+            newProxy.markActive(testResult.latencyMs);
+            await this.proxyRepo.save(newProxy);
+            console.log(`⚡ [ResourceAllocationEngine] Proxy [${newProxy.host}:${newProxy.port}] đã mở cổng SOCKS5 thành công (Latency: ${testResult.latencyMs}ms).`);
+          } else {
+            console.warn(`⏳ [ResourceAllocationEngine] Proxy [${newProxy.host}:${newProxy.port}] vừa mua đang đợi nhà mạng mở cổng SOCKS5.`);
+          }
+        } catch (testErr) {
+          console.warn(`⏳ [ResourceAllocationEngine] Kiểm tra kết nối ban đầu chưa phản hồi (${testErr.message}).`);
         }
-      } catch (testErr) {
-        console.warn(`⏳ [ResourceAllocationEngine] Kiểm tra kết nối ban đầu chưa phản hồi (${testErr.message}). Đã lưu DB an toàn, không hủy giao dịch.`);
-      }
+      });
 
       return newProxy;
     } catch (err) {
@@ -440,14 +478,24 @@ class ResourceAllocationEngine {
     }
 
     // TH2: Proxy VẪN CÒN HẠN HỢP ĐỒNG THEO LỊCH (expiresAt > now)
-    // Kiểm tra xem có phải proxy mới mua trong vòng 60 giây không
-    const isNewlyCreated = proxy.createdAt && (now - new Date(proxy.createdAt).getTime() < 60000);
+    const syncContext = {
+      proxyVnApiClient: this.proxyVnApiClient,
+      proxyRepo: this.proxyRepo
+    };
+
+    // Kiểm tra xem có phải proxy mới mua trong vòng 90 giây không
+    const isNewlyCreated = proxy.createdAt && (now - new Date(proxy.createdAt).getTime() < 90000);
     if (isNewlyCreated) {
-      const waitRes = await ProxyChecker.waitForProxyReady(proxy.toJSON ? proxy.toJSON() : proxy, 10000, 2000);
+      const waitRes = await ProxyChecker.waitForProxyReady(
+        proxy.toJSON ? proxy.toJSON() : proxy,
+        60000,
+        5000,
+        syncContext
+      );
       if (!waitRes.ready) {
         return {
           proxy,
-          waitMessage: `⏳ Proxy [${proxy.name || proxy.host}] vừa mua đang được nhà mạng mở cổng SOCKS5. Vui lòng thử lại sau 30 giây!`
+          waitMessage: `⏳ Proxy [${proxy.name || proxy.host}] vừa mua đang được nhà mạng mở cổng SOCKS5. Vui lòng đợi 30 giây rồi bấm Treo lại!`
         };
       }
     }
@@ -455,6 +503,27 @@ class ResourceAllocationEngine {
     // Live Health Test trước khi khởi chạy
     const testRes = await ProxyChecker.testProxy(proxy, 3500);
     if (testRes.isExpired) {
+      // Hạn ngày vẫn còn -> Thử đồng bộ từ proxy.vn xem có được cấp IP/Port mới không
+      if (this.proxyVnApiClient && proxy.externalId) {
+        try {
+          const syncRes = await ProxyChecker.syncAndRecoverProxy({
+            proxy,
+            proxyVnApiClient: this.proxyVnApiClient,
+            proxyRepo: this.proxyRepo
+          });
+          if (syncRes && syncRes.updated) {
+            const retest = await ProxyChecker.testProxy(proxy, 3500);
+            if (!retest.isExpired) {
+              return {
+                proxy,
+                changed: true,
+                reason: `Đã tự động đồng bộ IP mới từ proxy.vn [${proxy.host}:${proxy.port}]!`
+              };
+            }
+          }
+        } catch (syncErr) {}
+      }
+
       // Hạn ngày vẫn còn -> LỖI MẠNG TẠM THỜI, KHÔNG ĐÁNH DẤU EXPIRED
       proxy.failCount = (proxy.failCount || 0) + 1;
       await this.proxyRepo.save(proxy);

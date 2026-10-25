@@ -10,6 +10,7 @@ class SaveSystemConfigRequestDto {
     port = 3001,
     rmsMode = 'file',
     maxMemoryMb = 256,
+    maxUploadJarSizeMb = 10,
     autoRestart = true,
     autoStart = true,
     password = '',
@@ -21,6 +22,7 @@ class SaveSystemConfigRequestDto {
     this.port = parseInt(port, 10);
     this.rmsMode = (rmsMode || 'file').trim();
     this.maxMemoryMb = parseInt(maxMemoryMb, 10);
+    this.maxUploadJarSizeMb = parseInt(maxUploadJarSizeMb || 10, 10);
     this.autoRestart = Boolean(autoRestart);
     this.autoStart = Boolean(autoStart);
     this.password = typeof password === 'string' ? password : '';
@@ -42,6 +44,10 @@ class SaveSystemConfigRequestDto {
 
     if (isNaN(this.maxMemoryMb) || this.maxMemoryMb < 64) {
       errors.maxMemory = 'Bộ nhớ RAM tối đa phải là số nguyên từ 64MB trở lên!';
+    }
+
+    if (isNaN(this.maxUploadJarSizeMb) || this.maxUploadJarSizeMb < 1 || this.maxUploadJarSizeMb > 500) {
+      errors.maxUploadJarSizeMb = 'Giới hạn tải lên JAR phải là số từ 1MB đến 500MB!';
     }
 
     if (this.password && this.password.length < 4) {

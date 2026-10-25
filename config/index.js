@@ -110,4 +110,9 @@ const config = {
   env
 };
 
+// Security Guard: Warn if production environment uses default fallback secret keys
+if (env.isProd && (config.security.jwtSecret === 'avatar_jwt_super_secret_key_2026' || config.security.appSecret === 'avatar_bot_cpanel_default_secret_key_2026')) {
+  console.warn('⚠️ [SECURITY WARNING] Ứng dụng đang chạy ở môi trường PRODUCTION nhưng JWT_SECRET hoặc APP_SECRET đang dùng khóa mặc định! Vui lòng cấu hình JWT_SECRET và APP_SECRET trong file .env để đảm bảo an toàn tuyệt đối.');
+}
+
 module.exports = deepFreeze(config);

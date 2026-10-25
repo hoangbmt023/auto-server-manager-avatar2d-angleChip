@@ -19,7 +19,7 @@ class AccountResponseDto {
 
     const isRented = Boolean(account.userId || account.rentalExpiresAt);
     this.rentalPlan = isRented ? (account.rentalPlan || null) : null;
-    this.rentalPlanName = isRented ? (rentalPlanName || (account.rentalPlan === 'FULL' ? 'Gói Full' : (account.rentalPlan === 'FISH' ? 'Gói Câu Cá' : (account.rentalPlan === 'UPXU' ? 'Gói Up Xu' : (account.rentalPlan ? `Gói ${account.rentalPlan}` : null))))) : null;
+    this.rentalPlanName = isRented ? (rentalPlanName || (account.rentalPlan === 'FULL' ? 'Full Auto' : (account.rentalPlan === 'FISH' ? 'Auto Câu Cá' : (account.rentalPlan === 'UPXU' ? 'Auto Up Kim Cương' : (account.rentalPlan ? `Gói ${account.rentalPlan}` : null))))) : null;
     this.rentalExpiresAt = account.rentalExpiresAt ? (account.rentalExpiresAt.toISOString ? account.rentalExpiresAt.toISOString() : account.rentalExpiresAt) : null;
     this.allowedFeatures = isRented ? (allowedFeatures || (Array.isArray(account.allowedFeatures) ? account.allowedFeatures : (
       account.rentalPlan === 'FULL'

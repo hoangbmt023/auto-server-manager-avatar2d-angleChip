@@ -46,6 +46,7 @@ class SystemController {
         port: dto.port,
         rmsMode: dto.rmsMode,
         maxMemoryMb: dto.maxMemoryMb,
+        maxUploadJarSizeMb: dto.maxUploadJarSizeMb,
         autoRestart: dto.autoRestart,
         autoStart: dto.autoStart
       };

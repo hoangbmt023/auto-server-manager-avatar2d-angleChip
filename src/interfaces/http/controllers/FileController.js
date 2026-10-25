@@ -12,10 +12,11 @@ const { sendErrorResponse } = require('../helpers/errorHandler');
  * Automatically wraps responses with standard ApiResponse and maps Custom Exceptions.
  */
 class FileController {
-  constructor(fileProfileService, fileRepo, sseEventBus = null) {
+  constructor(fileProfileService, fileRepo, sseEventBus = null, settingRepo = null) {
     this.fileProfileService = fileProfileService;
     this.fileRepo = fileRepo;
     this.sseEventBus = sseEventBus;
+    this.settingRepo = settingRepo;
     this.workspaceRoot = path.resolve(__dirname, '../../../../');
   }
 
@@ -153,13 +154,44 @@ class FileController {
         return sendJson(res, 400, { success: false, message: 'Chỉ chấp nhận file có đuôi .jar!' });
       }
 
+      let maxMb = 10;
+      if (this.settingRepo) {
+        try {
+          const cfgMb = await this.settingRepo.get('maxUploadJarSizeMb');
+          if (cfgMb && !isNaN(parseInt(cfgMb, 10)) && parseInt(cfgMb, 10) > 0) {
+            maxMb = parseInt(cfgMb, 10);
+          }
+        } catch (e) {}
+      }
+      const MAX_JAR_SIZE = maxMb * 1024 * 1024;
+      const rawContentLength = req.headers['content-length'];
+      if (rawContentLength && parseInt(rawContentLength, 10) > MAX_JAR_SIZE) {
+        return sendJson(res, 413, { success: false, message: `Dung lượng tệp vượt quá giới hạn cho phép (tối đa ${maxMb}MB)!` });
+      }
+
       const gamesDir = this.getJarsDirectory();
       const targetPath = path.join(gamesDir, decodedFilename);
       const writeStream = fs.createWriteStream(targetPath);
+      let uploadedBytes = 0;
+      let limitExceeded = false;
+
+      req.on('data', chunk => {
+        uploadedBytes += chunk.length;
+        if (uploadedBytes > MAX_JAR_SIZE && !limitExceeded) {
+          limitExceeded = true;
+          req.unpipe(writeStream);
+          writeStream.destroy();
+          try {
+            if (fs.existsSync(targetPath)) fs.unlinkSync(targetPath);
+          } catch (e) {}
+          return sendJson(res, 413, { success: false, message: `Tệp tải lên quá lớn, đã bị hủy (tối đa ${maxMb}MB)!` });
+        }
+      });
 
       req.pipe(writeStream);
 
       writeStream.on('finish', () => {
+        if (limitExceeded) return;
         return sendJson(res, 200, {
           success: true,
           message: `Đã tải lên tệp [${decodedFilename}] vào thư mục jars/games/ thành công!`,
@@ -168,6 +200,7 @@ class FileController {
       });
 
       writeStream.on('error', (err) => {
+        if (limitExceeded) return;
         return sendJson(res, 500, { success: false, message: 'Lỗi ghi file: ' + err.message });
       });
     } catch (err) {

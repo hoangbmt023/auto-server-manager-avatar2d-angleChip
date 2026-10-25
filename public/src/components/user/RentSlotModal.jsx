@@ -18,9 +18,9 @@ window.RentSlotModal = function RentSlotModal({
   const isRenewMode = Boolean(accountToRenew);
 
   const [plans, setPlans] = React.useState({
-    UPXU: { name: 'Auto Up Xu Nông Trại', priceMonth: 50000, desc: 'Gói cày xu cơ bản tiết kiệm chi phí cho tài khoản nông dân' },
-    FULL: { name: 'Auto Full chức năng', priceMonth: 90000, desc: 'Gói toàn năng hỗ trợ đầy đủ mọi hoạt động kiếm xu và ngọc tự động' },
-    FISH: { name: 'Auto Câu Cá Chuyên Nghiệp', priceMonth: 60000, desc: 'Gói chuyên biệt cho cần thủ, tối ưu hoá thời gian và lợi nhuận câu cá' }
+    FISH: { name: 'Auto Câu Cá', priceMonth: 60000, desc: 'Gói chuyên biệt cho cần thủ, tối ưu hoá thời gian và lợi nhuận câu cá' },
+    UPXU: { name: 'Auto Up Kim Cương', priceMonth: 50000, desc: 'Gói tự động cày cuốc, đào khoáng sản và bán kim cương' },
+    FULL: { name: 'Full Auto', priceMonth: 90000, desc: 'Gói toàn năng hỗ trợ đầy đủ mọi hoạt động Auto Câu Cá, Đào KC & Farm' }
   });
   const [durationDiscounts, setDurationDiscounts] = React.useState({ 1: 0, 3: 10, 6: 20, 12: 30 });
 
@@ -66,8 +66,8 @@ window.RentSlotModal = function RentSlotModal({
 
   // Compute pricing & plan comparison
   const originalPlanKey = accountToRenew?.rentalPlan || 'UPXU';
-  const originalPlanConfig = plans[originalPlanKey] || plans.UPXU || { priceMonth: 50000, name: 'Gói Up Xu' };
-  const currentPlanConfig = plans[selectedPlan] || plans.UPXU || { priceMonth: 50000, name: 'Gói Up Xu' };
+  const originalPlanConfig = plans[originalPlanKey] || plans.UPXU || { priceMonth: 50000, name: 'Auto Up Kim Cương' };
+  const currentPlanConfig = plans[selectedPlan] || plans.UPXU || { priceMonth: 50000, name: 'Auto Up Kim Cương' };
   const isPlanChanged = isRenewMode && (selectedPlan !== originalPlanKey);
 
   const now = Date.now();
@@ -349,7 +349,7 @@ window.RentSlotModal = function RentSlotModal({
               <div className="rent-renew-row">
                 <span className="rent-renew-row-lbl">Gói cước:</span>
                 <span className={`rent-renew-plan-badge badge-plan-${(selectedPlan || originalPlanKey || '').toLowerCase()}`}>
-                  <window.Icon name={selectedPlan === 'FULL' ? 'zap' : (selectedPlan === 'FISH' ? 'fish' : 'sprout')} size={13} />
+                  <window.Icon name={selectedPlan === 'FULL' ? 'zap' : (selectedPlan === 'FISH' ? 'fish' : 'gem')} size={13} />
                   {currentPlanConfig.name || selectedPlan}
                 </span>
               </div>
