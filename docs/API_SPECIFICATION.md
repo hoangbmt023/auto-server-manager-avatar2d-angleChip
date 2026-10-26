@@ -1,149 +1,240 @@
-# 🔌 RESTful API & Middleware Specification
+# RESTful API & Real-time Event Specification
 
-> Complete reference for HTTP REST APIs, Request/Response DTO contracts, Java-style Error responses, and Security Middlewares.
+> Complete technical reference for the HTTP REST endpoints, Server-Sent Events (SSE) streaming protocol, payOS webhook validation, and security middleware pipeline.
 
 ---
 
-## 📐 Response Standards
+## 1. Response Standards
 
-All responses conform to modern Java-style DTO structures (`ApiResponse` and `ErrorResponse`).
+All HTTP endpoints return standardized JSON payloads for predictability across client applications.
 
-### 1. Success Response (`ApiResponse`)
+### Success Envelope (`ApiResponse`)
+
 ```json
 {
   "success": true,
-  "message": "Account created successfully!",
+  "message": "Operation completed successfully",
   "data": { ... },
   "pagination": null
 }
 ```
 
-### 2. Validation Error Response (HTTP 400 - `ErrorResponse.validation`)
-Returned when boundary DTO validation fails on specific input fields:
+### Validation Error Envelope (HTTP 400 - `ErrorResponse.validation`)
+
 ```json
 {
   "success": false,
   "message": "Invalid request parameters",
   "errors": {
-    "username": "Username cannot be empty!",
-    "serverId": "Invalid server ID (0: Hoan My, 1: Dieu Ky)!",
-    "ipSlot": "IP Slot must be an integer >= 1!"
+    "username": "Tên tài khoản không được để trống!",
+    "serverId": "Máy chủ không hợp lệ (0: Hoàn Mỹ, 1: Diệu Kỳ)!"
   }
 }
 ```
 
-### 3. Business / General Error Response (HTTP 4xx - `ErrorResponse.message`)
-Returned when an entity is not found, unauthorized, or conflicts:
-```json
-{
-  "success": false,
-  "message": "Account not found on system!",
-  "errors": null
-}
-```
+### Business Exception Envelope (HTTP 4xx / 5xx)
 
-### 4. Uncaught Internal Server Error (HTTP 500 - `ErrorResponse.serverError`)
-Returned when an unexpected runtime crash or database exception occurs:
 ```json
 {
   "success": false,
-  "message": "Internal server error. Please try again later.",
+  "message": "Tài khoản bot đang chạy, không thể thực hiện thao tác!",
   "errors": null
 }
 ```
 
 ---
 
-## 🛡️ Security Middlewares Pipeline
+## 2. Security Middleware Pipeline
 
-All incoming HTTP requests pass through three dedicated modular middlewares in `src/interfaces/http/middlewares/`:
+Incoming HTTP requests pass through three security boundary guards:
 
+1. **CORS Whitelisting (`corsMiddleware.js`)**: Dynamic origin verification matching `CORS_ALLOWED_ORIGINS` in `.env`.
+2. **Timing-Attack Immune Auth (`authMiddleware.js`)**: Constant-time string comparison (`crypto.timingSafeEqual`) on session and API tokens.
+3. **Payload Sanitization (`bodyParserMiddleware.js`)**: Anti-DoS request size limits (`MAX_PAYLOAD_SIZE_MB`) and prototype pollution sanitization.
+
+---
+
+## 3. Server-Sent Events (SSE) Protocol
+
+Real-time terminal logs, in-game stat counters, and wallet balance notifications stream over a persistent HTTP connection.
+
+### Connection Endpoint: `GET /api/bot/logs/stream`
+
+#### Required Request Headers
+```http
+Accept: text/event-stream
+Cache-Control: no-cache
 ```
-Incoming Request
-       │
-       ▼
-┌─────────────────────────┐
-│ 1. corsMiddleware       │ ──> Validates Origin against CORS_ALLOWED_ORIGINS (.env)
-└─────────────────────────┘     Handles OPTIONS preflight (204 or 403 Forbidden)
-       │
-       ▼
-┌─────────────────────────┐
-│ 2. authMiddleware       │ ──> Verifies system password via X-Dashboard-Auth / Bearer token
-└─────────────────────────┘     Timing-Attack immune using crypto.timingSafeEqual
-       │
-       ▼
-┌─────────────────────────┐
-│ 3. bodyParserMiddleware │ ──> Aggregates streams up to MAX_PAYLOAD_SIZE_MB (Anti-DoS)
-└─────────────────────────┘     Sanitizes Object keys to prevent Prototype Pollution
-       │
-       ▼
-┌─────────────────────────┐
-│ Router & Controllers    │ ──> DTO Validation & Execution
-└─────────────────────────┘
+
+#### Response Handshake Headers
+```http
+HTTP/1.1 200 OK
+Content-Type: text/event-stream; charset=utf-8
+Cache-Control: no-cache, no-transform
+Connection: keep-alive
+X-Accel-Buffering: no
+Access-Control-Allow-Origin: *
+```
+
+> [!IMPORTANT]
+> The `X-Accel-Buffering: no` header is essential. It instructs upstream reverse proxies (Nginx, LiteSpeed, Cloudflare) not to buffer stream chunks, ensuring log lines arrive in the browser with sub-second latency.
+
+### Event Message Schemas
+
+#### 1. Heartbeat Ping (`event: ping`)
+Dispatched every 25 seconds to keep intermediary proxy connections alive:
+```json
+{
+  "time": 1714152000000
+}
+```
+
+#### 2. Process Log Line (`event: log`)
+```json
+{
+  "accountId": "018f3a2c-1234-7000-8000-000000000001",
+  "username": "avatar_player1",
+  "message": "[avatar_player1] Đã câu được 1 Cá Lóc (+2,500 xu)",
+  "type": "stdout",
+  "timestamp": "2026-10-26T20:00:00.000Z"
+}
+```
+
+#### 3. Real-time Balance Top-up (`event: balance_update`)
+Triggered automatically when a payOS or VietQR payment is confirmed:
+```json
+{
+  "userId": "018f3a2c-9999-7000-8000-000000000002",
+  "balance": 150000,
+  "change": 50000,
+  "orderCode": 1714152001
+}
 ```
 
 ---
 
-## 📋 API Endpoints Index
+## 4. REST Endpoint Catalog
 
-### 1. Authentication (`/api/auth`)
-* `POST /api/auth/register` - Create account (`email`, `phone`, `password`, `fullName`).
-* `POST /api/auth/login` - Authenticate user credentials.
-* `POST /api/auth/verify` - Verify dashboard access password.
+### Authentication (`/api/auth`)
 
-### 2. Account Management (`/api/accounts`)
-* `GET /api/accounts` - Retrieve all accounts grouped by active bot file profile.
-* `POST /api/accounts` - Create or update Avatar account (`SaveAccountRequestDto`).
-* `DELETE /api/accounts/:id` - Delete an account.
-* `POST /api/accounts/switch-server` - Toggle server between Hoàn Mỹ (0) and Diệu Kỳ (1).
-* `POST /api/accounts/setup` - Configure Bot automation (`farm`, `fish`, `diamond`, `upCoins`).
-* `POST /api/accounts/reset-data` - Reset automation progress and counters.
+| Method | Endpoint | Auth | Description |
+| :--- | :--- | :--- | :--- |
+| `POST` | `/api/auth/register` | Public | Register new user account |
+| `POST` | `/api/auth/login` | Public | Authenticate user & return JWT token |
+| `POST` | `/api/auth/refresh` | Public | Refresh expired JWT access token |
+| `POST` | `/api/auth/logout` | User | Invalidate session refresh token |
+| `GET` | `/api/auth/me` | User | Retrieve current user profile & balance |
 
-### 3. Bot Execution & Lifecycle (`/api/bots`)
-* `POST /api/bots/start` - Spawn Java VM instance for an account (`StartBotAccountUseCase`).
-* `POST /api/bots/stop` - Terminate running bot process.
-* `POST /api/bots/restart-all` - Gracefully restart all active bots.
-* `GET /api/status` - Realtime hardware, CPU, RAM and bot count status.
-* `GET /api/events` - Server-Sent Events (SSE) live game log stream.
+### Bot Process Management (`/api/bot`)
 
-### 4. Proxy Networking & Automation (`/api/proxies`)
-* `GET /api/proxies` - List all SOCKS5/HTTP proxies with enriched capacity & lifecycle metadata (`tier`, `status`, `expiresAt`, `remainingDays`, `externalId`, `countHM`, `countDK`, `totalAssigned`, `isDraining`).
-* `POST /api/proxies` - Add or update proxy (preserves `DYNAMIC` tier and `externalId`; triggers graceful bot auto-restart if host/port changed).
-* `DELETE /api/proxies/:id` - Remove proxy from pool.
-* `POST /api/proxies/test` - Perform ping test on single proxy (auto-rotates dynamic IP if dead).
-* `POST /api/proxies/test-all` - Batch test entire proxy pool.
-* `POST /api/proxies/rotate` - Rotate dynamic IP via Proxy.vn API with `listproxy.php` pre-check and bot auto-restart (`RotateProxyRequestDto`).
-* `GET /api/proxies/system-config` - Retrieve Proxy.vn automation configuration (API key status, strategy, default category, and protocol).
-* `POST /api/proxies/system-config` - Update Proxy.vn automation configuration (`SaveProxySystemConfigRequestDto`).
+| Method | Endpoint | Auth | Description |
+| :--- | :--- | :--- | :--- |
+| `POST` | `/api/bot/start/:id` | User | Spawn Java process for specified account |
+| `POST` | `/api/bot/stop/:id` | User | Stop running Java process for specified account |
+| `POST` | `/api/bot/start-all` | User | Batch launch all idle accounts in current profile |
+| `POST` | `/api/bot/stop-all` | User | Batch stop all active accounts in current profile |
+| `GET` | `/api/bot/logs/history/:id` | User | Fetch buffered log history for account |
+| `GET` | `/api/bot/stats` | User | Aggregate CPU, memory, and running bot metrics |
 
-### 5. File Profiles (`/api/files`)
-* `GET /api/files` - List bot profiles and assigned account counts.
-* `POST /api/files` - Create / Update bot profile (`SaveBotFileRequestDto`).
-* `DELETE /api/files/:id` - Delete file and its associated bot accounts.
-* `POST /api/files/switch` - Change active file tab.
+### Account & Slot Management (`/api/accounts`)
 
-### 6. System Settings (`/api/settings`)
-* `GET /api/settings/config` - Get safe system configuration.
-* `POST /api/settings/config` - Update memory, port, and security tokens (`SaveSystemConfigRequestDto`).
-* `POST /api/system/install-jre` - 1-Click download and extract Portable OpenJDK 17 on Linux.
+| Method | Endpoint | Auth | Description |
+| :--- | :--- | :--- | :--- |
+| `GET` | `/api/accounts` | User | List accounts with filtering, search, and pagination |
+| `POST` | `/api/accounts` | User | Create a new game account profile |
+| `GET` | `/api/accounts/:id` | User | Get detailed configuration of an account |
+| `PUT` | `/api/accounts/:id` | User | Update account credentials or mod settings |
+| `DELETE` | `/api/accounts/:id` | User | Delete account and purge orphan RMS files |
+| `POST` | `/api/accounts/:id/reset` | User | Reset accumulated coin and heart counters |
+| `POST` | `/api/accounts/:id/sync-rms` | User | Re-generate RMS binary stores without restarting |
 
-### 7. Authentication & JWT (`/api/auth`)
-* `POST /api/auth/register` - Register new user account with bcrypt password hashing and issue JWT tokens (`RegisterUserRequestDto`).
-* `POST /api/auth/login` - Authenticate credentials and return signed access & refresh JWT tokens (`LoginUserRequestDto`).
-* `POST /api/auth/refresh` - Issue a fresh access token using a valid refresh token.
-* `GET /api/auth/me` - Retrieve user profile for the authenticated bearer token (`UserResponseDto`).
+### Multi-Tenant Rental Engine (`/api/rental`)
 
-### 8. Billing & Automated payOS Top-Up Gateway (`/api/billing`)
-* `GET /api/billing/balance` - Retrieve real-time wallet balance for the authenticated user.
-* `GET /api/billing/policy` - Retrieve dynamic top-up presets, tiered bonus percentages, and banking metadata.
-* `GET /api/billing/transactions` - Paginated transaction history with cursor/offset pagination (`page`, `limit`, `type`: `ALL` | `TOPUP` | `RENTAL`).
-* `POST /api/billing/payos-order` - Create a payOS VietQR checkout session (Rate limited: 6 req/min, min 10.000đ, max 50.000.000đ).
-* `GET /api/billing/payos-order/:orderCode/verify` - Verify payment status with payOS upon return and atomically credit wallet (`claimPendingTransaction`). Protected by IDOR checks and rate limiting (20 req/min).
-* `POST /api/billing/payos-order/:orderCode/cancel` - Explicitly cancel a pending payment order and mark transaction `CANCELLED`.
-* `POST /api/billing/payos-webhook` - **Public Webhook** for payOS IPN notifications. Verified with HMAC-SHA256 (`crypto.timingSafeEqual`) and atomic concurrency locks against double crediting.
-* `POST /api/billing/check-voucher` - Validate voucher codes, calculate discount values, and enforce usage limits per account.
-* `POST /api/billing/topup` - *(Admin Only - RBAC)* Internal direct balance topup for administrative testing.
-* `POST /api/billing/admin/adjust-balance` - *(Admin Only - RBAC)* Credit/debit user balance with reason and audit trail.
-* `PUT /api/billing/admin/topup-settings` - *(Admin Only - RBAC)* Update system-wide deposit presets, bonus tiers, and thresholds.
+| Method | Endpoint | Auth | Description |
+| :--- | :--- | :--- | :--- |
+| `GET` | `/api/rental/pricing` | Public | Get active plans, duration discounts, and cancel fee |
+| `POST` | `/api/rental/rent` | User | Rent a new bot slot (allocates file, proxy, server) |
+| `POST` | `/api/rental/cancel` | User | Cancel rented slot with pro-rata wallet refund |
+| `GET` | `/api/rental/my-slots` | User | List all active rented slots belonging to current user |
 
+#### Example: Rent Slot Request (`POST /api/rental/rent`)
+```json
+{
+  "plan": "UPXU",
+  "durationMonths": 3,
+  "username": "pro_farmer_01",
+  "password": "secret_password",
+  "serverId": 0,
+  "voucherCode": "SALE20"
+}
+```
 
+### Billing & Automated payOS Payments (`/api/billing`)
+
+| Method | Endpoint | Auth | Description |
+| :--- | :--- | :--- | :--- |
+| `POST` | `/api/billing/topup` | User | Create payOS payment checkout link & QR code |
+| `POST` | `/api/billing/webhook` | Public | payOS automated payment confirmation callback |
+| `GET` | `/api/billing/transactions` | User | Retrieve personal wallet transaction ledger |
+| `POST` | `/api/billing/vouchers/apply` | User | Validate voucher code against plan & duration |
+
+### Proxy Pool Management (`/api/proxies`)
+
+| Method | Endpoint | Auth | Description |
+| :--- | :--- | :--- | :--- |
+| `GET` | `/api/proxies` | Admin | List all proxies with health metrics and bot loads |
+| `POST` | `/api/proxies` | Admin | Add static SOCKS5 / HTTP proxy to pool |
+| `POST` | `/api/proxies/test-all` | Admin | Trigger asynchronous health check on all proxies |
+| `POST` | `/api/proxies/:id/test` | Admin | Test latency and connectivity for single proxy |
+| `DELETE` | `/api/proxies/:id` | Admin | Remove proxy from pool |
+| `GET` | `/api/proxies/stats` | Admin | Pool capacity metrics (HM / DK usage ratios) |
+
+### Admin Resource Allocation Control (`/api/admin/allocations`)
+
+| Method | Endpoint | Auth | Description |
+| :--- | :--- | :--- | :--- |
+| `GET` | `/api/admin/allocations` | Admin | View real-time bot distribution across proxies & files |
+| `POST` | `/api/admin/allocations/rules` | Admin | Update pricing tiers, discounts, and proxy strategy |
+
+---
+
+## 5. payOS Webhook Security & Idempotency Guarantee
+
+The webhook endpoint (`POST /api/billing/webhook`) receives bank payment confirmations 24/7. To guarantee absolute security against forged requests and duplicate wallet credits:
+
+### HMAC-SHA256 Signature Verification
+
+1. Extract all payload fields except `signature`.
+2. Sort keys alphabetically (`amount`, `cancelUrl`, `description`, `orderCode`, `returnUrl`).
+3. Construct query string format: `amount=50000&cancelUrl=...&orderCode=123456`.
+4. Generate HMAC-SHA256 digest using `PAYOS_CHECKSUM_KEY`.
+5. Compare against incoming `signature` using constant-time string comparison (`crypto.timingSafeEqual`). If signatures do not match, reject immediately with HTTP 400.
+
+### Database Idempotency Lock
+
+```mermaid
+sequenceDiagram
+    autonumber
+    participant payOS as payOS Gateway
+    participant Server as HttpServer (/api/billing/webhook)
+    participant DB as MySQL Database
+    
+    payOS->>Server: POST Webhook (orderCode: 881234, amount: 50000, signature: ...)
+    Server->>Server: Validate HMAC-SHA256 Signature
+    
+    Server->>DB: BEGIN TRANSACTION (Acquire Row Lock)
+    Server->>DB: SELECT * FROM transactions WHERE order_code = 881234 FOR UPDATE
+    
+    alt Transaction Already Processed (SUCCESS)
+        Server-->>DB: ROLLBACK (No duplicate credit)
+        Server-->>payOS: HTTP 200 {"success": true, "message": "Already processed"}
+    else New Transaction
+        Server->>DB: UPDATE users SET balance = balance + 50000 WHERE id = userId
+        Server->>DB: INSERT INTO transactions (type='TOPUP', status='SUCCESS', ...)
+        Server-->>DB: COMMIT TRANSACTION
+        Server->>Server: Emit SSE balance_update to User
+        Server-->>payOS: HTTP 200 {"success": true}
+    end
+```
+
+Even if network retries cause payOS to deliver the same webhook multiple times, the database unique index on `order_code` combined with `SELECT ... FOR UPDATE` prevents double-crediting under all conditions.
