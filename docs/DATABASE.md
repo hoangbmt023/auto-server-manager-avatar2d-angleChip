@@ -1,63 +1,75 @@
-# 🗄️ Database Architecture & MySQL Persistence
+# Database Schema & Persistence Architecture
 
-> Technical reference for the Database persistence layer, Drizzle ORM schema, Code-First Migrator, and Connection Pooling.
-
----
-
-## 🚀 Overview
-
-The system runs **100% on MySQL relational database** with zero runtime file dependencies (`config.json` is completely eliminated). All persistence operations use parameterized queries via **MySQL2 Connection Pool** and **Drizzle ORM** for type safety and SQL injection immunity.
+> Technical reference for the 100% MySQL persistence layer, Drizzle ORM entity definitions, Code-First schema migrations, and indexing strategies.
 
 ---
 
-## 📊 Database Schema Entity-Relationship (ERD)
+## 1. Storage Architecture Overview
+
+The platform uses a pure **MySQL relational database** architecture with zero runtime file dependencies (`config.json` locks and file corruptions are completely eliminated).
+
+All persistence operations utilize parameterized SQL queries executed through a **MySQL2 Connection Pool** with **Drizzle ORM** for schema definition, transaction management, and SQL injection immunity.
+
+---
+
+## 2. Entity-Relationship Diagram (ERD)
 
 ```mermaid
 erDiagram
-    USERS ||--o{ ACCOUNTS : "owns"
-    BOT_FILES ||--o{ ACCOUNTS : "groups"
-    PROXIES ||--o{ ACCOUNTS : "routes through"
+    USERS ||--o{ ACCOUNTS : "rents / owns"
+    USERS ||--o{ TRANSACTIONS : "ledger"
+    USERS ||--o{ REFRESH_TOKENS : "authenticates"
+    BOT_FILES ||--o{ ACCOUNTS : "assigns profile"
+    PROXIES ||--o{ ACCOUNTS : "tunnels traffic"
+    VOUCHERS ||--o{ TRANSACTIONS : "discounts"
 
     USERS {
         varchar id PK
         varchar email UK
-        varchar phone
-        varchar password_hash
-        varchar full_name
-        varchar role
-        datetime created_at
-        datetime updated_at
+        varchar phone UK
+        varchar password
+        enum role "USER | ADMIN"
+        enum status "ACTIVE | INACTIVE | BANNED"
+        bigint balance
+        datetime last_login_at
+        timestamp created_at
+        timestamp updated_at
     }
 
     BOT_FILES {
         varchar id PK
         varchar name
         varchar game_jar
-        varchar mod_type
+        enum mod_type "UPXU | FISH | CHIPMIX"
         varchar app_id
         int max_accounts
-        datetime created_at
-        datetime updated_at
+        boolean is_default
+        json proxy_config
+        timestamp created_at
+        timestamp updated_at
     }
 
     PROXIES {
         varchar id PK
+        varchar external_id
+        enum provider "PROXY_VN | MANUAL"
+        varchar proxy_category
         varchar name
         varchar host
         int port
-        varchar type
         varchar username
         varchar password
-        varchar external_id
-        varchar tier
-        varchar status
+        enum type "SOCKS5 | HTTP"
+        enum tier "CORE | DYNAMIC"
+        enum status "ACTIVE | DRAINING | EXPIRED"
+        int max_slots
         datetime expires_at
-        varchar proxy_category
-        int latency_ms
+        boolean is_active
         boolean is_expired
-        datetime last_tested_at
-        datetime created_at
-        datetime updated_at
+        int latency_ms
+        int fail_count
+        datetime last_checked
+        timestamp created_at
     }
 
     ACCOUNTS {
@@ -65,59 +77,116 @@ erDiagram
         varchar user_id FK
         varchar username
         varchar password
-        int server_id
+        tinyint server_id "0: Hoàn Mỹ | 1: Diệu Kỳ"
         varchar server_name
         varchar file_id FK
         varchar proxy_id FK
+        text note
         int ip_slot
-        boolean is_running
-        varchar note
+        boolean is_emergency_slot
+        varchar app_id
         bigint target_coins
         int up_days
+        boolean pending_reset
+        datetime rental_expires_at
+        varchar rental_plan "UPXU | FISH | FULL"
+        int effective_price_month
         json farm_settings
         json diamond_settings
         json fish_settings
         json sell_ore_settings
-        datetime created_at
-        datetime updated_at
+        datetime deleted_at
+        timestamp created_at
+    }
+
+    TRANSACTIONS {
+        varchar id PK
+        varchar user_id FK
+        bigint order_code UK
+        enum type "TOPUP | RENTAL | RENEWAL | REFUND"
+        bigint amount
+        bigint balance_before
+        bigint balance_after
+        text description
+        varchar voucher_code
+        enum status "SUCCESS | PENDING | FAILED | CANCELLED"
+        timestamp created_at
+    }
+
+    VOUCHERS {
+        varchar id PK
+        varchar code UK
+        int discount_percent
+        bigint discount_amount
+        bigint max_discount_amount
+        bigint min_order
+        int max_uses
+        int used_count
+        boolean is_active
+        datetime expires_at
+        timestamp created_at
+    }
+
+    REFRESH_TOKENS {
+        varchar id PK
+        varchar user_id FK
+        varchar token UK
+        datetime expires_at
+        boolean is_revoked
+        timestamp created_at
     }
 
     SYSTEM_SETTINGS {
         varchar key PK
         text value
-        datetime created_at
-        datetime updated_at
+        varchar description
+        timestamp updated_at
     }
 ```
 
 ---
 
-## 🛠️ Schema Definitions
+## 3. Table Schema & Column Definitions
 
-### 1. `accounts`
-Stores Avatar game credentials, server allocations, assigned proxies, and specialized automation parameters:
-* `server_id`: `0` for Hoàn Mỹ (Server 1), `1` for Diệu Kỳ (Server 2).
-* `ip_slot`: Position within the Tab IP allocation (1 - 6 nick / IP).
-* `farm_settings`, `diamond_settings`, `fish_settings`, `sell_ore_settings`: JSON structured configurations.
+### `users`
+Stores user identities, administrative credentials, role authorizations, and wallet balances in VND.
 
-### 2. `proxies`
-Manages SOCKS5 / HTTP networking tunnels & automation:
-* Realtime health check metadata (`latency_ms`, `is_expired`, `last_tested_at`).
-* Multi-account routing (supports up to 6 bots per proxy: 3 HM + 3 DK with seat reservation).
-* Automation & Vendor integration: `external_id` (Proxy.vn purchased ID), `tier` (`CORE` vs `DYNAMIC`), `status` (`ACTIVE`, `DRAINING`, `DECOMMISSIONED`), `expires_at`, `proxy_category`.
+* **Primary Key:** `id` (UUIDv7 string).
+* **Indexes:** `idx_users_email` (Unique), `idx_users_phone`, `idx_users_role_status`.
+* **Important Invariant:** `balance` uses `BIGINT` to prevent precision loss. Balance mutations are executed strictly via atomic transactions (`UPDATE users SET balance = balance + ? WHERE id = ?`).
 
-### 3. `bot_files`
-Represents bot profile groupings and JAR mod associations (`chipmix`, `fish`, `upxu`).
+### `accounts`
+Stores bot account credentials, server assignment, proxy bindings, mod configurations, and rental expiration timestamps.
 
-### 4. `system_settings`
-Key-Value configuration storage:
-* Web port, memory limits, auto-start flags, and dashboard access tokens.
+* **Primary Key:** `id` (UUIDv7 string).
+* **Server Logic:** `server_id = 0` corresponds to **Hoàn Mỹ (HM)**; `server_id = 1` corresponds to **Diệu Kỳ (DK)**.
+* **Foreign Keys:**
+  * `user_id` $\rightarrow$ `users(id)` (`ON DELETE SET NULL`).
+  * `file_id` $\rightarrow$ `bot_files(id)` (`ON DELETE CASCADE`).
+  * `proxy_id` $\rightarrow$ `proxies(id)` (`ON DELETE SET NULL`).
+* **Soft Deletes:** Rented slots and accounts utilize `deleted_at`. When a rental contract expires or is cancelled, `deleted_at` is set, preserving financial audit trails.
+
+### `proxies`
+Maintains the pool of SOCKS5 and HTTP routing proxies.
+
+* **Status Lifecycle:** `ACTIVE` $\rightarrow$ `DRAINING` (Lease expires in $\le 2$ hours) $\rightarrow$ `EXPIRED`.
+* **Tier Distinction:**
+  * `CORE`: Static administrative proxies that never auto-terminate.
+  * `DYNAMIC`: On-demand proxies auto-purchased via `proxy.vn` with automatic lifecycle management.
+
+### `transactions`
+Provides an immutable double-entry ledger for all financial movements across the platform.
+
+* **Order Code:** `order_code` (`BIGINT`) stores unique bank transfer or payOS transaction codes.
+* **Types:** `TOPUP` (Wallet deposit), `RENTAL` (Slot purchase), `RENEWAL` (Slot extension), `REFUND` (Prorated slot cancellation).
 
 ---
 
-## 🔄 Code-First Migrator & Auto-Seeding
+## 4. Code-First Schema Auto-Migration Engine (`DatabaseMigrator`)
 
-On server startup, `DatabaseMigrator.js`:
-1. Checks connectivity to the configured MySQL host (`DB_HOST`, `DB_PORT`, `DB_NAME`).
-2. Automatically executes code-first schema definitions (`CREATE TABLE IF NOT EXISTS`).
-3. Seeds initial configuration defaults if the database is newly initialized.
+The system does not require manual `.sql` migration scripts to run upon deployment. On server bootstrap (`npm run dev` or `npm run prod`), `DatabaseMigrator`:
+
+1. Verifies database connectivity and auto-creates the schema if absent.
+2. Compares declarative table definitions in `CodeFirstSchema.js` against MySQL `information_schema.columns`.
+3. Safely executes non-destructive `ALTER TABLE ADD COLUMN` or `CREATE TABLE` commands.
+4. Auto-seeds default administrative credentials and initial bot file profiles if the database is newly initialized.

@@ -1,38 +1,81 @@
 <div align="center">
 
-# 🌟 Avatar Multi-Bot Manager
+# Avatar Multi-Bot Manager & Cloud Automation Platform
 
-**Production-grade 24/7 Multi-Bot Automation & Liquid Glass Web Dashboard for Avatar 2D.**  
-Built with **Clean Architecture**, **MySQL / Drizzle ORM**, and **Zero-Dependency Native Runtime**.
+### Enterprise-grade 24/7 background game automation, multi-tenant rental engine, autonomous proxy lifecycle, and real-time liquid glass web dashboard for Avatar 2D.
 
 [![Node.js](https://img.shields.io/badge/Node.js-18%20|%2020%2B-339933?style=flat-square&logo=node.js&logoColor=white)](https://nodejs.org/)
 [![Database](https://img.shields.io/badge/Database-MySQL%20%7C%20Drizzle%20ORM-00758F?style=flat-square&logo=mysql&logoColor=white)](https://orm.drizzle.team/)
-[![Architecture](https://img.shields.io/badge/Architecture-Clean%20%2F%20DDD-6366F1?style=flat-square)](docs/ARCHITECTURE.md)
-[![Platform](https://img.shields.io/badge/Platform-cPanel%20%7C%20Linux%20%7C%20Windows-FF6C37?style=flat-square)](docs/CPANEL_DEPLOYMENT.md)
+[![Runtime](https://img.shields.io/badge/Runtime-MicroEmulator%20%7C%20OpenJDK%2017-ED8B00?style=flat-square&logo=openjdk&logoColor=white)](https://adoptium.net/)
+[![Payment](https://img.shields.io/badge/Billing-payOS%20%7C%20VietQR%2024%2F7-22C55E?style=flat-square)](https://payos.vn/)
+[![Platform](https://img.shields.io/badge/Platform-cPanel%20%7C%20Linux%20%7C%20Windows-FF6C37?style=flat-square)](docs/DEPLOYMENT_GUIDE.md)
 [![License](https://img.shields.io/badge/License-MIT-blue?style=flat-square)](LICENSE)
 
-[Quickstart](#-quickstart) • [Features](#-features) • [Documentation Hub](#-documentation-hub) • [Deployment](#-deployment)
+[Quickstart](#quickstart) · [System Highlights](#system-highlights) · [Engine Architecture](#engine-architecture) · [Documentation Hub](#documentation-hub) · [Deployment](#deployment) · [License](#license)
 
 </div>
 
 ---
 
-## ⚡ Highlights
-
-* 🤖 **Multi-Bot Engine**: Run dozens of Avatar 2D bot accounts simultaneously across multiple profile tabs with auto-reconnect and crash recovery.
-* 🎮 **Full Game Mod Suite**: Built-in support for Auto Fishing, Auto Farm (Starfruit, Orders), Auto Diamond Mining, and Gemstone Selling.
-* 💳 **Automated payOS & VietQR Billing**: Instant 24/7 wallet top-ups with dynamic bonus tiers, double-crediting prevention, timing-attack immunity, and real-time SSE balance synchronization.
-* 🛡️ **Clean Architecture & DDD**: Strict separation of concerns (Domain, Application, Infrastructure, Interfaces) with fail-fast DTO validation.
-* 🗄️ **100% MySQL Persistence**: Zero `config.json` file locks. Full ACID transactions, connection pooling, and code-first schema migrations.
-* 🌐 **Liquid Glass Dashboard & Mobile Dock**: Porsche & Apple minimalist UI with live Server-Sent Events (SSE) terminal logs, dual-canvas graphic rendering, and iPhone-style floating bottom dock.
-* 🔌 **Resilient Proxy Networking**: Integrated SOCKS5 / HTTP proxy manager with 3-attempt socket health verification and latency tracking.
-* ☁️ **1-Click cPanel Ready**: Deploy seamlessly to cPanel Node.js Selector with automatic portable OpenJDK 17 installation (no root required).
+> [!IMPORTANT]
+> **Production Runtime Notice:** The system runs fully headless using isolated Java 17 child processes. For cPanel or shared environments, deployment requires zero root privileges with the self-contained portable OpenJDK runtime. Ensure port and MySQL connection pool settings are configured in your environment file before launching.
 
 ---
 
-## 🚀 Quickstart
+## System Highlights
 
-### 1. Clone & Configure
+| Capability | Module | Technical Description |
+| :--- | :--- | :--- |
+| **Multi-Process Bot Runner** | `SingleBotProcess` | Supervises dozens of isolated Java Virtual Machine instances simultaneously. Memory crashes or thread locks in one account never affect neighboring bots or the web dashboard. |
+| **Comprehensive Game Mod Suite** | `RmsWriter` & Game Jars | Direct binary generation of MicroEmulator `.rs` RecordStore files. Native support for Auto Diamond Mining (UPXU), Auto Fishing, Crop Farming, Animal Care, and Ore Selling. |
+| **Autonomous Proxy Lifecycle** | `ProxyLifecycleCron` | 3-phase automated cronjob: releases expired slots, updates draining states, triggers 2-hour Waterfall Migration preserving server binding, auto-renews via proxy.vn, and eliminates idle costs. |
+| **Multi-Tenant Rental Engine** | `ResourceAllocationEngine` | Dynamic Best-Fit Decreasing algorithm with `AsyncMutex` race condition immunity. Auto-balances loads between Hoàn Mỹ (HM) and Diệu Kỳ (DK) servers with pro-rata refund calculations. |
+| **Instant 24/7 Wallet Billing** | `PayOsService` | Fully automated wallet top-up via NAPAS VietQR. Includes HMAC-SHA256 signature validation, database idempotency locks against double-crediting, and live Server-Sent Events balance sync. |
+| **Liquid Glass Web Dashboard** | `HttpServer` & React UI | Porsche minimalist design with dual-canvas pixel avatar rendering, live Server-Sent Events (SSE) terminal streaming, dual profile management, and floating mobile dock. |
+| **Pure MySQL Persistence** | `DrizzleDb` & `DatabaseMigrator` | 100% relational storage eliminating legacy file locks. Code-First automated schema migrations and connection pooling for concurrent requests. |
+
+---
+
+## Engine Architecture
+
+The platform operates as a Node.js daemon supervising isolated Java ME environments running the AngelChip emulator:
+
+```mermaid
+graph TD
+    Client["Browser / Web Dashboard (React & SSE)"] -->|"REST APIs / SSE Stream"| NodeServer["Node.js Supervisor Process (HttpServer)"]
+    
+    subgraph CoreSupervisor ["Supervision & Concurrency Engine"]
+        NodeServer --> Mutex["AsyncMutex (Sequential Allocation Lock)"]
+        NodeServer --> Cron["ProxyLifecycleCron (3-Phase Waterfall Engine)"]
+        NodeServer --> Bus["SseEventBus & CrossProcessBus"]
+    end
+    
+    subgraph DataLayer ["100% MySQL Relational Layer"]
+        NodeServer --> DB["MySQL Connection Pool & Drizzle ORM"]
+        DB --- Migrator["DatabaseMigrator (Code-First Schema Sync)"]
+    end
+    
+    subgraph BotExecutionLayer ["Isolated Java Child Processes"]
+        NodeServer --> ProcMgr["ProcessRegistry & SingleBotProcess"]
+        ProcMgr -->|"Generates Binary .rs"| RMS["RmsWriter (MicroEmulator Storage)"]
+        ProcMgr -->|"Direct Stdin / Stdout"| IPC["BotIpcProtocol (Watchdog & Backoff)"]
+        ProcMgr -->|"Spawns (JVM Headless)"| JavaBot1["Bot Instance 1 (JVM 17)"]
+        ProcMgr -->|"Spawns (JVM Headless)"| JavaBotN["Bot Instance N (JVM 17)"]
+    end
+    
+    subgraph NetworkRouting ["Dedicated Proxy Sockets"]
+        JavaBot1 -->|"SOCKS5 Socket"| Proxy1["Proxy Pool (proxy.vn / Static)"]
+        JavaBotN -->|"SOCKS5 Socket"| ProxyN["Proxy Pool (proxy.vn / Static)"]
+        Proxy1 -->|"Encrypted Traffic"| ServerHM["Server Hoàn Mỹ"]
+        ProxyN -->|"Encrypted Traffic"| ServerDK["Server Diệu Kỳ"]
+    end
+```
+
+---
+
+## Quickstart
+
+### 1. Clone & Configure Environment
 
 ```bash
 git clone https://github.com/hoangbmt023/auto-server-manager-avatar2d-angleChip.git
@@ -45,17 +88,19 @@ Copy the environment template:
 cp .env.example .env.development
 ```
 
-Edit `.env.development` with your MySQL credentials:
+Configure your MySQL connection credentials in `.env.development`:
 
 ```env
-DB_HOST=localhost
-DB_USER=root
-DB_PASSWORD=
-DB_NAME=avatar_2d_bot_manager
 PORT=3001
+DB_HOST=localhost
+DB_PORT=3306
+DB_USER=root
+DB_PASSWORD=your_mysql_password
+DB_NAME=avatar_2d_bot_manager
+APP_SECRET=your_super_secret_32_character_key
 ```
 
-### 2. Run the Application
+### 2. Launch Application
 
 ```bash
 # Development (with Code-First Auto-Migration)
@@ -69,30 +114,29 @@ Open your browser at **`http://localhost:3001`**.
 
 ---
 
-## 📚 Documentation Hub
+## Documentation Hub
 
-Deep-dive technical documentation is organized in the [`docs/`](docs/) directory:
+Deep-dive operational and technical documentation is organized in the [`docs/`](docs/) directory:
 
 | Document | Description |
 | :--- | :--- |
-| 🏗️ [**Architecture & Folder Structure**](docs/ARCHITECTURE.md) | Clean Architecture layers, Domain-Driven Design, dependency rules, and folder hierarchy |
-| 🗄️ [**Database & Schema Reference**](docs/DATABASE.md) | MySQL schema ERD, Drizzle ORM models, connection pooling, and auto-seeding |
-| 🔌 [**API & Middleware Specification**](docs/API_SPECIFICATION.md) | RESTful API endpoints, Request/Response DTO contracts, and Security Middlewares |
-| 🚀 [**cPanel Deployment Guide**](docs/CPANEL_DEPLOYMENT.md) | Step-by-step setup on cPanel Hosting via Setup Node.js App & Portable JRE 17 |
-| 🎨 [**UI/UX Design Engine**](docs/DESIGN.md) | Porsche Minimalist Liquid Glass design tokens, color palette, and vector iconography |
+| [**System Design & Execution Pipeline**](docs/SYSTEM_DESIGN.md) | Multi-process runner, `.rs` binary format specification, dual-canvas graphics, IPC protocol, and Watchdog backoff algorithms |
+| [**Rental Engine & Proxy Lifecycle**](docs/RENTAL_AND_PROXY_LIFECYCLE.md) | Dynamic Best-Fit allocation, 3-phase Cronjob, Waterfall Migration rules, Prorated refund math, and anti-abuse safeguards |
+| [**RESTful API & Event Specification**](docs/API_SPECIFICATION.md) | Comprehensive endpoint reference, Server-Sent Events (SSE) schemas, and payOS webhook signature validation |
+| [**Database Schema & Persistence**](docs/DATABASE.md) | Complete MySQL entity relationship diagram (ERD), table columns, indexing strategies, and automated migrations |
+| [**Production Deployment Guide**](docs/DEPLOYMENT_GUIDE.md) | Step-by-step setup on cPanel Hosting (Setup Node.js App), Linux VPS (Systemd), Windows local setup, and low-footprint JVM tuning |
+| [**UI/UX Design Engine**](docs/DESIGN.md) | Porsche minimalist liquid glass design tokens, dual-canvas character extraction, and vector iconography |
 
 ---
 
-## 🛠️ Security Middlewares Pipeline
+## Deployment Options
 
-All incoming HTTP requests pass through three dedicated modular boundary guards:
-
-* **CORS Whitelisting** (`corsMiddleware.js`): Strict origin validation dynamically managed via `CORS_ALLOWED_ORIGINS` in `.env`.
-* **Timing-Attack Immune Auth** (`authMiddleware.js`): Constant-time string comparison (`crypto.timingSafeEqual`) for dashboard protection.
-* **Payload Protection** (`bodyParserMiddleware.js`): Memory overflow prevention (Anti-DoS) and Prototype Pollution sanitization.
+* **cPanel Hosting**: Run directly via **Setup Node.js App** (Phusion Passenger wrapper `app.js`). Supports zero-root standalone OpenJDK 17 execution. See the [cPanel Deployment Guide](docs/DEPLOYMENT_GUIDE.md#2-deploying-on-cpanel-via-setup-nodejs-app).
+* **Linux VPS (Ubuntu / Debian)**: Deploy with systemd daemon management and headless virtual framebuffer. See the [Linux VPS Guide](docs/DEPLOYMENT_GUIDE.md#3-deploying-on-linux-vps-ubuntu-2204--debian-12).
+* **Windows Workstation**: Run natively using standard Command Prompt or PowerShell with installed JDK 17 and MySQL.
 
 ---
 
-## 📄 License
+## License
 
 This project is licensed under the [MIT License](LICENSE).

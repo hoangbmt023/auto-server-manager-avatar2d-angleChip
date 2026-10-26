@@ -1,5 +1,5 @@
 /**
- * Server Entrypoint (Clean Architecture / SOLID / DDD)
+ * Server Entrypoint
  * Delegates execution to modular HttpServer in src/interfaces/http/HttpServer.js
  */
 require('./config');
