@@ -1,0 +1,617 @@
+[
+  {
+    "id": 0,
+    "category": "Cây Trồng (Hạt Giống)",
+    "name": "cà chua",
+    "Thời gian trồng": "4 (giờ)",
+    "Giá mua (xu)": "10",
+    "Giá mua (lượng)": "0",
+    "Cấp độ": "1",
+    "Sản lượng": "75"
+  },
+  {
+    "id": 1,
+    "category": "Cây Trồng (Hạt Giống)",
+    "name": "cà rốt",
+    "Thời gian trồng": "6 (giờ)",
+    "Giá mua (xu)": "10",
+    "Giá mua (lượng)": "0",
+    "Cấp độ": "1",
+    "Sản lượng": "108"
+  },
+  {
+    "id": 2,
+    "category": "Cây Trồng (Hạt Giống)",
+    "name": "khóm",
+    "Thời gian trồng": "10 (giờ)",
+    "Giá mua (xu)": "10",
+    "Giá mua (lượng)": "0",
+    "Cấp độ": "1",
+    "Sản lượng": "165"
+  },
+  {
+    "id": 3,
+    "category": "Cây Trồng (Hạt Giống)",
+    "name": "dưa hấu",
+    "Thời gian trồng": "8 (giờ)",
+    "Giá mua (xu)": "10",
+    "Giá mua (lượng)": "0",
+    "Cấp độ": "1",
+    "Sản lượng": "138"
+  },
+  {
+    "id": 4,
+    "category": "Cây Trồng (Hạt Giống)",
+    "name": "nho",
+    "Thời gian trồng": "16 (giờ)",
+    "Giá mua (xu)": "10",
+    "Giá mua (lượng)": "0",
+    "Cấp độ": "1",
+    "Sản lượng": "240"
+  },
+  {
+    "id": 5,
+    "category": "Cây Trồng (Hạt Giống)",
+    "name": "hoa hồng",
+    "Thời gian trồng": "2 (giờ)",
+    "Giá mua (xu)": "10",
+    "Giá mua (lượng)": "0",
+    "Cấp độ": "1",
+    "Sản lượng": "45"
+  },
+  {
+    "id": 6,
+    "category": "Cây Trồng (Hạt Giống)",
+    "name": "lúa",
+    "Thời gian trồng": "48 (giờ)",
+    "Giá mua (xu)": "10",
+    "Giá mua (lượng)": "0",
+    "Cấp độ": "1",
+    "Sản lượng": "720"
+  },
+  {
+    "id": 7,
+    "category": "Cây Trồng (Hạt Giống)",
+    "name": "xoài",
+    "Thời gian trồng": "24 (giờ)",
+    "Giá mua (xu)": "10",
+    "Giá mua (lượng)": "0",
+    "Cấp độ": "1",
+    "Sản lượng": "360"
+  },
+  {
+    "id": 8,
+    "category": "Cây Trồng (Hạt Giống)",
+    "name": "thanh long",
+    "Thời gian trồng": "12 (giờ)",
+    "Giá mua (xu)": "10",
+    "Giá mua (lượng)": "0",
+    "Cấp độ": "1",
+    "Sản lượng": "189"
+  },
+  {
+    "id": 9,
+    "category": "Cây Trồng (Hạt Giống)",
+    "name": "hoa hướng dương",
+    "Thời gian trồng": "12 (giờ)",
+    "Giá mua (xu)": "10",
+    "Giá mua (lượng)": "0",
+    "Cấp độ": "1",
+    "Sản lượng": "189"
+  },
+  {
+    "id": 10,
+    "category": "Cây Trồng (Hạt Giống)",
+    "name": "hoa tulip",
+    "Thời gian trồng": "6 (giờ)",
+    "Giá mua (xu)": "10",
+    "Giá mua (lượng)": "0",
+    "Cấp độ": "1",
+    "Sản lượng": "108"
+  },
+  {
+    "id": 30,
+    "category": "Cây Trồng (Hạt Giống)",
+    "name": "bắp",
+    "Thời gian trồng": "24 (giờ)",
+    "Giá mua (xu)": "10",
+    "Giá mua (lượng)": "0",
+    "Cấp độ": "1",
+    "Sản phẩm": "Bắp",
+    "Sản lượng": "360"
+  },
+  {
+    "id": 31,
+    "category": "Cây Trồng (Hạt Giống)",
+    "name": "nha đam",
+    "Thời gian trồng": "2 (giờ)",
+    "Giá mua (xu)": "0",
+    "Giá mua (lượng)": "1",
+    "Cấp độ": "2",
+    "Sản phẩm": "Nha đam",
+    "Sản lượng": "1345"
+  },
+  {
+    "id": 32,
+    "category": "Cây Trồng (Hạt Giống)",
+    "name": "dưa leo",
+    "Thời gian trồng": "48 (giờ)",
+    "Giá mua (xu)": "10",
+    "Giá mua (lượng)": "0",
+    "Cấp độ": "1",
+    "Sản phẩm": "Dưa Leo",
+    "Sản lượng": "720"
+  },
+  {
+    "id": 33,
+    "category": "Cây Trồng (Hạt Giống)",
+    "name": "cà tím",
+    "Thời gian trồng": "8 (giờ)",
+    "Giá mua (xu)": "10",
+    "Giá mua (lượng)": "0",
+    "Cấp độ": "1",
+    "Sản phẩm": "Cà tìm",
+    "Sản lượng": "138"
+  },
+  {
+    "id": 34,
+    "category": "Cây Trồng (Hạt Giống)",
+    "name": "tỏi",
+    "Thời gian trồng": "4 (giờ)",
+    "Giá mua (xu)": "10",
+    "Giá mua (lượng)": "0",
+    "Cấp độ": "1",
+    "Sản phẩm": "Tỏi",
+    "Sản lượng": "75"
+  },
+  {
+    "id": 35,
+    "category": "Cây Trồng (Hạt Giống)",
+    "name": "dâu tây",
+    "Thời gian trồng": "5 (giờ)",
+    "Giá mua (xu)": "10",
+    "Giá mua (lượng)": "0",
+    "Cấp độ": "1",
+    "Sản phẩm": "Dâu Tây",
+    "Sản lượng": "97"
+  },
+  {
+    "id": 36,
+    "category": "Cây Trồng (Hạt Giống)",
+    "name": "chuối",
+    "Thời gian trồng": "11 (giờ)",
+    "Giá mua (xu)": "10",
+    "Giá mua (lượng)": "0",
+    "Cấp độ": "1",
+    "Sản phẩm": "Chuối",
+    "Sản lượng": "180"
+  },
+  {
+    "id": 37,
+    "category": "Cây Trồng (Hạt Giống)",
+    "name": "đào",
+    "Thời gian trồng": "48 (giờ)",
+    "Giá mua (xu)": "10",
+    "Giá mua (lượng)": "0",
+    "Cấp độ": "2",
+    "Sản phẩm": "đào",
+    "Sản lượng": "1000"
+  },
+  {
+    "id": 38,
+    "category": "Cây Trồng (Hạt Giống)",
+    "name": "vải",
+    "Thời gian trồng": "72 (giờ)",
+    "Giá mua (xu)": "10",
+    "Giá mua (lượng)": "0",
+    "Cấp độ": "2",
+    "Sản phẩm": "Vải",
+    "Sản lượng": "1500"
+  },
+  {
+    "id": 39,
+    "category": "Cây Trồng (Hạt Giống)",
+    "name": "cúc chuồn chuồn",
+    "Thời gian trồng": "3 (giờ)",
+    "Giá mua (xu)": "10",
+    "Giá mua (lượng)": "0",
+    "Cấp độ": "1",
+    "Sản phẩm": "Cúc chuồn chuồn",
+    "Sản lượng": "62"
+  },
+  {
+    "id": 40,
+    "category": "Cây Trồng (Hạt Giống)",
+    "name": "sen",
+    "Thời gian trồng": "8 (giờ)",
+    "Giá mua (xu)": "10",
+    "Giá mua (lượng)": "0",
+    "Cấp độ": "1",
+    "Sản phẩm": "Sen",
+    "Sản lượng": "140"
+  },
+  {
+    "id": 41,
+    "category": "Cây Trồng (Hạt Giống)",
+    "name": "bí ngô",
+    "Thời gian trồng": "2 (giờ)",
+    "Giá mua (xu)": "10",
+    "Giá mua (lượng)": "0",
+    "Cấp độ": "1",
+    "Sản phẩm": "Bí Ngô",
+    "Sản lượng": "80"
+  },
+  {
+    "id": 42,
+    "category": "Cây Trồng (Hạt Giống)",
+    "name": "khoai tây",
+    "Thời gian trồng": "6 (giờ)",
+    "Giá mua (xu)": "10",
+    "Giá mua (lượng)": "0",
+    "Cấp độ": "2",
+    "Sản phẩm": "Khoai Tây",
+    "Sản lượng": "120"
+  },
+  {
+    "id": 43,
+    "category": "Cây Trồng (Hạt Giống)",
+    "name": "cây ớt",
+    "Thời gian trồng": "1 (giờ)",
+    "Giá mua (xu)": "10",
+    "Giá mua (lượng)": "0",
+    "Cấp độ": "1",
+    "Sản phẩm": "ớt",
+    "Sản lượng": "45"
+  },
+  {
+    "id": 50,
+    "category": "Vật Nuôi",
+    "name": "Gà",
+    "Thời gian nuôi": "24 (giờ)",
+    "Giá mua (xu)": "500",
+    "Giá mua (lượng)": "-1",
+    "Thời gian lớn": "1 (ngày)",
+    "Giá bán": "950 xu",
+    "Đơn vị nông trại": "1",
+    "Sản phẩm": "20 sau mỗi 6 giờ",
+    "Giá bán SP": "10 xu",
+    "Thời gian sống": "7 ngày"
+  },
+  {
+    "id": 51,
+    "category": "Vật Nuôi",
+    "name": "Bò",
+    "Thời gian nuôi": "72 (giờ)",
+    "Giá mua (xu)": "0",
+    "Giá mua (lượng)": "5",
+    "Thời gian lớn": "3 (ngày)",
+    "Giá bán": "2.000 xu",
+    "Đơn vị nông trại": "3",
+    "Sản phẩm": "30 sau mỗi 6 giờ",
+    "Giá bán SP": "20 xu",
+    "Thời gian sống": "30 ngày"
+  },
+  {
+    "id": 52,
+    "category": "Vật Nuôi",
+    "name": "Heo",
+    "Thời gian nuôi": "48 (giờ)",
+    "Giá mua (xu)": "1.000",
+    "Giá mua (lượng)": "-1",
+    "Thời gian lớn": "2 (ngày)",
+    "Giá bán": "2.000 xu",
+    "Đơn vị nông trại": "2",
+    "Giá bán SP": "-1 xu",
+    "Thời gian sống": "20 ngày"
+  },
+  {
+    "id": 53,
+    "category": "Vật Nuôi",
+    "name": "Chó",
+    "Thời gian nuôi": "1 (giờ)",
+    "Giá mua (xu)": "0",
+    "Giá mua (lượng)": "1",
+    "Thời gian lớn": "-1 (ngày)",
+    "Giá bán": "-1 xu",
+    "Đơn vị nông trại": "1",
+    "Giá bán SP": "-1 xu",
+    "Thời gian sống": "15 ngày"
+  },
+  {
+    "id": 54,
+    "category": "Vật Nuôi",
+    "name": "Cá chép",
+    "Thời gian nuôi": "72 (giờ)",
+    "Giá mua (xu)": "5.000",
+    "Giá mua (lượng)": "-1",
+    "Thời gian lớn": "3 (ngày)",
+    "Giá bán": "10.000 xu",
+    "Đơn vị hồ cá": "1",
+    "Giá bán SP": "-1 xu",
+    "Thời gian sống": "30 ngày"
+  },
+  {
+    "id": 55,
+    "category": "Vật Nuôi",
+    "name": "Cừu",
+    "Thời gian nuôi": "48 (giờ)",
+    "Giá mua (xu)": "0",
+    "Giá mua (lượng)": "2",
+    "Thời gian lớn": "2 (ngày)",
+    "Giá bán": "1.500 xu",
+    "Đơn vị nông trại": "3",
+    "Sản phẩm": "20 sau mỗi 12 giờ",
+    "Giá bán SP": "30 xu",
+    "Thời gian sống": "10 ngày"
+  },
+  {
+    "id": 56,
+    "category": "Vật Nuôi",
+    "name": "Vịt",
+    "Thời gian nuôi": "48 (giờ)",
+    "Giá mua (xu)": "600",
+    "Giá mua (lượng)": "-1",
+    "Thời gian lớn": "2 (ngày)",
+    "Giá bán": "1.200 xu",
+    "Đơn vị nông trại": "1",
+    "Sản phẩm": "20 sau mỗi 6 giờ",
+    "Giá bán SP": "10 xu",
+    "Thời gian sống": "7 ngày"
+  },
+  {
+    "id": 58,
+    "category": "Vật Nuôi",
+    "name": "Rùa",
+    "Thời gian nuôi": "24 (giờ)",
+    "Giá mua (xu)": "2.000",
+    "Giá mua (lượng)": "-1",
+    "Thời gian lớn": "1 (ngày)",
+    "Giá bán": "5.000 xu",
+    "Đơn vị nông trại": "2",
+    "Giá bán SP": "-1 xu",
+    "Thời gian sống": "15 ngày",
+    "Đơn vị hồ cá": "1"
+  },
+  {
+    "id": 1,
+    "category": "Món Ăn (Nhà Bếp)",
+    "name": "Bánh Trứng",
+    "Thời gian nấu": "60 (phút)",
+    "Giá bán": "5.880 xu",
+    "Nguyên liệu": "12 Gà (id: 50) + 720 lúa (id: 6)"
+  },
+  {
+    "id": 2,
+    "category": "Món Ăn (Nhà Bếp)",
+    "name": "Bánh sữa",
+    "Thời gian nấu": "60 (phút)",
+    "Giá bán": "6.160 xu",
+    "Nguyên liệu": "20 Bò (id: 51) + 720 lúa (id: 6)"
+  },
+  {
+    "id": 3,
+    "category": "Món Ăn (Nhà Bếp)",
+    "name": "Cơm",
+    "Thời gian nấu": "30 (phút)",
+    "Giá bán": "6.211 xu",
+    "Nguyên liệu": "1440 lúa (id: 6)"
+  },
+  {
+    "id": 4,
+    "category": "Món Ăn (Nhà Bếp)",
+    "name": "Cơm Trứng",
+    "Thời gian nấu": "60 (phút)",
+    "Giá bán": "8.040 xu",
+    "Nguyên liệu": "1440 lúa (id: 6) + 12 Gà (id: 50)"
+  },
+  {
+    "id": 5,
+    "category": "Món Ăn (Nhà Bếp)",
+    "name": "Cơm Cà rốt",
+    "Thời gian nấu": "60 (phút)",
+    "Giá bán": "8.244 xu",
+    "Nguyên liệu": "1440 lúa (id: 6) + 108 cà rốt (id: 1)"
+  },
+  {
+    "id": 6,
+    "category": "Món Ăn (Nhà Bếp)",
+    "name": "Nước ép trái cây",
+    "Thời gian nấu": "60 (phút)",
+    "Giá bán": "6.030 xu",
+    "Nguyên liệu": "338 khóm (id: 2) + 480 nho (id: 4)"
+  },
+  {
+    "id": 7,
+    "category": "Món Ăn (Nhà Bếp)",
+    "name": "Gỏi xoài",
+    "Thời gian nấu": "60 (phút)",
+    "Giá bán": "7.920 xu",
+    "Nguyên liệu": "1440 xoài (id: 7)"
+  },
+  {
+    "id": 8,
+    "category": "Món Ăn (Nhà Bếp)",
+    "name": "Sửa chua Khế",
+    "Thời gian nấu": "60 (phút)",
+    "Giá bán": "12.096 xu",
+    "Nguyên liệu": "72 Bò (id: 51) + 96 Quả Khế (id: 215)"
+  },
+  {
+    "id": 9,
+    "category": "Món Ăn (Nhà Bếp)",
+    "name": "Trái cây dầm",
+    "Thời gian nấu": "60 (phút)",
+    "Giá bán": "5.418 xu",
+    "Nguyên liệu": "276 dưa hấu (id: 3) + 330 khóm (id: 2)"
+  },
+  {
+    "id": 10,
+    "category": "Món Ăn (Nhà Bếp)",
+    "name": "Tinh dầu hướng dương",
+    "Thời gian nấu": "180 (phút)",
+    "Giá bán": "10.908 xu",
+    "Nguyên liệu": "756 hoa hướng dương (id: 9)"
+  },
+  {
+    "id": 11,
+    "category": "Món Ăn (Nhà Bếp)",
+    "name": "Nước Hoa",
+    "Thời gian nấu": "4320 (phút)",
+    "Giá bán": "32.000 xu",
+    "Nguyên liệu": "324 hoa tulip (id: 10) + 145 hoa hồng (id: 5) + 378 hoa hướng dương (id: 9)"
+  },
+  {
+    "id": 12,
+    "category": "Món Ăn (Nhà Bếp)",
+    "name": "Sữa chua trái cây",
+    "Thời gian nấu": "1440 (phút)",
+    "Giá bán": "30.000 xu",
+    "Nguyên liệu": "1 Sữa chua Khế (id: 212) + 1 Trái cây dĩa (id: 218)"
+  },
+  {
+    "id": 13,
+    "category": "Món Ăn (Nhà Bếp)",
+    "name": "Trái cây dĩa",
+    "Thời gian nấu": "60 (phút)",
+    "Giá bán": "8.000 xu",
+    "Nguyên liệu": "378 thanh long (id: 8) + 330 khóm (id: 2) + 276 dưa hấu (id: 3) + 720 xoài (id: 7)"
+  },
+  {
+    "id": 14,
+    "category": "Món Ăn (Nhà Bếp)",
+    "name": "Salad khế",
+    "Thời gian nấu": "60 (phút)",
+    "Giá bán": "4.560 xu",
+    "Nguyên liệu": "240 Quả Khế (id: 215)"
+  },
+  {
+    "id": 19,
+    "category": "Món Ăn (Nhà Bếp)",
+    "name": "Hột vịt lộn",
+    "Thời gian nấu": "30 (phút)",
+    "Giá bán": "5.000 xu",
+    "Nguyên liệu": "100 Vịt (id: 56)"
+  },
+  {
+    "id": 18,
+    "category": "Món Ăn (Nhà Bếp)",
+    "name": "Kem Tươi",
+    "Thời gian nấu": "180 (phút)",
+    "Giá bán": "18.000 xu",
+    "Nguyên liệu": "100 Bò (id: 51)"
+  },
+  {
+    "id": 17,
+    "category": "Món Ăn (Nhà Bếp)",
+    "name": "Trà sữa trái cây",
+    "Thời gian nấu": "60 (phút)",
+    "Giá bán": "17.000 xu",
+    "Nguyên liệu": "1 Trái cây dĩa (id: 218) + 50 Bò (id: 51)"
+  },
+  {
+    "id": 16,
+    "category": "Món Ăn (Nhà Bếp)",
+    "name": "Chè khúc bạch",
+    "Thời gian nấu": "120 (phút)",
+    "Giá bán": "25.000 xu",
+    "Nguyên liệu": "500 Vải (id: 253) + 50 Bò (id: 51) + 1 Kem tươi (id: 262)"
+  },
+  {
+    "id": 15,
+    "category": "Món Ăn (Nhà Bếp)",
+    "name": "Trà Đào",
+    "Thời gian nấu": "120 (phút)",
+    "Giá bán": "7.000 xu",
+    "Nguyên liệu": "1000 đào (id: 252)"
+  },
+  {
+    "id": 20,
+    "category": "Món Ăn (Nhà Bếp)",
+    "name": "Kem chiên",
+    "Thời gian nấu": "30 (phút)",
+    "Giá bán": "12.500 xu",
+    "Nguyên liệu": "1 Kem tươi (id: 262)"
+  },
+  {
+    "id": 22,
+    "category": "Món Ăn (Nhà Bếp)",
+    "name": "Bò viên",
+    "Thời gian nấu": "30 (phút)",
+    "Giá bán": "20.000 xu",
+    "Nguyên liệu": "2 Thịt bò (id: 254)"
+  },
+  {
+    "id": 23,
+    "category": "Món Ăn (Nhà Bếp)",
+    "name": "Cá viên",
+    "Thời gian nấu": "30 (phút)",
+    "Giá bán": "10.000 xu",
+    "Nguyên liệu": "2 Thịt cá (id: 255)"
+  },
+  {
+    "id": 24,
+    "category": "Món Ăn (Nhà Bếp)",
+    "name": "Bành xèo",
+    "Thời gian nấu": "240 (phút)",
+    "Giá bán": "30.000 xu",
+    "Nguyên liệu": "2000 lúa (id: 6) + 100 Gà (id: 50) + 5 Thịt heo (id: 221)"
+  },
+  {
+    "id": 25,
+    "category": "Món Ăn (Nhà Bếp)",
+    "name": "Pizza",
+    "Thời gian nấu": "1440 (phút)",
+    "Giá bán": "72.000 xu",
+    "Nguyên liệu": "5000 lúa (id: 6) + 5 Thịt heo (id: 221) + 1 Thịt bò (id: 254) + 1 Thịt cá (id: 255) + 200 Gà (id: 50)"
+  },
+  {
+    "id": 26,
+    "category": "Món Ăn (Nhà Bếp)",
+    "name": "Nước ép dưa hấu",
+    "Thời gian nấu": "120 (phút)",
+    "Giá bán": "10.000 xu",
+    "Nguyên liệu": "1000 dưa hấu (id: 3)"
+  },
+  {
+    "id": 27,
+    "category": "Món Ăn (Nhà Bếp)",
+    "name": "Phô mai",
+    "Thời gian nấu": "240 (phút)",
+    "Giá bán": "32.000 xu",
+    "Nguyên liệu": "100 Bò (id: 51) + 400 Gà (id: 50)"
+  },
+  {
+    "id": 28,
+    "category": "Món Ăn (Nhà Bếp)",
+    "name": "Khoai Tây Chiên",
+    "Thời gian nấu": "60 (phút)",
+    "Giá bán": "20.000 xu",
+    "Nguyên liệu": "500 Khoai Tây (id: 271) + 100 Gà (id: 50)"
+  },
+  {
+    "id": 29,
+    "category": "Món Ăn (Nhà Bếp)",
+    "name": "Bắp Chiên Bơ",
+    "Thời gian nấu": "60 (phút)",
+    "Giá bán": "19.000 xu",
+    "Nguyên liệu": "1500 Bắp (id: 200) + 300 Gà (id: 50)"
+  },
+  {
+    "id": 30,
+    "category": "Món Ăn (Nhà Bếp)",
+    "name": "Tương Cà Chua",
+    "Thời gian nấu": "360 (phút)",
+    "Giá bán": "20.000 xu",
+    "Nguyên liệu": "1000 cà chua (id: 0)"
+  },
+  {
+    "id": 33,
+    "category": "Món Ăn (Nhà Bếp)",
+    "name": "Tương ớt",
+    "Thời gian nấu": "30 (phút)",
+    "Giá bán": "3.000 xu",
+    "Nguyên liệu": "500 ớt (id: 286)",
+    "Nguồn": "Angelchip",
+    "Tags": ""
+  }
+]

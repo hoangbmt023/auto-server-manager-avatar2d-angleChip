@@ -1,0 +1,465 @@
+/* ==========================================================================
+   🍎 APPLE LIQUID GLASS - NAVBAR & FLOATING HEADER
+   ========================================================================== */
+
+.navbar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 12px 22px;
+  background: var(--glass-card);
+  backdrop-filter: var(--blur-deep);
+  -webkit-backdrop-filter: var(--blur-deep);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-glass);
+  position: relative;
+  overflow: hidden;
+}
+
+.navbar::before {
+  content: '';
+  position: absolute;
+  top: 0; left: 0; right: 0; height: 1px;
+  background: var(--glass-sheen);
+  pointer-events: none;
+}
+
+.brand {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.brand-icon {
+  width: 38px;
+  height: 38px;
+  border-radius: var(--radius-sm);
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid var(--glass-border-subtle);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.25rem;
+  box-shadow: inset 0 1px 0 0 rgba(255, 255, 255, 0.12);
+  overflow: hidden;
+}
+
+.app-logo-img {
+  width: 24px;
+  height: 24px;
+  object-fit: contain;
+  transition: transform var(--transition-fast), filter var(--transition-fast);
+  user-select: none;
+}
+
+[data-theme="dark"] .app-logo-img,
+:root:not([data-theme="light"]) .app-logo-img {
+  filter: brightness(0) invert(1) drop-shadow(0 0 6px rgba(10, 132, 255, 0.5));
+}
+
+[data-theme="light"] .app-logo-img {
+  filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.2));
+}
+
+.brand-icon:hover .app-logo-img {
+  transform: scale(1.12);
+}
+
+.brand-text {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.brand-text h1 {
+  font-size: 1.05rem;
+  font-weight: 600;
+  color: var(--text-primary);
+  letter-spacing: -0.02em;
+  line-height: 1.2;
+}
+
+.badge-cpanel {
+  font-size: 0.68rem;
+  font-weight: 500;
+  color: var(--text-secondary);
+  letter-spacing: 0.02em;
+}
+
+/* Nav Status Section */
+.nav-status {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+/* Apple RAM Status Capsule */
+.nav-ram-badge {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 14px;
+  background: rgba(0, 0, 0, 0.25);
+  border: 1px solid var(--glass-border-subtle);
+  border-radius: var(--radius-pill);
+  backdrop-filter: var(--blur-base);
+  font-size: 0.76rem;
+  color: var(--text-secondary);
+  transition: var(--transition-normal);
+}
+
+.nav-ram-badge:hover {
+  background: rgba(0, 0, 0, 0.4);
+  border-color: rgba(255, 255, 255, 0.12);
+}
+
+.nav-ram-icon {
+  font-size: 0.85rem;
+}
+
+.nav-ram-info {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.nav-ram-main strong {
+  color: var(--text-primary);
+  font-weight: 600;
+}
+
+.nav-ram-sub {
+  color: var(--text-tertiary);
+  font-size: 0.7rem;
+}
+
+/* Apple Dynamic Island Status Indicator */
+.status-indicator {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 14px;
+  border-radius: var(--radius-pill);
+  font-size: 0.78rem;
+  font-weight: 500;
+  backdrop-filter: var(--blur-base);
+  border: 1px solid transparent;
+  transition: var(--transition-normal);
+}
+
+.status-running {
+  background: rgba(48, 209, 88, 0.12);
+  border-color: rgba(48, 209, 88, 0.3);
+  color: #7bf199;
+}
+
+.status-stopped {
+  background: rgba(255, 255, 255, 0.05);
+  border-color: var(--glass-border);
+  color: var(--text-secondary);
+}
+
+/* Pulsing Dot */
+.pulse-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  position: relative;
+}
+
+.status-running .pulse-dot {
+  background: var(--apple-green);
+  box-shadow: 0 0 10px var(--apple-green);
+  animation: applePulse 2s infinite var(--ease-apple);
+}
+
+.status-stopped .pulse-dot {
+  background: var(--text-tertiary);
+}
+
+@keyframes applePulse {
+  0% {
+    transform: scale(0.95);
+    box-shadow: 0 0 0 0 rgba(48, 209, 88, 0.7);
+  }
+  70% {
+    transform: scale(1);
+    box-shadow: 0 0 0 8px rgba(48, 209, 88, 0);
+  }
+  100% {
+    transform: scale(0.95);
+    box-shadow: 0 0 0 0 rgba(48, 209, 88, 0);
+  }
+}
+
+/* ==========================================================================
+   USER PROFILE BADGE IN NAVBAR (JWT Authentication)
+   ========================================================================== */
+
+.navbar-user-profile {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 10px 4px 4px;
+  background: var(--glass-input-bg);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-pill);
+  backdrop-filter: var(--blur-base);
+  -webkit-backdrop-filter: var(--blur-base);
+  box-shadow: 0 2px 8px -2px rgba(0, 0, 0, 0.2);
+  transition: border-color var(--transition-fast), background var(--transition-fast), transform var(--transition-fast);
+  flex-shrink: 0;
+  user-select: none;
+}
+
+.navbar-user-profile:hover {
+  background: var(--glass-bg-hover);
+  border-color: var(--glass-border-focus);
+}
+
+.navbar-user-avatar {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #0a84ff 0%, #38bdf8 100%);
+  color: #ffffff;
+  font-size: 12px;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 2px 6px rgba(10, 132, 255, 0.35);
+  flex-shrink: 0;
+  text-transform: uppercase;
+}
+
+.navbar-user-email {
+  font-size: 12.5px;
+  font-weight: 500;
+  color: var(--text-primary);
+  max-width: 150px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  line-height: 1.2;
+  letter-spacing: -0.01em;
+}
+
+.navbar-logout-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  background: transparent;
+  border: none;
+  color: var(--text-tertiary);
+  cursor: pointer;
+  transition: var(--transition-fast);
+  padding: 0;
+  margin-left: 2px;
+  flex-shrink: 0;
+}
+
+.navbar-logout-btn:hover {
+  background: rgba(255, 69, 58, 0.15);
+  color: var(--apple-red);
+  transform: scale(1.08);
+}
+
+@media (max-width: 768px) {
+  .navbar {
+    flex-direction: column;
+    gap: 10px;
+    align-items: stretch;
+    padding: 10px 14px;
+  }
+  .brand {
+    width: 100%;
+    justify-content: flex-start;
+    gap: 10px;
+  }
+  .brand-icon {
+    width: 32px;
+    height: 32px;
+    flex-shrink: 0;
+  }
+  .brand-text h1 {
+    font-size: 0.92rem;
+  }
+  .badge-cpanel {
+    font-size: 0.62rem;
+  }
+  .nav-status {
+    width: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 6px;
+    flex-wrap: nowrap;
+  }
+  .nav-ram-badge {
+    padding: 4px 8px;
+    font-size: 0.72rem;
+    gap: 5px;
+    flex: 1 1 auto;
+    justify-content: center;
+    min-width: 0;
+  }
+  .nav-ram-info {
+    gap: 4px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .nav-ram-main {
+    font-size: 0.72rem;
+  }
+  .nav-ram-sub {
+    display: none; /* Ẩn bớt chữ trống trên mobile để không bị ép */
+  }
+  .status-indicator {
+    padding: 4px 10px;
+    font-size: 0.72rem;
+    flex-shrink: 0;
+  }
+  .navbar-user-profile {
+    padding: 3px 5px 3px 3px;
+    gap: 4px;
+    flex-shrink: 0;
+  }
+  .navbar-user-avatar {
+    width: 24px;
+    height: 24px;
+    font-size: 11px;
+  }
+  .navbar-user-email {
+    display: none; /* Ẩn email dài trên mobile để giữ thanh điều hướng gọn gàng */
+  }
+  .navbar-logout-btn {
+    width: 22px;
+    height: 22px;
+  }
+  .nav-status .btn-icon {
+    width: 32px;
+    height: 32px;
+    flex-shrink: 0;
+  }
+}
+
+
+@media (max-width: 380px) {
+  .nav-status {
+    gap: 4px;
+  }
+  .nav-ram-badge {
+    padding: 4px 6px;
+  }
+  .nav-ram-main strong {
+    font-size: 0.7rem;
+  }
+  .status-indicator {
+    padding: 4px 8px;
+  }
+  .nav-status .btn-icon {
+    width: 30px;
+    height: 30px;
+  }
+}
+
+/* ==========================================================================
+   👤 USER PORTAL NAVBAR & NAVIGATION STYLES
+   ========================================================================== */
+.user-portal-navbar {
+  padding: 10px 20px;
+}
+
+.user-nav-tabs {
+  margin-left: 12px;
+}
+
+.user-nav-tab-btn {
+  background: transparent;
+  border: 1px solid transparent;
+  color: var(--text-secondary);
+  padding: 6px 14px;
+  border-radius: var(--radius-md);
+  font-size: 0.86rem;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  cursor: pointer;
+  transition: all 0.18s ease;
+}
+
+.user-nav-tab-btn:hover {
+  background: var(--glass-matrix-bg);
+  color: var(--text-primary);
+}
+
+.user-nav-tab-btn.active {
+  background: rgba(10, 132, 255, 0.12);
+  color: var(--apple-blue);
+  border-color: rgba(10, 132, 255, 0.25);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.08);
+}
+
+.user-balance-btn {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 5px 12px 5px 8px;
+  background: var(--glass-matrix-bg);
+  border: 1px solid var(--glass-border-subtle);
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  transition: all 0.18s cubic-bezier(0.16, 1, 0.3, 1);
+  color: var(--text-primary);
+}
+
+.user-balance-btn:hover {
+  background: rgba(255, 214, 10, 0.1);
+  border-color: rgba(255, 214, 10, 0.3);
+  transform: translateY(-1px);
+}
+
+.balance-icon-wrap {
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  background: rgba(255, 214, 10, 0.15);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.balance-info-wrap {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  line-height: 1.1;
+}
+
+.balance-lbl {
+  font-size: 0.62rem;
+  color: var(--text-tertiary);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  font-weight: 600;
+}
+
+.balance-amount {
+  font-size: 0.88rem;
+  color: var(--apple-gold);
+  font-weight: 700;
+}
+
+.rental-expired-card {
+  opacity: 0.82;
+  filter: grayscale(0.25);
+  border-color: rgba(255, 69, 58, 0.3) !important;
+}
+

@@ -1,0 +1,775 @@
+/* ==========================================================================
+   🍎 APPLE LIQUID GLASS UI - DESIGN SYSTEM & THEMES
+   Inspired by Apple visionOS & macOS Liquid Glass (Dark & Light Themes)
+   ========================================================================== */
+
+:root {
+  /* DARK THEME (Default) */
+  --liquid-bg: #06080d;
+  --liquid-mesh-1: rgba(56, 189, 248, 0.08);
+  --liquid-mesh-2: rgba(168, 85, 247, 0.07);
+  --liquid-mesh-3: rgba(16, 185, 129, 0.06);
+
+  /* Glass Surfaces */
+  --glass-bg: rgba(255, 255, 255, 0.04);
+  --glass-bg-hover: rgba(255, 255, 255, 0.07);
+  --glass-bg-active: rgba(255, 255, 255, 0.1);
+  --glass-card: rgba(14, 18, 28, 0.88);
+  --glass-card-bg: rgba(14, 18, 28, 0.88);
+  --glass-panel-bg: rgba(255, 255, 255, 0.03);
+  --glass-card-hover: rgba(20, 26, 40, 0.78);
+  --glass-input-bg: rgba(0, 0, 0, 0.45);
+  --glass-matrix-bg: rgba(0, 0, 0, 0.3);
+  
+  /* Specular Highlights & Borders */
+  --glass-border: rgba(255, 255, 255, 0.1);
+  --glass-border-subtle: rgba(255, 255, 255, 0.06);
+  --glass-border-focus: rgba(10, 132, 255, 0.5);
+  --glass-sheen: linear-gradient(135deg, rgba(255, 255, 255, 0.15) 0%, rgba(255, 255, 255, 0.02) 60%, transparent 100%);
+  
+  /* Typography */
+  --text-primary: #f8fafc;
+  --text-secondary: #94a3b8;
+  --text-tertiary: #64748b;
+  --text-muted: #64748b;
+  --text-dim: #475569;
+
+  /* Apple Accents */
+  --apple-blue: #0a84ff;
+  --apple-blue-glow: rgba(10, 132, 255, 0.25);
+  --apple-green: #30d158;
+  --apple-green-glow: rgba(48, 209, 88, 0.25);
+  --apple-orange: #ff9f0a;
+  --apple-orange-glow: rgba(255, 159, 10, 0.25);
+  --apple-red: #ff453a;
+  --apple-red-glow: rgba(255, 69, 58, 0.25);
+  --apple-purple: #bf5af2;
+  --apple-teal: #64d2ff;
+  --apple-gold: #ffd60a;
+
+  /* Shadows & Elevation */
+  --shadow-glass: 0 16px 40px -12px rgba(0, 0, 0, 0.5), inset 0 1px 0 0 rgba(255, 255, 255, 0.12);
+  --shadow-sm: 0 4px 16px -4px rgba(0, 0, 0, 0.3), inset 0 1px 0 0 rgba(255, 255, 255, 0.08);
+  --shadow-glow-blue: 0 0 24px -4px var(--apple-blue-glow);
+  --shadow-glow-green: 0 0 24px -4px var(--apple-green-glow);
+
+  /* Blur & Radius */
+  --blur-base: blur(24px);
+  --blur-deep: blur(36px);
+  --radius-xs: 8px;
+  --radius-sm: 12px;
+  --radius-md: 18px;
+  --radius-lg: 24px;
+  --radius-pill: 9999px;
+
+  /* Motion */
+  --ease-apple: cubic-bezier(0.16, 1, 0.3, 1);
+  --transition-fast: all 0.15s var(--ease-apple);
+  --transition-normal: all 0.25s var(--ease-apple);
+}
+
+/* ==========================================================================
+   ☀️ APPLE LIGHT THEME SPECIFICATION
+   ========================================================================== */
+[data-theme="light"] {
+  --liquid-bg: #f2f4f8;
+  --liquid-mesh-1: rgba(14, 165, 233, 0.1);
+  --liquid-mesh-2: rgba(168, 85, 247, 0.08);
+  --liquid-mesh-3: rgba(16, 185, 129, 0.08);
+
+  --glass-bg: rgba(255, 255, 255, 0.65);
+  --glass-bg-hover: rgba(255, 255, 255, 0.85);
+  --glass-bg-active: rgba(255, 255, 255, 0.95);
+  --glass-card: rgba(255, 255, 255, 0.94);
+  --glass-card-bg: rgba(255, 255, 255, 0.94);
+  --glass-panel-bg: rgba(0, 0, 0, 0.025);
+  --glass-card-hover: rgba(255, 255, 255, 0.98);
+  --glass-input-bg: #ffffff;
+  --glass-matrix-bg: rgba(0, 0, 0, 0.035);
+
+  --glass-border: rgba(0, 0, 0, 0.1);
+  --glass-border-subtle: rgba(0, 0, 0, 0.06);
+  --glass-border-focus: rgba(0, 113, 227, 0.5);
+  --glass-sheen: linear-gradient(135deg, rgba(255, 255, 255, 0.8) 0%, rgba(255, 255, 255, 0.2) 60%, transparent 100%);
+
+  --text-primary: #1d1d1f;
+  --text-secondary: #515154;
+  --text-tertiary: #86868b;
+  --text-muted: #86868b;
+  --text-dim: #a1a1a6;
+
+  --apple-blue: #0071e3;
+  --apple-green: #28cd41;
+  --apple-orange: #ff9500;
+  --apple-red: #ff3b30;
+  --apple-purple: #af52de;
+  --apple-teal: #007aff;
+  --apple-gold: #c68a00;
+
+  --shadow-glass: 0 12px 36px -10px rgba(0, 0, 0, 0.12), inset 0 1px 0 0 rgba(255, 255, 255, 0.9);
+  --shadow-sm: 0 4px 14px -4px rgba(0, 0, 0, 0.08), inset 0 1px 0 0 rgba(255, 255, 255, 0.8);
+}
+
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+body {
+  font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'SF Pro Text', 'Inter', 'Segoe UI', Roboto, sans-serif;
+  background-color: var(--liquid-bg);
+  background-image: 
+    radial-gradient(circle at 15% 10%, var(--liquid-mesh-1) 0%, transparent 45%),
+    radial-gradient(circle at 85% 20%, var(--liquid-mesh-2) 0%, transparent 45%),
+    radial-gradient(circle at 50% 90%, var(--liquid-mesh-3) 0%, transparent 50%);
+  background-attachment: fixed;
+  color: var(--text-primary);
+  min-height: 100vh;
+  line-height: 1.5;
+  padding: 24px 20px;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  transition: background-color 0.3s ease, color 0.3s ease;
+}
+
+/* Hide native browser password reveal & clear icons (Edge / IE / Chromium) */
+input[type="password"]::-ms-reveal,
+input[type="password"]::-ms-clear {
+  display: none !important;
+  width: 0 !important;
+  height: 0 !important;
+  pointer-events: none !important;
+}
+
+/* Custom Smooth Glass Scrollbars */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: var(--text-dim);
+  border-radius: var(--radius-pill);
+}
+::-webkit-scrollbar-thumb:hover {
+  background: var(--text-tertiary);
+}
+
+/* App Container Layout */
+.app-container {
+  max-width: 1240px;
+  margin: 0 auto;
+  display: flex;
+  flex-direction: column;
+  gap: 22px;
+}
+
+.dashboard-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 22px;
+}
+
+/* ==========================================================================
+   LIQUID GLASS BUTTONS & PILLS (Apple Inspired)
+   ========================================================================== */
+
+.btn {
+  font-family: inherit;
+  font-size: 0.84rem;
+  font-weight: 500;
+  letter-spacing: -0.01em;
+  padding: 8px 16px;
+  border-radius: var(--radius-pill);
+  border: 1px solid var(--glass-border);
+  background: var(--glass-bg);
+  color: var(--text-primary);
+  backdrop-filter: var(--blur-base);
+  -webkit-backdrop-filter: var(--blur-base);
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  transition: var(--transition-normal);
+  text-decoration: none;
+  line-height: 1.4;
+  box-shadow: var(--shadow-sm);
+  position: relative;
+  overflow: hidden;
+  user-select: none;
+}
+
+.btn::before {
+  content: '';
+  position: absolute;
+  top: 0; left: 0; right: 0; bottom: 0;
+  background: var(--glass-sheen);
+  opacity: 0.7;
+  pointer-events: none;
+}
+
+.btn:hover {
+  background: var(--glass-bg-hover);
+  border-color: var(--text-tertiary);
+  transform: translateY(-1px);
+  box-shadow: 0 6px 20px -4px rgba(0, 0, 0, 0.25), inset 0 1px 0 0 rgba(255, 255, 255, 0.2);
+}
+
+.btn:active {
+  transform: translateY(0px) scale(0.98);
+  background: var(--glass-bg-active);
+}
+
+.btn-sm {
+  padding: 6px 13px;
+  font-size: 0.78rem;
+}
+
+.btn-xs {
+  padding: 4px 9px;
+  font-size: 0.72rem;
+}
+
+/* Primary Glass Button */
+.btn-primary {
+  background: linear-gradient(180deg, rgba(10, 132, 255, 0.88) 0%, rgba(0, 113, 227, 0.96) 100%);
+  border-color: rgba(10, 132, 255, 0.6);
+  color: #ffffff;
+  box-shadow: 0 4px 18px -2px rgba(10, 132, 255, 0.4), inset 0 1px 0 0 rgba(255, 255, 255, 0.35);
+}
+
+.btn-primary:hover {
+  background: linear-gradient(180deg, rgba(10, 132, 255, 0.96) 0%, rgba(0, 113, 227, 1) 100%);
+  border-color: rgba(10, 132, 255, 0.8);
+  box-shadow: 0 6px 24px -2px rgba(10, 132, 255, 0.55), inset 0 1px 0 0 rgba(255, 255, 255, 0.45);
+}
+
+/* Success Glass Button */
+.btn-success {
+  background: linear-gradient(180deg, rgba(48, 209, 88, 0.88) 0%, rgba(36, 175, 71, 0.96) 100%);
+  border-color: rgba(48, 209, 88, 0.6);
+  color: #ffffff;
+  box-shadow: 0 4px 18px -2px rgba(48, 209, 88, 0.4), inset 0 1px 0 0 rgba(255, 255, 255, 0.35);
+}
+
+.btn-success:hover {
+  background: linear-gradient(180deg, rgba(48, 209, 88, 0.96) 0%, rgba(36, 175, 71, 1) 100%);
+  border-color: rgba(48, 209, 88, 0.8);
+  box-shadow: 0 6px 24px -2px rgba(48, 209, 88, 0.55), inset 0 1px 0 0 rgba(255, 255, 255, 0.45);
+}
+
+/* Danger Glass Button */
+.btn-danger {
+  background: linear-gradient(180deg, rgba(255, 69, 58, 0.88) 0%, rgba(215, 45, 36, 0.96) 100%);
+  border-color: rgba(255, 69, 58, 0.6);
+  color: #ffffff;
+  box-shadow: 0 4px 18px -2px rgba(255, 69, 58, 0.4), inset 0 1px 0 0 rgba(255, 255, 255, 0.35);
+}
+
+.btn-danger:hover {
+  background: linear-gradient(180deg, rgba(255, 69, 58, 0.96) 0%, rgba(215, 45, 36, 1) 100%);
+  border-color: rgba(255, 69, 58, 0.8);
+  box-shadow: 0 6px 24px -2px rgba(255, 69, 58, 0.55), inset 0 1px 0 0 rgba(255, 255, 255, 0.45);
+}
+
+/* Secondary Capsule */
+.btn-secondary {
+  background: var(--glass-bg);
+  color: var(--text-primary);
+  border: 1px solid var(--glass-border);
+}
+
+.btn-secondary:hover {
+  background: var(--glass-bg-hover);
+  border-color: var(--glass-border-focus);
+}
+
+[data-theme="light"] .btn-secondary {
+  background: rgba(0, 0, 0, 0.04);
+  color: var(--text-primary);
+  border: 1px solid rgba(0, 0, 0, 0.12);
+}
+
+[data-theme="light"] .btn-secondary:hover {
+  background: rgba(10, 132, 255, 0.08);
+  border-color: rgba(10, 132, 255, 0.4);
+  color: var(--apple-blue);
+}
+
+/* Outline Capsule */
+.btn-outline {
+  background: transparent;
+  color: var(--apple-blue);
+  border: 1px solid rgba(10, 132, 255, 0.4);
+}
+
+.btn-outline:hover {
+  background: rgba(10, 132, 255, 0.12);
+  border-color: var(--apple-blue);
+  color: #ffffff;
+}
+
+[data-theme="light"] .btn-outline:hover {
+  color: var(--apple-blue);
+}
+
+/* Warning Capsule */
+.btn-warning {
+  background: rgba(255, 159, 10, 0.18);
+  color: var(--apple-orange);
+  border: 1px solid rgba(255, 159, 10, 0.4);
+}
+
+.btn-warning:hover {
+  background: rgba(255, 159, 10, 0.3);
+  border-color: var(--apple-orange);
+}
+
+.btn-icon {
+  width: 36px;
+  height: 36px;
+  padding: 0;
+  border-radius: var(--radius-pill);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.95rem;
+}
+
+/* Apple Segmented Control Group */
+.segmented-control {
+  display: inline-flex;
+  align-items: center;
+  background: var(--glass-matrix-bg);
+  padding: 3px;
+  border-radius: var(--radius-pill);
+  border: 1px solid var(--glass-border-subtle);
+  backdrop-filter: var(--blur-base);
+  gap: 2px;
+  box-sizing: border-box;
+}
+
+.segmented-control .btn {
+  border: none;
+  background: transparent;
+  box-shadow: none;
+  padding: 5px 11px;
+  font-size: 0.78rem;
+  border-radius: var(--radius-pill);
+  color: var(--text-secondary);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  white-space: nowrap;
+  transition: var(--transition-fast);
+}
+
+.segmented-control .btn:hover {
+  background: var(--glass-bg-hover);
+  color: var(--text-primary);
+}
+
+.segmented-control .btn.active {
+  background: var(--glass-card);
+  color: var(--apple-blue);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+}
+
+/* Retain Danger & Success styles inside Segmented Control */
+.segmented-control .btn.btn-danger {
+  background: linear-gradient(180deg, rgba(255, 69, 58, 0.9) 0%, rgba(215, 45, 36, 0.98) 100%) !important;
+  color: #ffffff !important;
+  box-shadow: 0 2px 10px rgba(255, 69, 58, 0.4) !important;
+  font-weight: 600;
+}
+
+.segmented-control .btn.btn-danger:hover {
+  background: linear-gradient(180deg, rgba(255, 69, 58, 1) 0%, rgba(225, 50, 40, 1) 100%) !important;
+  box-shadow: 0 4px 14px rgba(255, 69, 58, 0.55) !important;
+}
+
+.segmented-control .btn.btn-success {
+  background: linear-gradient(180deg, rgba(48, 209, 88, 0.9) 0%, rgba(36, 175, 71, 0.98) 100%) !important;
+  color: #ffffff !important;
+  box-shadow: 0 2px 10px rgba(48, 209, 88, 0.4) !important;
+  font-weight: 600;
+}
+
+.segmented-control .btn.btn-success:hover {
+  background: linear-gradient(180deg, rgba(48, 209, 88, 1) 0%, rgba(40, 185, 76, 1) 100%) !important;
+  box-shadow: 0 4px 14px rgba(48, 209, 88, 0.55) !important;
+}
+
+/* ==========================================================================
+   ALERT BANNERS & PROGRESS
+   ========================================================================== */
+
+.alert-banner {
+  background: linear-gradient(135deg, rgba(255, 159, 10, 0.12) 0%, rgba(255, 159, 10, 0.04) 100%);
+  border: 1px solid rgba(255, 159, 10, 0.35);
+  backdrop-filter: var(--blur-deep);
+  -webkit-backdrop-filter: var(--blur-deep);
+  border-radius: var(--radius-md);
+  padding: 14px 18px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  box-shadow: 0 8px 24px -4px rgba(255, 159, 10, 0.15), inset 0 1px 0 rgba(255, 255, 255, 0.1);
+  position: relative;
+  overflow: hidden;
+}
+
+.alert-banner::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  bottom: 0;
+  width: 4px;
+  background: var(--apple-orange);
+  border-radius: 4px 0 0 4px;
+}
+
+.alert-banner-danger {
+  background: linear-gradient(135deg, rgba(255, 69, 58, 0.14) 0%, rgba(255, 69, 58, 0.05) 100%);
+  border-color: rgba(255, 69, 58, 0.38);
+  box-shadow: 0 8px 24px -4px rgba(255, 69, 58, 0.2), inset 0 1px 0 rgba(255, 255, 255, 0.1);
+}
+
+.alert-banner-danger::before {
+  background: var(--apple-red);
+}
+
+.alert-banner-icon-wrap {
+  width: 42px;
+  height: 42px;
+  min-width: 42px;
+  border-radius: 12px;
+  background: rgba(255, 159, 10, 0.15);
+  border: 1px solid rgba(255, 159, 10, 0.3);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.alert-banner-danger .alert-banner-icon-wrap {
+  background: rgba(255, 69, 58, 0.18);
+  border-color: rgba(255, 69, 58, 0.35);
+}
+
+.alert-banner-content {
+  flex: 1 1 auto;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.alert-banner-header h4 {
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: var(--text-primary);
+  margin: 0;
+  line-height: 1.35;
+}
+
+.alert-banner-danger .alert-banner-header h4 {
+  color: #ff7b72;
+}
+
+.alert-banner-content p {
+  font-size: 0.84rem;
+  color: var(--text-secondary);
+  line-height: 1.45;
+  margin: 0;
+}
+
+.alert-banner-content p strong {
+  color: var(--text-primary);
+}
+
+.alert-banner-actions {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.alert-banner-compact {
+  padding: 10px 14px;
+  gap: 12px;
+  box-shadow: none;
+}
+
+.alert-banner-compact .alert-banner-icon-wrap {
+  width: 32px;
+  height: 32px;
+  min-width: 32px;
+  border-radius: 8px;
+}
+
+/* Responsive Alert Banner for Mobile & Tablet */
+@media (max-width: 768px) {
+  .alert-banner {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 14px;
+    padding: 14px 16px;
+  }
+
+  .alert-banner-top {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    width: 100%;
+  }
+
+  .alert-banner-actions {
+    width: 100%;
+    margin-top: 2px;
+  }
+
+  .alert-banner-actions .btn {
+    width: 100%;
+    justify-content: center;
+  }
+}
+
+/* ☀️ Light Theme Alert Banner Enhancements */
+[data-theme="light"] .alert-banner {
+  background: linear-gradient(135deg, rgba(255, 149, 0, 0.12) 0%, rgba(255, 149, 0, 0.04) 100%);
+  border-color: rgba(255, 149, 0, 0.35);
+  box-shadow: 0 8px 24px -4px rgba(255, 149, 0, 0.12), inset 0 1px 0 rgba(255, 255, 255, 0.8);
+}
+
+[data-theme="light"] .alert-banner-danger {
+  background: linear-gradient(135deg, rgba(255, 59, 48, 0.12) 0%, rgba(255, 59, 48, 0.04) 100%);
+  border-color: rgba(255, 59, 48, 0.35);
+  box-shadow: 0 8px 24px -4px rgba(255, 59, 48, 0.12), inset 0 1px 0 rgba(255, 255, 255, 0.8);
+}
+
+[data-theme="light"] .alert-banner-danger .alert-banner-header h4 {
+  color: #d70015;
+}
+
+[data-theme="light"] .alert-banner-icon-wrap {
+  background: rgba(255, 149, 0, 0.15);
+  border-color: rgba(255, 149, 0, 0.3);
+}
+
+[data-theme="light"] .alert-banner-danger .alert-banner-icon-wrap {
+  background: rgba(255, 59, 48, 0.15);
+  border-color: rgba(255, 59, 48, 0.3);
+}
+
+.progress-container {
+  background: var(--glass-card);
+  backdrop-filter: var(--blur-base);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-md);
+  padding: 14px 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.progress-bar {
+  height: 6px;
+  background: rgba(0, 0, 0, 0.15);
+  border-radius: var(--radius-pill);
+  overflow: hidden;
+}
+
+.progress-fill {
+  height: 100%;
+  background: linear-gradient(90deg, var(--apple-blue), var(--apple-teal));
+  border-radius: var(--radius-pill);
+  transition: width 0.3s var(--ease-apple);
+}
+
+.progress-text {
+  font-size: 0.8rem;
+  color: var(--text-secondary);
+}
+
+/* Form Controls (Inputs, Selects) */
+.form-control {
+  font-family: inherit;
+  font-size: 0.86rem;
+  background: var(--glass-input-bg);
+  border: 1px solid var(--glass-border);
+  color: var(--text-primary);
+  padding: 9px 14px;
+  border-radius: var(--radius-sm);
+  outline: none;
+  backdrop-filter: var(--blur-base);
+  transition: var(--transition-normal);
+}
+
+.form-control:focus {
+  border-color: var(--glass-border-focus);
+  box-shadow: 0 0 0 3px rgba(10, 132, 255, 0.2);
+}
+
+.text-truncate {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* ==========================================================================
+   APP SHELL & ROUTER UTILITIES (Apple Liquid Glass)
+   ========================================================================== */
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* 1. Fullscreen Session Loading Screen */
+.app-loading-screen {
+  min-height: 100vh;
+  background: var(--liquid-bg);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-direction: column;
+  gap: 16px;
+  color: var(--text-tertiary);
+}
+
+#app-global-loader {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  width: 100vw;
+  height: 100vh;
+  z-index: 999999;
+  background: var(--liquid-bg);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-direction: column;
+  gap: 16px;
+  color: var(--text-tertiary);
+  transition: opacity 0.35s cubic-bezier(0.16, 1, 0.3, 1), visibility 0.35s ease;
+}
+
+#app-global-loader.fade-out {
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+}
+
+.app-loading-spinner {
+  width: 44px;
+  height: 44px;
+  border: 3px solid rgba(10, 132, 255, 0.18);
+  border-top-color: var(--apple-blue);
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+  box-shadow: 0 0 16px var(--apple-blue-glow);
+}
+
+.app-loading-text {
+  font-size: 0.86rem;
+  letter-spacing: 0.03em;
+  font-weight: 500;
+  color: var(--text-secondary);
+  transition: opacity 0.25s cubic-bezier(0.16, 1, 0.3, 1), transform 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.app-loading-text.fade-swap {
+  opacity: 0;
+  transform: translateY(4px);
+}
+
+/* 2. Access Denied / 404 Screen */
+.app-access-denied {
+  min-height: 100vh;
+  background: var(--liquid-bg);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-direction: column;
+  gap: 16px;
+  color: var(--text-primary);
+  text-align: center;
+  padding: 24px;
+}
+
+.app-access-denied-code {
+  font-size: 5rem;
+  font-weight: 800;
+  background: linear-gradient(135deg, var(--apple-red), var(--apple-orange));
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  line-height: 1;
+  letter-spacing: -0.04em;
+}
+
+.app-access-denied-title {
+  font-size: 1.4rem;
+  font-weight: 700;
+  margin: 0;
+  color: var(--text-primary);
+}
+
+.app-access-denied-desc {
+  font-size: 0.88rem;
+  color: var(--text-tertiary);
+  max-width: 440px;
+  margin: 0;
+  line-height: 1.5;
+}
+
+/* 3. Admin Preview Banner */
+.admin-preview-banner {
+  background: rgba(255, 159, 10, 0.12);
+  border-bottom: 1px solid rgba(255, 159, 10, 0.28);
+  padding: 6px 18px;
+  font-size: 0.8rem;
+  color: var(--apple-gold);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-weight: 600;
+  backdrop-filter: var(--blur-base);
+  -webkit-backdrop-filter: var(--blur-base);
+}
+
+.admin-preview-left {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.admin-preview-exit-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.app-access-denied-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+/* Lucide Icon Base Class */
+.lucide-icon {
+  display: inline-block;
+  vertical-align: middle;
+  flex-shrink: 0;
+}
+

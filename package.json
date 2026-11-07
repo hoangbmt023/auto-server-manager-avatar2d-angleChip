@@ -1,0 +1,37 @@
+{
+  "name": "cpanel-avatar-bot-manager",
+  "version": "1.0.0",
+  "description": "Avatar Fish Bot Manager & Web Dashboard for cPanel Node.js",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node -e \"process.env.NODE_ENV='development'; require('./server');\"",
+    "prod": "node -e \"process.env.NODE_ENV='production'; require('./server');\"",
+    "build:java": "javac --release 8 -encoding UTF-8 -d java-engine/bin -cp \"jars/emulator/AngelChipEmulator_V2Proxy.jar;java-engine/bin\" java-engine/src/*.java",
+    "audit:rms": "node -e \"const ConfigRepo = require('./src/infrastructure/persistence/ConfigRepository'); const RmsAuditService = require('./src/application/services/RmsAuditService'); const auditor = new RmsAuditService(new ConfigRepo()); console.log(JSON.stringify(auditor.auditAllAccounts(), null, 2));\"",
+    "db:push": "drizzle-kit push --config=config/drizzle.config.js",
+    "db:generate": "drizzle-kit generate --config=config/drizzle.config.js",
+    "db:studio": "drizzle-kit studio --config=config/drizzle.config.js"
+  },
+  "keywords": [
+    "avatar",
+    "angelchip",
+    "cpanel",
+    "emulator",
+    "bot"
+  ],
+  "author": "Antigravity",
+  "license": "MIT",
+  "dependencies": {
+    "bcryptjs": "^3.0.3",
+    "dayjs": "^1.11.23",
+    "drizzle-orm": "^0.45.4",
+    "jsonwebtoken": "^9.0.3",
+    "mysql2": "^3.24.5",
+    "nodemailer": "^10.1.0",
+    "uuid": "^14.0.3"
+  },
+  "devDependencies": {
+    "drizzle-kit": "^0.31.11"
+  }
+}

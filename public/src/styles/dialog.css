@@ -1,0 +1,126 @@
+/* ==========================================================================
+   🍎 OPENDESIGN / APPLE LIQUID GLASS - DIALOG & CONFIRMATION SHEETS
+   Theme-Aware (Dark & Light) Glassmorphic Dialog Windows
+   ========================================================================== */
+
+.dialog-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.72);
+  backdrop-filter: var(--blur-deep);
+  -webkit-backdrop-filter: var(--blur-deep);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 10020;
+  padding: 20px;
+  animation: appleFadeIn 0.18s var(--ease-apple);
+}
+
+[data-theme="light"] .dialog-overlay {
+  background: rgba(15, 23, 42, 0.4);
+}
+
+.dialog-card {
+  background: var(--glass-card);
+  backdrop-filter: var(--blur-deep);
+  -webkit-backdrop-filter: var(--blur-deep);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-lg);
+  max-width: 440px;
+  width: 100%;
+  box-shadow: var(--shadow-glass);
+  overflow: hidden;
+  animation: appleScaleUp 0.22s var(--ease-apple);
+  display: flex;
+  flex-direction: column;
+  color: var(--text-primary);
+}
+
+.dialog-header {
+  padding: 24px 24px 8px 24px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+}
+
+.dialog-icon-badge {
+  width: 54px;
+  height: 54px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 14px;
+  border: 1px solid var(--glass-border);
+  transition: var(--transition-fast);
+}
+
+.dialog-title {
+  margin: 0;
+  font-size: 1.1rem;
+  font-weight: 600;
+  color: var(--text-primary);
+  letter-spacing: -0.015em;
+}
+
+.dialog-body {
+  padding: 10px 24px 22px 24px;
+  text-align: center;
+  font-size: 0.88rem;
+  color: var(--text-secondary);
+  line-height: 1.5;
+  word-break: break-word;
+}
+
+.dialog-actions {
+  display: flex;
+  gap: 10px;
+  padding: 14px 20px;
+  background: var(--glass-panel-bg);
+  border-top: 1px solid var(--glass-border-subtle);
+  justify-content: flex-end;
+}
+
+.dialog-actions.single-action {
+  justify-content: center;
+}
+
+.dialog-actions .btn {
+  min-width: 100px;
+  justify-content: center;
+}
+
+@media (max-width: 480px) {
+  .dialog-overlay {
+    padding: 14px;
+  }
+  .dialog-card {
+    max-width: 100%;
+    border-radius: var(--radius-md);
+  }
+  .dialog-header {
+    padding: 18px 16px 6px 16px;
+  }
+  .dialog-icon-badge {
+    width: 46px;
+    height: 46px;
+    margin-bottom: 10px;
+  }
+  .dialog-title {
+    font-size: 1rem;
+  }
+  .dialog-body {
+    padding: 8px 16px 16px 16px;
+    font-size: 0.84rem;
+  }
+  .dialog-actions {
+    padding: 12px 16px;
+  }
+  .dialog-actions .btn {
+    flex: 1;
+    min-width: unset;
+  }
+}
+

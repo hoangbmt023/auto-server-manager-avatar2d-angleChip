@@ -1,0 +1,852 @@
+/**
+ * AppContext (State Management Layer)
+ * Manages core bot state, synchronized accounts, files, proxies, and actions.
+ */
+const { createContext, useContext, useState, useEffect, useRef, useMemo, useCallback } = React;
+
+const AppContext = createContext(null);
+
+function formatUptime(seconds) {
+  const h = Math.floor(seconds / 3600).toString().padStart(2, '0');
+  const m = Math.floor((seconds % 3600) / 60).toString().padStart(2, '0');
+  const s = Math.floor(seconds % 60).toString().padStart(2, '0');
+  return `${h}:${m}:${s}`;
+}
+
+window.AppProvider = function AppProvider({ children }) {
+  const [status, setStatus] = useState(null);
+  const [files, setFiles] = useState([]);
+  const [proxies, setProxies] = useState([]);
+  const [activeFileId, setActiveFileId] = useState('file_1');
+  const [accounts, setAccounts] = useState([]);
+  const [logs, setLogs] = useState([]);
+  const [logFilter, setLogFilter] = useState('all');
+  const [autoScroll, setAutoScroll] = useState(true);
+  const [uptime, setUptime] = useState(0);
+  const [availableJars, setAvailableJars] = useState(['avatar_fish_build40.jar']);
+  const [theme, setTheme] = useState(() => localStorage.getItem('app_theme') || 'dark');
+  const [currentUser, setCurrentUser] = useState(() => window.ApiClient.getCurrentUser());
+  const [isAuthenticated, setIsAuthenticated] = useState(() => !!(window.tokenManager && window.tokenManager.getAccessToken()));
+  const [isAuthLoading, setIsAuthLoading] = useState(true);
+
+  const sseRef = useRef(null);
+  const terminalRef = useRef(null);
+
+  // Check session via HttpOnly Cookie refresh on mount
+  useEffect(() => {
+    let isMounted = true;
+    let textSwapTimer = null;
+
+    async function initAuth() {
+      const startTime = Date.now();
+      const MIN_LOADING_TIME = 1600;
+
+      // Chuyển sang câu thứ 2 sớm hơn (sau 250ms khi React bắt đầu),
+      // vì câu thứ nhất đã hiển thị suốt thời gian tải HTML + Scripts của index.html (~1 giây)
+      textSwapTimer = setTimeout(() => {
+        if (!isMounted) return;
+        const textEl = document.getElementById('app-loader-text');
+        if (textEl) {
+          textEl.classList.add('fade-swap');
+          setTimeout(() => {
+            if (!isMounted) return;
+            textEl.textContent = 'Mong rằng đó là trải nghiệm tuyệt vời...';
+            textEl.classList.remove('fade-swap');
+          }, 200);
+        }
+      }, 250);
+
+      const finalizeLoading = async () => {
+        const elapsed = Date.now() - startTime;
+        if (elapsed < MIN_LOADING_TIME) {
+          await new Promise(resolve => setTimeout(resolve, MIN_LOADING_TIME - elapsed));
+        }
+      };
+
+      try {
+        if (window.authService) {
+          const refRes = await window.authService.refresh();
+          if (refRes && refRes.success && refRes.data && refRes.data.accessToken) {
+            const meRes = await window.authService.getMe();
+            if (isMounted && meRes && meRes.success && meRes.data) {
+              const userData = meRes.data;
+              const isAdmin = String(userData.role || '').toLowerCase() === 'admin';
+
+              setCurrentUser(userData);
+              setIsAuthenticated(true);
+              window.ApiClient.setCurrentUser(userData);
+
+              // Pre-fetch critical data in parallel so the page is 100% loaded before reveal
+              const preTasks = [
+                window.ApiClient.getAccounts().then(res => {
+                  if (res && res.success) setAccounts(res.accounts || []);
+                }).catch(() => { }),
+                window.ApiClient.getStatus().then(res => {
+                  if (res && res.success) {
+                    setStatus(res);
+                    setActiveFileId(prev => (prev ? prev : (res.activeFileId || 'file_1')));
+                  }
+                }).catch(() => { })
+              ];
+
+              if (window.billingService) {
+                preTasks.push(
+                  window.billingService.getBalance().then(res => {
+                    if (res && res.data && typeof res.data.balance === 'number') {
+                      window.__initialBalance = res.data.balance;
+                    }
+                  }).catch(() => { }),
+                  window.billingService.getPolicy().then(res => {
+                    if (res && res.data) {
+                      window.__initialPolicy = res.data;
+                    }
+                  }).catch(() => { })
+                );
+              }
+
+              if (isAdmin) {
+                preTasks.push(
+                  window.ApiClient.getFiles().then(res => {
+                    if (res && res.success) setFiles(res.files || []);
+                  }).catch(() => { }),
+                  window.ApiClient.getProxies().then(res => {
+                    if (res && res.success) setProxies(res.proxies || []);
+                  }).catch(() => { }),
+                  window.ApiClient.getLogs().then(res => {
+                    if (res && res.success) setLogs(res.logs || []);
+                  }).catch(() => { }),
+                  window.ApiClient.getAvailableJars().then(res => {
+                    if (res && res.success) setAvailableJars(res.jars || []);
+                  }).catch(() => { })
+                );
+              }
+
+              await Promise.all(preTasks);
+
+              await finalizeLoading();
+              if (!isMounted) return;
+              setIsAuthLoading(false);
+              return;
+            }
+          }
+        }
+      } catch (err) { }
+
+      await finalizeLoading();
+      if (isMounted) {
+        setIsAuthenticated(false);
+        setCurrentUser(null);
+        window.ApiClient.setCurrentUser(null);
+        setIsAuthLoading(false);
+      }
+    }
+
+    initAuth();
+
+    // Listen to unauthorized event
+    const handleUnauthorized = () => {
+      if (isMounted) {
+        setIsAuthenticated(false);
+        setCurrentUser(null);
+        window.ApiClient.setCurrentUser(null);
+      }
+    };
+    window.addEventListener('auth:unauthorized', handleUnauthorized);
+    return () => {
+      isMounted = false;
+      if (textSwapTimer) clearTimeout(textSwapTimer);
+      window.removeEventListener('auth:unauthorized', handleUnauthorized);
+    };
+  }, []);
+
+  const loginUser = useCallback((user, token) => {
+    if (token && window.tokenManager) {
+      window.tokenManager.setAccessToken(token);
+    }
+    setCurrentUser(user);
+    setIsAuthenticated(true);
+    if (user) window.ApiClient.setCurrentUser(user);
+  }, []);
+
+  const logoutUser = useCallback(async () => {
+    try {
+      if (window.authService) await window.authService.logout();
+    } catch (e) { }
+    setCurrentUser(null);
+    setIsAuthenticated(false);
+    window.ApiClient.setCurrentUser(null);
+  }, []);
+
+  // Theme Sync
+  useEffect(() => {
+    document.documentElement.setAttribute('data-theme', theme);
+    localStorage.setItem('app_theme', theme);
+  }, [theme]);
+
+  const toggleTheme = useCallback(() => {
+    setTheme(prev => (prev === 'dark' ? 'light' : 'dark'));
+  }, []);
+
+  // Fetchers
+  const fetchStatus = useCallback(async () => {
+    try {
+      const data = await window.ApiClient.getStatus();
+      if (data.success) {
+        setStatus(data);
+        setActiveFileId(prev => (prev ? prev : (data.activeFileId || 'file_1')));
+      }
+    } catch (e) { }
+  }, []);
+
+  const fetchFiles = useCallback(async () => {
+    try {
+      const data = await window.ApiClient.getFiles();
+      if (data.success) {
+        setFiles(data.files || []);
+        setActiveFileId(prev => (prev ? prev : (data.activeFileId || (data.files && data.files[0] ? data.files[0].id : 'file_1'))));
+      }
+    } catch (e) { }
+  }, []);
+
+  const fetchProxies = useCallback(async () => {
+    try {
+      const data = await window.ApiClient.getProxies();
+      if (data.success) {
+        setProxies(data.proxies || []);
+      }
+    } catch (e) { }
+  }, []);
+
+  const fetchAccounts = useCallback(async () => {
+    try {
+      const data = await window.ApiClient.getAccounts();
+      if (data.success) {
+        setAccounts(data.accounts || []);
+      }
+    } catch (e) { }
+  }, []);
+
+  const fetchJars = useCallback(async () => {
+    try {
+      const data = await window.ApiClient.getAvailableJars();
+      if (data.success) setAvailableJars(data.jars || []);
+    } catch (e) { }
+  }, []);
+
+  const fetchLogs = useCallback(async () => {
+    try {
+      const data = await window.ApiClient.getLogs();
+      if (data.success) setLogs(data.logs || []);
+    } catch (e) { }
+  }, []);
+
+  // SSE Stream & Synchronization
+  useEffect(() => {
+    if (!isAuthenticated) return;
+
+    const isAdmin = currentUser && String(currentUser.role || '').toLowerCase() === 'admin';
+
+    if (!status) fetchStatus();
+    if (!accounts || accounts.length === 0) fetchAccounts();
+
+    if (isAdmin) {
+      if (!files || files.length === 0) fetchFiles();
+      if (!proxies || proxies.length === 0) fetchProxies();
+      if (!availableJars || availableJars.length === 0) fetchJars();
+      fetchLogs();
+    }
+
+    const connectSSE = () => {
+      if (sseRef.current) sseRef.current.close();
+      const es = new EventSource('/api/events');
+      sseRef.current = es;
+
+      es.addEventListener('log', (e) => {
+        try {
+          const log = JSON.parse(e.data);
+          setLogs(prev => [...prev.slice(-999), log]);
+        } catch (err) { }
+      });
+
+      es.addEventListener('bot-status-changed', () => {
+        fetchAccounts();
+        fetchStatus();
+        if (isAdmin) {
+          fetchFiles();
+          fetchProxies();
+        }
+      });
+
+      es.addEventListener('proxy-status-changed', () => {
+        fetchAccounts();
+        if (isAdmin) {
+          fetchProxies();
+        }
+      });
+
+      es.addEventListener('bot-stats', (e) => {
+        try {
+          const payload = JSON.parse(e.data);
+          if (payload && payload.accountId && payload.stats) {
+            setAccounts(prev => prev.map(acc => {
+              if (acc.id === payload.accountId) {
+                return { ...acc, stats: { ...acc.stats, ...payload.stats } };
+              }
+              return acc;
+            }));
+          }
+        } catch (err) { }
+      });
+
+      es.addEventListener('bot-account-status', (e) => {
+        try {
+          const payload = JSON.parse(e.data);
+          if (payload && payload.accountId && payload.state) {
+            setAccounts(prev => prev.map(acc => {
+              if (acc.id === payload.accountId) {
+                return { ...acc, accountState: payload.state };
+              }
+              return acc;
+            }));
+          }
+        } catch (err) { }
+      });
+
+      es.addEventListener('bot-auto-status', (e) => {
+        try {
+          const payload = JSON.parse(e.data);
+          if (payload && payload.accountId && payload.autoState) {
+            setAccounts(prev => prev.map(acc => {
+              if (acc.id === payload.accountId) {
+                return { ...acc, autoState: payload.autoState };
+              }
+              return acc;
+            }));
+          }
+        } catch (err) { }
+      });
+
+      es.addEventListener('clear-logs', () => {
+        setLogs([]);
+      });
+
+      es.addEventListener('jre_progress', (e) => {
+        try {
+          const p = JSON.parse(e.data);
+          if (window.__setJreProgress) {
+            window.__setJreProgress({ visible: true, percent: p.percent || 0, message: p.message || '' });
+          }
+          if (p.ready) {
+            setTimeout(() => {
+              if (window.__setJreProgress) {
+                window.__setJreProgress(prev => ({ ...prev, visible: false }));
+              }
+              fetchStatus();
+            }, 2000);
+          }
+        } catch (err) { }
+      });
+
+      es.onerror = () => {
+        es.close();
+        setTimeout(connectSSE, 4000);
+      };
+    };
+
+    connectSSE();
+
+    // Chỉ đồng bộ dự phòng 60s/lần vì hệ thống đã có Server-Sent Events (SSE) thời gian thực
+    const syncInterval = setInterval(() => {
+      fetchStatus();
+      fetchAccounts();
+    }, 60000);
+
+    const onVisibilityChange = () => {
+      if (document.visibilityState === 'visible') {
+        fetchStatus();
+        fetchAccounts();
+        if (isAdmin) {
+          fetchProxies();
+          fetchFiles();
+          fetchLogs();
+        }
+      }
+    };
+    document.addEventListener('visibilitychange', onVisibilityChange);
+
+    return () => {
+      if (sseRef.current) sseRef.current.close();
+      clearInterval(syncInterval);
+      document.removeEventListener('visibilitychange', onVisibilityChange);
+    };
+  }, [isAuthenticated, currentUser, fetchStatus, fetchFiles, fetchProxies, fetchAccounts, fetchLogs, fetchJars]);
+
+  // Terminal Auto Scroll
+  useEffect(() => {
+    if (autoScroll && terminalRef.current) {
+      terminalRef.current.scrollTop = terminalRef.current.scrollHeight;
+    }
+  }, [logs, autoScroll]);
+
+  // Uptime Tick
+  const isAnyRunning = Boolean(status?.bot?.runningCount > 0 || status?.bot?.running);
+  useEffect(() => {
+    let interval = null;
+    if (isAnyRunning) {
+      interval = setInterval(() => setUptime(u => u + 1), 1000);
+    } else {
+      setUptime(0);
+    }
+    return () => {
+      if (interval) clearInterval(interval);
+    };
+  }, [isAnyRunning]);
+
+  // Computations
+  const activeFile = useMemo(() => {
+    return files.find(f => f.id === activeFileId) || files[0] || null;
+  }, [files, activeFileId]);
+
+  const fileAccounts = useMemo(() => {
+    return accounts.filter(a => (a.fileId || 'file_1') === activeFileId);
+  }, [accounts, activeFileId]);
+
+  const filteredLogs = useMemo(() => {
+    if (!logFilter || logFilter === 'all') return logs;
+    return logs.filter(l => l.username === logFilter || (l.text && l.text.includes(`[${logFilter}]`)));
+  }, [logs, logFilter]);
+
+  const runningHm = useMemo(() => {
+    return fileAccounts.filter(a => a.isRunning && parseInt(a.serverId, 10) === 0).length;
+  }, [fileAccounts]);
+
+  const runningDk = useMemo(() => {
+    return fileAccounts.filter(a => a.isRunning && parseInt(a.serverId, 10) === 1).length;
+  }, [fileAccounts]);
+
+  const runningTotal = runningHm + runningDk;
+
+  // Actions
+  const handleStartAccount = async (id) => {
+    try {
+      const data = await window.ApiClient.startAccount(id);
+      if (!data.success && window.showAlert) window.showAlert(data.message || 'Lỗi khởi chạy nick', 'Lỗi Khởi Chạy', 'error');
+    } catch (err) {
+      if (window.showAlert) window.showAlert('Lỗi: ' + err.message, 'Lỗi Hệ Thống', 'error');
+    } finally {
+      fetchAccounts();
+      fetchStatus();
+      fetchFiles();
+      fetchProxies();
+    }
+  };
+
+  const handleStopAccount = async (id, username) => {
+    if (!window.showConfirm) return;
+    window.showConfirm(`Dừng treo tài khoản [${username}]?`, async () => {
+      try {
+        const data = await window.ApiClient.stopAccount(id);
+        if (!data.success && window.showAlert) window.showAlert(data.message || 'Lỗi dừng nick', 'Lỗi', 'error');
+        fetchAccounts();
+        fetchStatus();
+        fetchFiles();
+        fetchProxies();
+      } catch (err) {
+        if (window.showAlert) window.showAlert('Lỗi: ' + err.message, 'Lỗi Hệ Thống', 'error');
+      }
+    });
+  };
+
+  const handleTriggerAuto = async (id, autoType = 'farm', action = 'start', maybeAction) => {
+    let finalAutoType = autoType;
+    let finalAction = action;
+
+    // Phòng thủ nếu caller truyền dạng (id, username, autoType, action)
+    if (maybeAction !== undefined) {
+      finalAutoType = action;
+      finalAction = maybeAction;
+    }
+
+    try {
+      const data = await window.ApiClient.triggerAuto(id, finalAutoType, finalAction);
+      if (!data.success && window.showAlert) {
+        window.showAlert(data.message || 'Lỗi thực hiện lệnh Auto', 'Lỗi Auto', 'error');
+      }
+      fetchAccounts();
+      fetchStatus();
+    } catch (err) {
+      if (window.showAlert) window.showAlert('Lỗi: ' + err.message, 'Lỗi Hệ Thống', 'error');
+    }
+  };
+
+  const handleStartAllFile = async () => {
+    try {
+      const data = await window.ApiClient.startAllFile();
+      if (!data.success && window.showAlert) window.showAlert(data.message || 'Lỗi chạy bot', 'Lỗi Khởi Chạy', 'error');
+      fetchAccounts();
+      fetchStatus();
+      fetchFiles();
+      fetchProxies();
+    } catch (err) {
+      if (window.showAlert) window.showAlert('Lỗi: ' + err.message, 'Lỗi Hệ Thống', 'error');
+    }
+  };
+
+  const handleStopAll = async () => {
+    if (!window.showConfirm) return;
+    window.showConfirm('Dừng toàn bộ bot đang chạy?', async () => {
+      try {
+        const data = await window.ApiClient.stopAll();
+        if (!data.success && window.showAlert) window.showAlert(data.message || 'Lỗi dừng tất cả bot', 'Lỗi', 'error');
+        fetchAccounts();
+        fetchStatus();
+        fetchFiles();
+        fetchProxies();
+      } catch (err) {
+        if (window.showAlert) window.showAlert('Lỗi: ' + err.message, 'Lỗi Hệ Thống', 'error');
+      }
+    });
+  };
+
+  const handleRestartAll = async () => {
+    if (!window.showConfirm) return;
+    window.showConfirm('Khởi động lại toàn bộ bot?', async () => {
+      try {
+        const data = await window.ApiClient.restartAll();
+        if (!data.success && window.showAlert) window.showAlert(data.message || 'Lỗi khởi động lại', 'Lỗi Khởi Động Lại', 'error');
+        setTimeout(() => {
+          fetchAccounts();
+          fetchStatus();
+          fetchFiles();
+          fetchProxies();
+        }, 1800);
+      } catch (err) {
+        if (window.showAlert) window.showAlert('Lỗi: ' + err.message, 'Lỗi Hệ Thống', 'error');
+      }
+    });
+  };
+
+  const handleSwitchServer = async (id, username, currentServerId) => {
+    const newServerId = currentServerId === 0 ? 1 : 0;
+    const newServerName = newServerId === 0 ? 'Hoàn Mỹ' : 'Diệu Kỳ';
+    if (!window.showConfirm) return;
+    window.showConfirm(`Chuyển tài khoản [${username}] sang Server [${newServerName}]?`, async () => {
+      try {
+        const data = await window.ApiClient.switchAccountServer(id, newServerId);
+        if (data.success) {
+          fetchAccounts();
+          fetchFiles();
+          fetchStatus();
+        } else if (window.showAlert) {
+          window.showAlert(data.message || 'Lỗi đổi server', 'Lỗi Đổi Server', 'error');
+        }
+      } catch (err) {
+        if (window.showAlert) window.showAlert('Lỗi: ' + err.message, 'Lỗi Hệ Thống', 'error');
+      }
+    });
+  };
+
+  const handleDeleteAccount = async (id, username, accountObj = null) => {
+    if (!window.showConfirm) return;
+    const targetAcc = accountObj || (accounts || []).find(a => a.id === id);
+
+    // XỬ LÝ DÀNH RIÊNG CHO SLOT BOT THUÊ (HỦY SLOT HOÀN TIỀN DƯ VỀ VÍ)
+    if (targetAcc && targetAcc.rentalPlan) {
+      let cancelFeePercent = 10;
+      try {
+        if (window.rentalService && window.rentalService.getPlans) {
+          const plansRes = await window.rentalService.getPlans();
+          if (plansRes?.data?.cancellationFeePercent !== undefined && plansRes?.data?.cancellationFeePercent !== null) {
+            const parsed = parseInt(plansRes.data.cancellationFeePercent, 10);
+            if (!isNaN(parsed) && parsed >= 0 && parsed <= 100) {
+              cancelFeePercent = parsed;
+            }
+          }
+        }
+      } catch (e) {}
+
+      const remainingMs = targetAcc.rentalExpiresAt ? Math.max(0, new Date(targetAcc.rentalExpiresAt).getTime() - Date.now()) : 0;
+      const remainingDays = Math.floor(remainingMs / 86400000);
+      const remainingHours = Math.floor((remainingMs % 86400000) / 3600000);
+      const timeStr = remainingDays > 0 ? `${remainingDays} ngày ${remainingHours} giờ` : `${remainingHours} giờ`;
+
+      const effectivePrice = targetAcc.effectivePriceMonth || 50000;
+      const remainingSeconds = Math.round(remainingMs / 1000);
+      const totalMonthSeconds = 30 * 86400;
+      const grossRefund = remainingSeconds > 0 ? Math.floor((remainingSeconds / totalMonthSeconds) * effectivePrice) : 0;
+      const cancelFee = Math.floor((grossRefund * cancelFeePercent) / 100);
+      const netRefund = Math.max(0, grossRefund - cancelFee);
+
+      const confirmContent = remainingMs > 0 ? (
+        <div className="plan-confirm-dialog">
+          <div>
+            Bạn đang yêu cầu hủy Slot bot <strong>[{username || targetAcc.id}]</strong> (Gói <strong>{targetAcc.rentalPlan}</strong>).
+          </div>
+
+          <div className="plan-confirm-notice">
+            <div className="plan-confirm-notice-header">
+              <window.Icon name="clock" size={16} /> Thông tin thời gian & Đơn giá:
+            </div>
+            <div>• Thời gian còn lại: <strong>{timeStr}</strong></div>
+            <div>• Đơn giá gói thực tế: <strong>{effectivePrice.toLocaleString('vi-VN')} đ/tháng</strong></div>
+            <div>
+              • Phí hủy dịch vụ ({cancelFeePercent}%):{' '}
+              <strong className={cancelFeePercent > 0 ? 'plan-refund-fee-danger' : 'plan-refund-fee-free'}>
+                {cancelFeePercent > 0 ? `-${cancelFee.toLocaleString('vi-VN')} đ` : 'Miễn phí (0%)'}
+              </strong>
+            </div>
+          </div>
+
+          <div className="plan-confirm-summary">
+            {cancelFeePercent > 0 && (
+              <div>
+                • Giá trị thời gian dư:{' '}
+                <span className="plan-refund-gross">
+                  {grossRefund.toLocaleString('vi-VN')} đ
+                </span>
+              </div>
+            )}
+            <div>
+              • TIỀN HOÀN VỀ VÍ THỰC NHẬN:{' '}
+              <strong className="plan-refund-net">
+                +{netRefund.toLocaleString('vi-VN')} đ
+              </strong>
+            </div>
+          </div>
+
+          <div className="plan-confirm-footer-note">
+            Sau khi hủy, tiến trình bot sẽ dừng, ghế Proxy được giải phóng và số tiền trên sẽ được cộng trực tiếp vào Số Dư Ví của bạn ngay lập tức.
+          </div>
+        </div>
+      ) : (
+        <div className="plan-confirm-dialog">
+          <div>
+            Slot bot <strong>[{username || targetAcc.id}]</strong> đã hết hạn thuê. Bạn có chắc muốn xóa slot này khỏi danh sách không?
+          </div>
+        </div>
+      );
+
+      const doCancelSlot = async () => {
+        try {
+          const res = await window.rentalService.cancelSlot(id);
+          if (res && res.data) {
+            fetchAccounts();
+            fetchFiles();
+            fetchProxies();
+            if (fetchBalance) fetchBalance();
+            if (window.showAlert) {
+              window.showAlert(res.message || 'Đã hủy slot và hoàn tiền về ví thành công!', 'Hủy Slot Thành Công', 'success');
+            }
+          } else {
+            if (window.showAlert) {
+              window.showAlert(res?.message || 'Không thể hủy slot', 'Lỗi', 'error');
+            }
+          }
+        } catch (err) {
+          if (window.showAlert) window.showAlert('Lỗi: ' + (err.response?.data?.message || err.message), 'Lỗi Hủy Slot', 'error');
+        }
+      };
+
+      if (typeof window.showDialog === 'function') {
+        window.showDialog({
+          mode: 'confirm',
+          type: 'warning',
+          title: 'Xác Nhận Hủy Slot & Hoàn Tiền',
+          message: confirmContent,
+          confirmText: 'Xác Nhận Hủy Slot',
+          cancelText: 'Giữ Lại Slot',
+          onConfirm: doCancelSlot
+        });
+        return;
+      }
+
+      window.showConfirm(confirmContent, doCancelSlot, 'Xác Nhận Hủy Slot & Hoàn Tiền', 'warning', 'Xác Nhận Hủy Slot', 'Giữ Lại Slot');
+      return;
+    }
+
+    let confirmMsg = `Bạn có chắc muốn xóa tài khoản [${username}]?`;
+
+    if (targetAcc && targetAcc.rentalExpiresAt) {
+      const remainingMs = new Date(targetAcc.rentalExpiresAt).getTime() - Date.now();
+      if (remainingMs > 0) {
+        const remainingDays = Math.max(1, Math.ceil(remainingMs / (24 * 60 * 60 * 1000)));
+        confirmMsg = `⚠️ Nick [${username}] của bạn vẫn còn ${remainingDays} ngày sử dụng! Nếu xóa, bot sẽ dừng chạy và nhả slot Proxy. Bạn vẫn có thể khôi phục lại toàn bộ cấu hình cũ và cộng dồn số ngày còn dư này khi thuê lại nick tại mục Thuê Bot.\n\nBạn có chắc chắn muốn xóa không?`;
+      }
+    }
+
+    window.showConfirm(confirmMsg, async () => {
+      try {
+        const data = await window.ApiClient.deleteAccount(id);
+        if (data.success) {
+          fetchAccounts();
+          fetchFiles();
+          fetchProxies();
+          if (window.showAlert) {
+            window.showAlert(`Đã xóa bot [${username}] thành công.`, 'Xóa Thành Công', 'success');
+          }
+        } else if (window.showAlert) {
+          window.showAlert(data.message || 'Không thể xóa tài khoản', 'Lỗi Xóa Tài Khoản', 'error');
+        }
+      } catch (err) {
+        if (window.showAlert) window.showAlert('Lỗi: ' + err.message, 'Lỗi Hệ Thống', 'error');
+      }
+    });
+  };
+
+  const handleSwitchFile = (id) => {
+    setActiveFileId(id);
+    window.ApiClient.switchFile(id).catch(() => { });
+  };
+
+  const handleDeleteFile = async (id, name) => {
+    if (!window.showConfirm) return;
+    window.showConfirm(`Xóa File [${name}] cùng tất cả tài khoản bên trong?`, async () => {
+      try {
+        const data = await window.ApiClient.deleteFile(id);
+        if (data.success) {
+          if (window.showAlert) window.showAlert(data.message || `Đã xóa File [${name}] thành công!`, 'Thành Công', 'success');
+          fetchFiles();
+          fetchAccounts();
+          fetchStatus();
+          fetchProxies();
+        } else if (window.showAlert) {
+          window.showAlert(data.message || 'Lỗi xóa file', 'Lỗi Xóa File', 'error');
+        }
+      } catch (err) {
+        if (window.showAlert) window.showAlert('Lỗi: ' + err.message, 'Lỗi Hệ Thống', 'error');
+      }
+    });
+  };
+
+  const handleSaveProxy = async (payload) => {
+    try {
+      const data = await window.ApiClient.saveProxy(payload);
+      if (data.success) {
+        fetchProxies();
+        return { success: true, message: data.message };
+      } else {
+        return data || { success: false, message: 'Lỗi lưu Proxy' };
+      }
+    } catch (err) {
+      return { success: false, message: err.message };
+    }
+  };
+
+  const handleDeleteProxy = async (id) => {
+    try {
+      const data = await window.ApiClient.deleteProxy(id);
+      if (data && data.success) {
+        fetchProxies();
+        fetchAccounts();
+        if (window.showAlert) window.showAlert(data.message || 'Đã xóa Proxy thành công!', 'Thành Công', 'success');
+        return data;
+      } else {
+        if (window.showAlert) window.showAlert(data?.message || 'Lỗi xóa proxy', 'Lỗi Xóa Proxy', 'error');
+        return data;
+      }
+    } catch (err) {
+      if (window.showAlert) window.showAlert('Lỗi: ' + err.message, 'Lỗi Hệ Thống', 'error');
+      return { success: false, message: err.message };
+    }
+  };
+
+  const handleClearLogs = async () => {
+    try {
+      await window.ApiClient.clearLogs();
+      setLogs([]);
+    } catch (err) { }
+  };
+
+  const handleDownloadLogs = () => {
+    let fullText = '';
+    logs.forEach(l => {
+      fullText += `[${l.timestamp || '--:--:--'}] ${l.text}\n`;
+    });
+    const blob = new Blob([fullText], { type: 'text/plain;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `avatar_bot_logs_${new Date().toISOString().slice(0, 10)}.log`;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
+  const handleInstallJre = async () => {
+    try {
+      const data = await window.ApiClient.installJre();
+      if (data.success) {
+        if (window.__setJreProgress) {
+          window.__setJreProgress({ visible: true, percent: 5, message: 'Bắt đầu tải OpenJDK 17...' });
+        }
+      } else if (window.showAlert) {
+        window.showAlert(data.message || 'Không thể cài đặt JRE', 'Lỗi Cài Đặt JRE', 'error');
+      }
+    } catch (err) {
+      if (window.showAlert) window.showAlert('Lỗi: ' + err.message, 'Lỗi Hệ Thống', 'error');
+    }
+  };
+
+  const value = {
+    status,
+    files,
+    proxies,
+    activeFileId,
+    setActiveFileId,
+    activeFile,
+    accounts,
+    fileAccounts,
+    logs: filteredLogs,
+    rawLogs: logs,
+    logFilter,
+    setLogFilter,
+    autoScroll,
+    setAutoScroll,
+    terminalRef,
+    uptime,
+    formatUptime,
+    availableJars,
+    theme,
+    setTheme,
+    toggleTheme,
+    runningHm,
+    runningDk,
+    runningTotal,
+    isAnyRunning,
+    currentUser,
+    isAuthenticated,
+    isAuthLoading,
+    loginUser,
+    logoutUser,
+    // Fetchers
+    fetchStatus,
+    fetchFiles,
+    fetchProxies,
+    fetchAccounts,
+    fetchJars,
+    fetchLogs,
+    // Actions
+    handleStartAccount,
+    handleStopAccount,
+    handleTriggerAuto,
+    handleStartAllFile,
+    handleStopAll,
+    handleRestartAll,
+    handleSwitchServer,
+    handleDeleteAccount,
+    handleSwitchFile,
+    handleDeleteFile,
+    handleSaveProxy,
+    handleDeleteProxy,
+    handleClearLogs,
+    handleDownloadLogs,
+    handleInstallJre
+  };
+
+  return <AppContext.Provider value={value}>{children}</AppContext.Provider>;
+};
+
+window.useApp = function useApp() {
+  const ctx = useContext(AppContext);
+  if (!ctx) throw new Error('useApp must be used within an AppProvider');
+  return ctx;
+};
