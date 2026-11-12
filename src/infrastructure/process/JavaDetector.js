@@ -8,45 +8,40 @@ const config = require('../../../config');
  * Detects Java runtime on Windows and Linux/cPanel.
  */
 class JavaDetector {
-  static findJavaExecutable(customPath = '') {
+  static _findExecutable(exeBaseName, customPath = '') {
     const isWindows = process.platform === 'win32';
-    const exeName = isWindows ? 'java.exe' : 'java';
+    const exeName = isWindows ? `${exeBaseName}.exe` : exeBaseName;
+
+    const ensureExecutable = (filePath) => {
+      try {
+        if (!isWindows) fs.chmodSync(filePath, 0o755);
+      } catch (e) {}
+      return filePath;
+    };
 
     // 1. Explicit path in config
     if (customPath && fs.existsSync(customPath)) {
-      try {
-        if (!isWindows) fs.chmodSync(customPath, 0o755);
-      } catch (e) {}
-      return customPath;
+      return ensureExecutable(customPath);
     }
 
-    // 2. Portable JRE inside workspace
+    // 2. Portable JRE / JDK inside workspace
     const workspaceRoot = path.resolve(__dirname, '../../../');
-    const jreDir = path.join(workspaceRoot, 'jre');
-
-    // 2a. Direct jre/bin/java
-    const portablePath = path.join(jreDir, 'bin', exeName);
-    if (fs.existsSync(portablePath)) {
-      try {
-        if (!isWindows) fs.chmodSync(portablePath, 0o755);
-      } catch (e) {}
-      return portablePath;
-    }
-
-    // 2b. Subdirectories in jre/ (e.g., jre/jdk-17.0.10+7-jre/bin/java)
-    if (fs.existsSync(jreDir)) {
-      try {
-        const items = fs.readdirSync(jreDir);
-        for (const item of items) {
-          const subBin = path.join(jreDir, item, 'bin', exeName);
-          if (fs.existsSync(subBin)) {
-            try {
-              if (!isWindows) fs.chmodSync(subBin, 0o755);
-            } catch (e) {}
-            return subBin;
+    for (const dirName of ['jdk', 'jre']) {
+      const baseDir = path.join(workspaceRoot, dirName);
+      const directPath = path.join(baseDir, 'bin', exeName);
+      if (fs.existsSync(directPath)) {
+        return ensureExecutable(directPath);
+      }
+      if (fs.existsSync(baseDir)) {
+        try {
+          for (const item of fs.readdirSync(baseDir)) {
+            const subBin = path.join(baseDir, item, 'bin', exeName);
+            if (fs.existsSync(subBin)) {
+              return ensureExecutable(subBin);
+            }
           }
-        }
-      } catch (e) {}
+        } catch (e) {}
+      }
     }
 
     // 3. JAVA_HOME environment variable
@@ -59,21 +54,22 @@ class JavaDetector {
 
     // 4. Common system installation paths on Linux
     if (!isWindows) {
-      const commonLinuxPaths = [
-        '/usr/bin/java',
-        '/usr/local/bin/java',
-        '/usr/lib/jvm/default-java/bin/java',
-        '/usr/lib/jvm/java-17-openjdk/bin/java',
-        '/usr/lib/jvm/java-17-openjdk-amd64/bin/java',
-        '/usr/lib/jvm/java-21-openjdk/bin/java',
-        '/usr/lib/jvm/java-21-openjdk-amd64/bin/java',
-        '/usr/lib/jvm/java-11-openjdk/bin/java',
-        '/usr/lib/jvm/java-11-openjdk-amd64/bin/java',
-        '/usr/lib/jvm/java-1.8.0-openjdk/bin/java',
-        '/usr/java/latest/bin/java',
-        '/opt/java/bin/java'
+      const commonLinuxDirs = [
+        '/usr/bin',
+        '/usr/local/bin',
+        '/usr/lib/jvm/default-java/bin',
+        '/usr/lib/jvm/java-17-openjdk/bin',
+        '/usr/lib/jvm/java-17-openjdk-amd64/bin',
+        '/usr/lib/jvm/java-21-openjdk/bin',
+        '/usr/lib/jvm/java-21-openjdk-amd64/bin',
+        '/usr/lib/jvm/java-11-openjdk/bin',
+        '/usr/lib/jvm/java-11-openjdk-amd64/bin',
+        '/usr/lib/jvm/java-1.8.0-openjdk/bin',
+        '/usr/java/latest/bin',
+        '/opt/java/bin'
       ];
-      for (const p of commonLinuxPaths) {
+      for (const dir of commonLinuxDirs) {
+        const p = path.join(dir, exeName);
         if (fs.existsSync(p)) {
           return p;
         }
@@ -82,8 +78,8 @@ class JavaDetector {
 
     // 5. PATH search via which / where
     try {
-      const testCmd = isWindows ? 'where java' : 'which java';
-      const sysPath = execSync(testCmd, { encoding: 'utf8', timeout: 3000 }).trim().split('\n')[0].trim();
+      const testCmd = isWindows ? `where ${exeBaseName}` : `which ${exeBaseName}`;
+      const sysPath = execSync(testCmd, { encoding: 'utf8', timeout: 3000 }).trim().split(/\r?\n/)[0].trim();
       if (sysPath && fs.existsSync(sysPath)) {
         return sysPath;
       }
@@ -91,13 +87,21 @@ class JavaDetector {
 
     // 6. Direct command fallback
     try {
-      execSync('java -version', { stdio: 'ignore', timeout: 3000 });
-      return 'java';
+      execSync(`${exeBaseName} -version`, { stdio: 'ignore', timeout: 3000 });
+      return exeBaseName;
     } catch (e) {
       // not in path
     }
 
     return null;
+  }
+
+  static findJavaExecutable(customPath = '') {
+    return this._findExecutable('java', customPath);
+  }
+
+  static findJavacExecutable(customPath = '') {
+    return this._findExecutable('javac', customPath);
   }
 
   static getJavaInfo(customPath = '') {

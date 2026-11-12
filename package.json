@@ -7,7 +7,7 @@
     "start": "node server.js",
     "dev": "node -e \"process.env.NODE_ENV='development'; require('./server');\"",
     "prod": "node -e \"process.env.NODE_ENV='production'; require('./server');\"",
-    "build:java": "javac --release 8 -encoding UTF-8 -d java-engine/bin -cp \"jars/emulator/AngelChipEmulator_V2Proxy.jar;java-engine/bin\" java-engine/src/*.java",
+    "build:java": "node java-engine/build.js",
     "audit:rms": "node -e \"const ConfigRepo = require('./src/infrastructure/persistence/ConfigRepository'); const RmsAuditService = require('./src/application/services/RmsAuditService'); const auditor = new RmsAuditService(new ConfigRepo()); console.log(JSON.stringify(auditor.auditAllAccounts(), null, 2));\"",
     "db:push": "drizzle-kit push --config=config/drizzle.config.js",
     "db:generate": "drizzle-kit generate --config=config/drizzle.config.js",

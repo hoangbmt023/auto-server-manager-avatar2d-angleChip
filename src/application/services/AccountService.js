@@ -110,6 +110,9 @@ class AccountService {
 
     // 2. Validate account limits within the file and IP/Proxy across entire system
     const targetFile = await this.fileRepo.findById(targetFileId);
+    if (!targetFile) {
+      throw new BadRequestException(`File hồ sơ [${targetFileId}] không tồn tại. Vui lòng tải lại danh sách File và chọn File hợp lệ!`);
+    }
     const maxAccounts = targetFile ? (targetFile.maxAccounts || 6) : 6;
     const accountsInFile = await this.accountRepo.findByFileId(targetFileId);
     const allAccountsInSystem = await this.accountRepo.findAll();
