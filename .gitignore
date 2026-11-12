@@ -22,6 +22,7 @@ src/go-roi/
 # Java Runtime Portable & Logs
 # ==========================================
 jre/
+jdk/
 openjdk/
 *.log
 logs/

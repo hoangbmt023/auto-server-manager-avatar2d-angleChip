@@ -6,11 +6,17 @@ const JavaDetector = require('./JavaDetector');
 
 const WORKSPACE_ROOT = path.resolve(__dirname, '../../../');
 const JRE_DIR = path.join(WORKSPACE_ROOT, 'jre');
+const JDK_DIR = path.join(WORKSPACE_ROOT, 'jdk');
 
 // Eclipse Temurin OpenJDK 17 Linux x64 & Windows x64 binaries
 const JRE_URLS = {
   linux_x64: 'https://github.com/adoptium/temurin17-binaries/releases/download/jdk-17.0.10%2B7/OpenJDK17U-jre_x64_linux_hotspot_17.0.10_7.tar.gz',
   win_x64: 'https://github.com/adoptium/temurin17-binaries/releases/download/jdk-17.0.10%2B7/OpenJDK17U-jre_x64_windows_hotspot_17.0.10_7.zip'
+};
+
+const JDK_URLS = {
+  linux_x64: 'https://github.com/adoptium/temurin17-binaries/releases/download/jdk-17.0.10%2B7/OpenJDK17U-jdk_x64_linux_hotspot_17.0.10_7.tar.gz',
+  win_x64: 'https://github.com/adoptium/temurin17-binaries/releases/download/jdk-17.0.10%2B7/OpenJDK17U-jdk_x64_windows_hotspot_17.0.10_7.zip'
 };
 
 let isInstalling = false;
@@ -73,8 +79,8 @@ function downloadWithRedirect(url, destPath, onProgress, maxRedirects = 5) {
   });
 }
 
-async function downloadAndInstallJRE(onProgress) {
-  if (isInstalling) throw new Error('Đang trong quá trình tải và cài đặt JRE, vui lòng đợi...');
+async function _installOpenJdkArchive({ urls, targetDir, archivePrefix, kindLabel, findExecutable, onProgress = () => {} }) {
+  if (isInstalling) throw new Error(`Đang trong quá trình tải và cài đặt ${kindLabel}, vui lòng đợi...`);
   isInstalling = true;
 
   try {
@@ -83,84 +89,105 @@ async function downloadAndInstallJRE(onProgress) {
     const arch = process.arch;
 
     if (arch !== 'x64') {
-      throw new Error(`Kiến trúc CPU ${arch} không được hỗ trợ tự động tải JRE.`);
+      throw new Error(`Kiến trúc CPU ${arch} không được hỗ trợ tự động tải ${kindLabel}.`);
     }
 
     let downloadUrl = null;
     let archiveName = null;
 
     if (isLinux) {
-      downloadUrl = JRE_URLS.linux_x64;
-      archiveName = 'temurin_jre_linux.tar.gz';
+      downloadUrl = urls.linux_x64;
+      archiveName = `${archivePrefix}_linux.tar.gz`;
     } else if (isWin) {
-      downloadUrl = JRE_URLS.win_x64;
-      archiveName = 'temurin_jre_win.zip';
+      downloadUrl = urls.win_x64;
+      archiveName = `${archivePrefix}_win.zip`;
     } else {
-      throw new Error(`Hệ điều hành ${process.platform} không được hỗ trợ tải tự động JRE.`);
+      throw new Error(`Hệ điều hành ${process.platform} không được hỗ trợ tải tự động ${kindLabel}.`);
     }
 
-    if (!fs.existsSync(JRE_DIR)) {
-      fs.mkdirSync(JRE_DIR, { recursive: true });
+    if (!fs.existsSync(targetDir)) {
+      fs.mkdirSync(targetDir, { recursive: true });
     }
 
     const archivePath = path.join(WORKSPACE_ROOT, archiveName);
 
-    onProgress({ percent: 5, message: 'Bắt đầu kết nối tải Portable OpenJDK 17...' });
+    onProgress({ percent: 5, message: `Bắt đầu kết nối tải Portable OpenJDK 17 (${kindLabel})...` });
     await downloadWithRedirect(downloadUrl, archivePath, onProgress);
 
-    onProgress({ percent: 85, message: 'Đang giải nén bộ cài OpenJDK 17 vào thư mục jre/...' });
+    onProgress({ percent: 85, message: `Đang giải nén bộ cài OpenJDK 17 (${kindLabel})...` });
 
     if (isLinux) {
-      execSync(`tar -xzf "${archivePath}" -C "${JRE_DIR}" --strip-components=1`, { stdio: 'ignore' });
+      execSync(`tar -xzf "${archivePath}" -C "${targetDir}" --strip-components=1`, { stdio: 'ignore' });
     } else if (isWin) {
-      execSync(`powershell -command "Expand-Archive -Path '${archivePath}' -DestinationPath '${JRE_DIR}' -Force"`, { stdio: 'ignore' });
+      execSync(`powershell -command "Expand-Archive -Path '${archivePath}' -DestinationPath '${targetDir}' -Force"`, { stdio: 'ignore' });
       // If extracted into a subfolder jdk-17..., flatten it
-      const subdirs = fs.readdirSync(JRE_DIR).filter(f => fs.statSync(path.join(JRE_DIR, f)).isDirectory());
+      const subdirs = fs.readdirSync(targetDir).filter(f => fs.statSync(path.join(targetDir, f)).isDirectory());
       if (subdirs.length === 1 && subdirs[0].includes('jdk')) {
-        const nestedDir = path.join(JRE_DIR, subdirs[0]);
+        const nestedDir = path.join(targetDir, subdirs[0]);
         const innerFiles = fs.readdirSync(nestedDir);
         for (const f of innerFiles) {
           const src = path.join(nestedDir, f);
-          const dst = path.join(JRE_DIR, f);
+          const dst = path.join(targetDir, f);
           if (fs.existsSync(dst)) {
-            if (fs.statSync(dst).isDirectory()) fs.rmdirSync(dst, { recursive: true });
+            if (fs.statSync(dst).isDirectory()) fs.rmSync(dst, { recursive: true, force: true });
             else fs.unlinkSync(dst);
           }
           fs.renameSync(src, dst);
         }
-        try { fs.rmdirSync(nestedDir); } catch(e){}
+        try { fs.rmdirSync(nestedDir); } catch (e) {}
       }
     }
 
-    // Clean up archive
     if (fs.existsSync(archivePath)) {
       try { fs.unlinkSync(archivePath); } catch (e) {}
     }
 
-    // Check executable
-    const javaBin = JavaDetector.findJavaExecutable();
-    if (!javaBin) {
-      throw new Error('Đã giải nén JRE nhưng không tìm thấy file thực thi java trong thư mục jre/bin');
+    const binPath = findExecutable();
+    if (!binPath) {
+      throw new Error(`Đã giải nén ${kindLabel} nhưng không tìm thấy file thực thi trong thư mục bin`);
     }
 
-    // Set permission executable on Linux
     if (isLinux) {
-      try { execSync(`chmod +x "${javaBin}"`, { stdio: 'ignore' }); } catch (e) {}
+      try { execSync(`chmod +x "${binPath}"`, { stdio: 'ignore' }); } catch (e) {}
     }
 
-    const version = JavaDetector.getJavaVersion(javaBin);
-    onProgress({ percent: 100, message: `Cài đặt OpenJDK 17 thành công! (${version || 'Java 17'})`, ready: true });
-    return { success: true, javaBin, version };
+    const javaInfo = JavaDetector.getJavaInfo();
+    const version = javaInfo.available ? javaInfo.version : 'OpenJDK 17';
+    onProgress({ percent: 100, message: `Cài đặt OpenJDK 17 (${kindLabel}) thành công! (${version})`, ready: true });
+    return { success: true, javaBin: binPath, binPath, version };
   } catch (err) {
-    onProgress({ percent: 0, message: `Lỗi cài đặt JRE: ${err.message}`, ready: false, error: err.message });
+    onProgress({ percent: 0, message: `Lỗi cài đặt ${kindLabel}: ${err.message}`, ready: false, error: err.message });
     throw err;
   } finally {
     isInstalling = false;
   }
 }
 
+async function downloadAndInstallJRE(onProgress) {
+  return _installOpenJdkArchive({
+    urls: JRE_URLS,
+    targetDir: JRE_DIR,
+    archivePrefix: 'temurin_jre',
+    kindLabel: 'JRE',
+    findExecutable: () => JavaDetector.findJavaExecutable(),
+    onProgress
+  });
+}
+
+async function downloadAndInstallJDK(onProgress) {
+  return _installOpenJdkArchive({
+    urls: JDK_URLS,
+    targetDir: JDK_DIR,
+    archivePrefix: 'temurin_jdk',
+    kindLabel: 'JDK',
+    findExecutable: () => JavaDetector.findJavacExecutable(),
+    onProgress
+  });
+}
+
 module.exports = {
   get isInstalling() { return isInstalling; },
   get progress() { return currentProgress; },
-  downloadAndInstallJRE
+  downloadAndInstallJRE,
+  downloadAndInstallJDK
 };

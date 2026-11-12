@@ -100,7 +100,7 @@ const TABLES = {
       up_days: { type: 'INT', notNull: true, default: 0 },
       pending_reset: { type: 'BOOLEAN', notNull: true, default: 0 },
       rental_expires_at: { type: 'DATETIME', null: true },
-      rental_plan: { type: 'VARCHAR(50)', notNull: true, default: "'UPXU'" },
+      rental_plan: { type: 'VARCHAR(50)', null: true },
       effective_price_month: { type: 'INT', null: true },
       farm_settings: { type: 'JSON', null: true },
       diamond_settings: { type: 'JSON', null: true },
