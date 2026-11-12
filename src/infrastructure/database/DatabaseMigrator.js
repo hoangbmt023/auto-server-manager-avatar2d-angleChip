@@ -45,6 +45,20 @@ class DatabaseMigrator {
         }
       }
 
+      // Đảm bảo cột rental_plan trên accounts cho phép NULL (cho account Admin tự thêm không thuộc gói thuê)
+      try {
+        const [rentalPlanCols] = await pool.query(
+          `SELECT IS_NULLABLE FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = ? AND TABLE_NAME = 'accounts' AND COLUMN_NAME = 'rental_plan'`,
+          [dbName]
+        );
+        if (rentalPlanCols.length > 0 && rentalPlanCols[0].IS_NULLABLE === 'NO') {
+          await pool.query(`ALTER TABLE \`accounts\` MODIFY COLUMN \`rental_plan\` VARCHAR(50) NULL DEFAULT NULL;`);
+          console.log('  + [Code-First Migrator] Đã cập nhật cột [rental_plan] cho phép NULL trên bảng accounts.');
+        }
+      } catch (colErr) {
+        console.warn('  ⚠️ [Code-First Migrator] Kiểm tra cột rental_plan:', colErr.message);
+      }
+
       console.log('✅ [Code-First Migrator] Đồng bộ Schema MySQL thành công!');
     } catch (err) {
       console.error('❌ [Code-First Migrator] Lỗi đồng bộ Schema MySQL:', err.message);

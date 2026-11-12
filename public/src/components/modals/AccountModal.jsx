@@ -221,6 +221,9 @@ window.AccountModal = function AccountModal({
     }
 
     if (!isUser) {
+      if (!resolvedFileId) {
+        feErrors.fileId = 'Vui lòng chọn File hồ sơ hợp lệ!';
+      }
       const chosenProxy = proxies.find(p => p.id === proxyId);
       if (chosenProxy && chosenProxy.isExpired) {
         feErrors.proxyId = `Proxy [${chosenProxy.name}] đã hết hạn! Vui lòng chọn proxy khác.`;
