@@ -69,16 +69,32 @@ class SingleBotProcess extends EventEmitter {
 
   buildArgs(javaBin) {
     const args = [];
-    const memoryMb = parseInt(this.globalConfig.maxMemoryMb || 64, 10);
+    const memoryMb = parseInt(this.globalConfig.maxMemoryMb || 48, 10);
 
+    // =========================================================================
+    // TỐI ƯU HÓA SIÊU CẤP CHO JAVA 8 & MÔI TRƯỜNG SHARED HOSTING (CPANEL NPROC)
+    // 1. Tối ưu RAM: Khởi đầu 12MB, trần tối đa 48MB (đủ dư dả cho map nông trại/câu cá)
+    //    Giảm CodeCache xuống 8M và thread stack xuống 160k để giảm tải Virtual Memory.
+    // 2. Tối ưu Luồng (Threads): Ép Client mode, GC đơn luồng, 1 JIT compiler thread,
+    //    chặn JVM tự bung thread pool theo số core vật lý (30 cores -> ép về 1).
+    // =========================================================================
     args.push(`-Xmx${memoryMb}M`);
-    args.push(`-Xms24M`);
-    args.push('-Xss256k');
+    args.push('-Xms12M');
+    args.push('-Xss160k');
+    args.push('-client');
     args.push('-XX:+UseSerialGC');
     args.push('-XX:TieredStopAtLevel=1');
     args.push('-XX:CICompilerCount=1');
-    args.push('-XX:ReservedCodeCacheSize=16M');
+    args.push('-XX:ActiveProcessorCount=1');
+    args.push('-Djava.util.concurrent.ForkJoinPool.common.parallelism=1');
+    args.push('-XX:ReservedCodeCacheSize=8M');
+
+    // Tắt triệt để toàn bộ Graphic AWT/2D pipeline không dùng trong chế độ Headless
     args.push('-Djava.awt.headless=true');
+    args.push('-Dsun.java2d.noddraw=true');
+    args.push('-Dsun.java2d.opengl=false');
+    args.push('-Dsun.java2d.d3d=false');
+
     args.push('-Dfile.encoding=UTF-8');
     args.push('-Dsun.stdout.encoding=UTF-8');
     args.push('-Dsun.stderr.encoding=UTF-8');

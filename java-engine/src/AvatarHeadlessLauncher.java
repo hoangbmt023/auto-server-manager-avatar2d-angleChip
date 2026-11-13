@@ -436,22 +436,18 @@ public class AvatarHeadlessLauncher {
                                 System.out.println("[ACCOUNT_STATUS]: {\"state\":\"online\",\"message\":\"Đang Treo Online\",\"isError\":false,\"isMaintenance\":false}");
 
                                 // Tự động khôi phục Auto đã chạy trước đó sau khi đăng nhập / kết nối lại thành công (CHỈ KHI CHƯA HOÀN THÀNH MỤC TIÊU)
+                                // Tối ưu: Thực thi tuần tự trên supervisorThread thay vì tạo thêm native thread mới
                                 if (persistentAutoHolder[0] != null && !persistentAutoHolder[0].trim().isEmpty() && !AvatarModAdapter.isTargetReached()) {
                                     final String toRestore = persistentAutoHolder[0];
-                                    new Thread(new Runnable() {
-                                        @Override
-                                        public void run() {
-                                            try {
-                                                Thread.sleep(3500); // Chờ 3.5 giây cho map và dữ liệu nhân vật nạp ổn định
-                                                if (!AvatarModAdapter.isTargetReached() && persistentAutoHolder[0] != null) {
-                                                    System.out.println("🔄 [TỰ ĐỘNG KHÔI PHỤC AUTO]: Đang kích hoạt lại " + toRestore + " sau khi kết nối lại thành công...");
-                                                    AvatarModAdapter.startAuto(toRestore);
-                                                } else {
-                                                    persistentAutoHolder[0] = null;
-                                                }
-                                            } catch (Throwable ignored) {}
+                                    try {
+                                        Thread.sleep(3500); // Chờ 3.5 giây cho map và dữ liệu nhân vật nạp ổn định
+                                        if (!AvatarModAdapter.isTargetReached() && persistentAutoHolder[0] != null) {
+                                            System.out.println("🔄 [TỰ ĐỘNG KHÔI PHỤC AUTO]: Đang kích hoạt lại " + toRestore + " sau khi kết nối lại thành công...");
+                                            AvatarModAdapter.startAuto(toRestore);
+                                        } else {
+                                            persistentAutoHolder[0] = null;
                                         }
-                                    }).start();
+                                    } catch (Throwable ignored) {}
                                 }
                             }
 
