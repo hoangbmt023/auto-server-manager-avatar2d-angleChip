@@ -13,7 +13,7 @@ async function main() {
   let javacBin = JavaDetector.findJavacExecutable();
 
   if (!javacBin) {
-    console.log('⚠️ Không tìm thấy javac trên hệ thống. Đang tự động tải Portable OpenJDK 17 (JDK)...');
+    console.log('⚠️ Không tìm thấy javac trên hệ thống. Đang tự động tải Portable OpenJDK 8 (JDK)...');
     let lastMsg = '';
     const res = await JreManager.downloadAndInstallJDK((progress) => {
       if (progress && progress.message && progress.message !== lastMsg) {
@@ -38,13 +38,19 @@ async function main() {
   }
 
   const classpath = [EMULATOR_JAR, BIN_DIR].join(path.delimiter);
-  const args = [
-    '--release', '8',
-    '-encoding', 'UTF-8',
-    '-d', BIN_DIR,
-    '-cp', classpath,
-    ...srcs
-  ];
+
+  // Tương thích đa phiên bản: JDK 8 hỗ trợ -source 1.8 -target 1.8, còn JDK >= 9 hỗ trợ --release 8
+  let args = [];
+  try {
+    const versionOutput = execFileSync(javacBin, ['-version'], { encoding: 'utf8' }) || '';
+    if (versionOutput.includes('1.8') || versionOutput.includes(' 8.')) {
+      args = ['-source', '1.8', '-target', '1.8', '-encoding', 'UTF-8', '-d', BIN_DIR, '-cp', classpath, ...srcs];
+    } else {
+      args = ['--release', '8', '-encoding', 'UTF-8', '-d', BIN_DIR, '-cp', classpath, ...srcs];
+    }
+  } catch (e) {
+    args = ['-source', '1.8', '-target', '1.8', '-encoding', 'UTF-8', '-d', BIN_DIR, '-cp', classpath, ...srcs];
+  }
 
   console.log(`🔨 Đang biên dịch ${srcs.length} file Java bằng: ${javacBin}`);
   execFileSync(javacBin, args, { stdio: 'inherit' });

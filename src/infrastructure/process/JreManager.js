@@ -8,15 +8,16 @@ const WORKSPACE_ROOT = path.resolve(__dirname, '../../../');
 const JRE_DIR = path.join(WORKSPACE_ROOT, 'jre');
 const JDK_DIR = path.join(WORKSPACE_ROOT, 'jdk');
 
-// Eclipse Temurin OpenJDK 17 Linux x64 & Windows x64 binaries
+// Eclipse Temurin OpenJDK 8 (Java 8 LTS - 8u402b06) Linux x64 & Windows x64 binaries
+// Siêu nhẹ, tối ưu luồng (threads) và RAM tối đa cho Game Avatar & MicroEmulator trên hosting cPanel
 const JRE_URLS = {
-  linux_x64: 'https://github.com/adoptium/temurin17-binaries/releases/download/jdk-17.0.10%2B7/OpenJDK17U-jre_x64_linux_hotspot_17.0.10_7.tar.gz',
-  win_x64: 'https://github.com/adoptium/temurin17-binaries/releases/download/jdk-17.0.10%2B7/OpenJDK17U-jre_x64_windows_hotspot_17.0.10_7.zip'
+  linux_x64: 'https://github.com/adoptium/temurin8-binaries/releases/download/jdk8u402-b06/OpenJDK8U-jre_x64_linux_hotspot_8u402b06.tar.gz',
+  win_x64: 'https://github.com/adoptium/temurin8-binaries/releases/download/jdk8u402-b06/OpenJDK8U-jre_x64_windows_hotspot_8u402b06.zip'
 };
 
 const JDK_URLS = {
-  linux_x64: 'https://github.com/adoptium/temurin17-binaries/releases/download/jdk-17.0.10%2B7/OpenJDK17U-jdk_x64_linux_hotspot_17.0.10_7.tar.gz',
-  win_x64: 'https://github.com/adoptium/temurin17-binaries/releases/download/jdk-17.0.10%2B7/OpenJDK17U-jdk_x64_windows_hotspot_17.0.10_7.zip'
+  linux_x64: 'https://github.com/adoptium/temurin8-binaries/releases/download/jdk8u402-b06/OpenJDK8U-jdk_x64_linux_hotspot_8u402b06.tar.gz',
+  win_x64: 'https://github.com/adoptium/temurin8-binaries/releases/download/jdk8u402-b06/OpenJDK8U-jdk_x64_windows_hotspot_8u402b06.zip'
 };
 
 let isInstalling = false;
@@ -111,18 +112,18 @@ async function _installOpenJdkArchive({ urls, targetDir, archivePrefix, kindLabe
 
     const archivePath = path.join(WORKSPACE_ROOT, archiveName);
 
-    onProgress({ percent: 5, message: `Bắt đầu kết nối tải Portable OpenJDK 17 (${kindLabel})...` });
+    onProgress({ percent: 5, message: `Bắt đầu kết nối tải Portable OpenJDK 8 (${kindLabel})...` });
     await downloadWithRedirect(downloadUrl, archivePath, onProgress);
 
-    onProgress({ percent: 85, message: `Đang giải nén bộ cài OpenJDK 17 (${kindLabel})...` });
+    onProgress({ percent: 85, message: `Đang giải nén bộ cài OpenJDK 8 (${kindLabel})...` });
 
     if (isLinux) {
       execSync(`tar -xzf "${archivePath}" -C "${targetDir}" --strip-components=1`, { stdio: 'ignore' });
     } else if (isWin) {
       execSync(`powershell -command "Expand-Archive -Path '${archivePath}' -DestinationPath '${targetDir}' -Force"`, { stdio: 'ignore' });
-      // If extracted into a subfolder jdk-17..., flatten it
+      // If extracted into a subfolder jdk8... or jre8..., flatten it
       const subdirs = fs.readdirSync(targetDir).filter(f => fs.statSync(path.join(targetDir, f)).isDirectory());
-      if (subdirs.length === 1 && subdirs[0].includes('jdk')) {
+      if (subdirs.length === 1 && (subdirs[0].includes('jdk') || subdirs[0].includes('jre'))) {
         const nestedDir = path.join(targetDir, subdirs[0]);
         const innerFiles = fs.readdirSync(nestedDir);
         for (const f of innerFiles) {
@@ -152,8 +153,8 @@ async function _installOpenJdkArchive({ urls, targetDir, archivePrefix, kindLabe
     }
 
     const javaInfo = JavaDetector.getJavaInfo();
-    const version = javaInfo.available ? javaInfo.version : 'OpenJDK 17';
-    onProgress({ percent: 100, message: `Cài đặt OpenJDK 17 (${kindLabel}) thành công! (${version})`, ready: true });
+    const version = javaInfo.available ? javaInfo.version : 'OpenJDK 8';
+    onProgress({ percent: 100, message: `Cài đặt OpenJDK 8 (${kindLabel}) thành công! (${version})`, ready: true });
     return { success: true, javaBin: binPath, binPath, version };
   } catch (err) {
     onProgress({ percent: 0, message: `Lỗi cài đặt ${kindLabel}: ${err.message}`, ready: false, error: err.message });
